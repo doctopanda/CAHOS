@@ -18,7 +18,11 @@ if (Test-Path -LiteralPath $config) {
 if (-not $checkConfig) {
   Write-Host '[ORIGEN] Seleccione una sola vez el archivo de Excel que ya utiliza para el cubo.' -ForegroundColor Yellow
   & (Join-Path $PSScriptRoot 'CONFIGURAR_ORIGEN_EXCEL.ps1')
-  if ($LASTEXITCODE -ne 0) { throw 'Debe seleccionar el Excel original para iniciar CAHOS.' }
+  if (-not (Test-Path -LiteralPath $config)) { throw 'Debe seleccionar el Excel original para iniciar CAHOS.' }
+  $obj=Get-Content -LiteralPath $config -Raw -Encoding UTF8 | ConvertFrom-Json
+  if ($obj.origen_conexion -ne 'excel' -or -not (Test-Path -LiteralPath ([string]$obj.ruta_archivo_excel))) {
+    throw 'La ruta del Excel original no quedo configurada.'
+  }
 }
 $pythonCmd=Get-Command python -ErrorAction SilentlyContinue
 if (-not $pythonCmd) { throw 'No se encuentra Python. Instale Python 3.10+ y vuelva a ejecutar.' }
