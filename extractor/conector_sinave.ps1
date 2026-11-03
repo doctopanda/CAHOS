@@ -33,8 +33,8 @@ try {
       }
       if (-not $connNode) { throw 'LIBRO_SIN_CONEXION_OLAP_UTILIZABLE' }
       $savedConnection = [string]$connNode.GetAttribute('connection')
-      if ($savedConnection -notmatch '(?i)(^|;)\\s*Provider=MSOLAP(?:\\.[0-9]+)?\\s*;') { throw 'LA_CONEXION_NO_ES_MSOLAP' }
-      if ($savedConnection -notmatch '(?i)(^|;)\\s*Initial Catalog=') { throw 'CONEXION_INCOMPLETA' }
+      if ($savedConnection -notmatch '(?i)(^|;)\s*Provider=MSOLAP(?:\.[0-9]+)?\s*;') { throw 'LA_CONEXION_NO_ES_MSOLAP' }
+      if ($savedConnection -notmatch '(?i)(^|;)\s*Initial Catalog=') { throw 'CONEXION_INCOMPLETA' }
       # Mantener todos los parámetros de acceso guardados en Excel; evitar persistirlos
       # dentro del objeto COM luego de iniciar sesión.
       $savedConnection = [regex]::Replace($savedConnection, '(?i)Persist Security Info=True', 'Persist Security Info=False')
