@@ -11,8 +11,8 @@
 .cahos-map-panel .hint{margin-top:10px}
 #mapStatus{margin:12px 0}
 @media(max-width:900px){.cahos-map-wrap{grid-template-columns:1fr}}
-</style></head><body><div class="shell">
-<aside class="side"><div class="logo"><div class="mark">▦</div><div><span class="brand">SUIVE · AUTO</span><span class="micro">VISOR EPIDEMIOLÓGICO</span></div></div>
+</style><style>.favoriteWrap{display:flex;align-items:center;gap:4px}.favoriteWrap .favorite{flex:1;min-width:0}.favoriteRemove{flex:none;width:27px;height:27px;border:1px solid rgba(255,255,255,.26);border-radius:8px;background:transparent;color:inherit;font-size:18px;cursor:pointer}.favoriteRemove:hover{background:#a33b3b;color:white}</style></head><body><div class="shell">
+<aside class="side"><div class="logo"><div class="mark">▦</div><div><span class="brand">CAHOS · SUIVE</span><span class="micro">VISOR EPIDEMIOLÓGICO</span></div></div>
 <nav id="nav"><button class="nav on" data-p="panorama">◫ &nbsp; Panorama</button><button class="nav" data-p="mapa">▣ &nbsp; Mapa Sonora</button><button class="nav" data-p="endemic">⌁ &nbsp; Canal endémico</button><button class="nav" data-p="demography">♙ &nbsp; Edad y sexo</button><button class="nav" data-p="program">⚙ &nbsp; Programación</button><button class="nav" data-p="source">◉ &nbsp; Fuente</button></nav>
 <h3>Patologías activas</h3><div id="favoriteSide"></div><div class="tag">Conexión de lectura · Requiere red y permisos institucionales · No se almacenan contraseñas</div></aside>
 <main class="main"><header class="top"><div><div class="eyebrow">SISTEMA DE ANÁLISIS DE MORBILIDAD</div><h1>Observatorio SUIVE</h1><div class="subtitle">Extracción automática del cubo · Consultas personalizadas y tableros persistentes</div></div><div class="pill warn" id="connectionStatus">● Comprobando conexión</div></header>
@@ -91,7 +91,31 @@ function seedSuiveFavorites(){
  }
  return selected.slice(0,20);
 }
-function favoritesUI(){let sel=$('#diseaseSelect');renderPathologyOptions();let list=$('#favoriteSide');list.replaceChildren();state.favorites.forEach(id=>{let b=document.createElement('button');b.className='favorite'+(id===sel.value?' on':'');b.textContent='● '+catalogLabel('pathologies',id);b.onclick=()=>{sel.value=id;favoritesUI();queryAll();switchPage('panorama');};list.append(b);});$('#favoritesCount').textContent=state.favorites.length;renderDiseaseList();}
+function favoritesUI(){
+ let sel=$('#diseaseSelect');renderPathologyOptions();
+ let list=$('#favoriteSide');list.replaceChildren();
+ for(const id of state.favorites){
+  const wrap=document.createElement('div');wrap.className='favoriteWrap';
+  const b=document.createElement('button');b.className='favorite'+(id===sel.value?' on':'');
+  b.textContent='● '+catalogLabel('pathologies',id);
+  b.onclick=()=>{sel.value=id;favoritesUI();queryAll();switchPage('panorama');};
+  const remove=document.createElement('button');remove.className='favoriteRemove';
+  remove.title='Quitar de las patologías programadas';remove.setAttribute('aria-label','Quitar '+catalogLabel('pathologies',id));
+  remove.textContent='×';
+  remove.onclick=async()=>{
+   const before=[...state.favorites];
+   state.favorites=state.favorites.filter(x=>x!==id);
+   favoritesUI();
+   try{
+    await POST('/api/favorites',{favoritos:state.favorites});
+    setNotice('Patología retirada de la programación. Sigue disponible en el catálogo general.','ok');
+   }catch(err){state.favorites=before;favoritesUI();setNotice('No se pudo guardar el cambio: '+err.message,'err');}
+  };
+  wrap.append(b,remove);list.append(wrap);
+ }
+ $('#favoritesCount').textContent=state.favorites.length;
+ renderDiseaseList();
+}
 async function loadCatalog(dim){let ret=await GET('/api/catalog?dim='+encodeURIComponent(dim));state.catalog[dim]=ret.members;return ret.members;}
 async function initialize(){try{state.status=await GET('/api/status');$('#intervalLabel').textContent=`Intervalo: cada ${state.status.intervalo_minutos} minutos mientras el servidor está encendido`;$('#sourceInfo').textContent=`Servidor: ${state.status.servidor}\nCubo: ${state.status.catalogo}\nActualización automática: cada ${state.status.intervalo_minutos} minutos\nÚltima consulta: ${state.status.actividad.ultima_consulta||'sin consulta'}\nÚltima sincronización programada: ${state.status.actividad.ultima_extraccion_automatica||'sin sincronización'}\nÚltimo error: ${state.status.actividad.ultimo_error||'ninguno'}`;state.favorites=[...state.status.favoritos];await Promise.all(['pathologies','years','entities','municipalities','sex','age'].map(loadCatalog));$('#connectionStatus').textContent='● Catálogo del cubo accesible';$('#connectionStatus').className='pill';options($('#yearSelect'),(state.catalog.years||[]).filter(x=>/(?:19|20)\d{2}/.test(x.nombre)).sort((a,b)=>Number(b.nombre.match(/(?:19|20)\d{2}/)[0])-Number(a.nombre.match(/(?:19|20)\d{2}/)[0])));options($('#entitySelect'),state.catalog.entities,'Todas las entidades');filterMunicipalities();options($('#sexSelect'),state.catalog.sex,'Ambos sexos');options($('#ageSelect'),state.catalog.age,'Todas las edades');let sonora=state.catalog.entities.find(x=>x.nombre.trim().toLowerCase()==='sonora');if(sonora)$('#entitySelect').value=sonora.id;let recent=yearIds()[0];if(recent)$('#yearSelect').value=recent;
  let seededNow=false;
