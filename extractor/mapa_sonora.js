@@ -140,7 +140,14 @@ function render(){
 async function loadShapes(){
  if(shapes)return;
  $("#mapStatus").textContent="Descargando geometrías municipales oficiales de INEGI…";
- shapes=await GET("/api/geografia/sonora");
+ try{ shapes=await GET("/api/geografia/sonora"); }
+ catch(error){
+  if(location.hostname.endsWith("github.io")){
+   const respuesta=await fetch("./data/sonora_municipios.geojson",{cache:"no-store"});
+   if(!respuesta.ok)throw Error("El mapa INEGI aún no está disponible en Pages; revisa el despliegue. La consulta de casos requiere el visor local.");
+   shapes=await respuesta.json();
+  }else throw error;
+ }
  if(!shapes.features||shapes.features.length!==72)throw Error("No se validaron las 72 geometrías de INEGI");
 }
 async function query(){
