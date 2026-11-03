@@ -35,7 +35,7 @@ WITH_HIERARCHIES = {
     'age': '[Grupos de edades].[Grupo de edad]',
     'institutions': '[Instituciones].[Institución]',
 }
-AXES = {'annual': ('years',), 'weekly': ('years', 'weeks'), 'sex': ('sex',), 'age': ('age',), 'institution': ('institutions',)}
+AXES = {'annual': ('years',), 'weekly': ('years', 'weeks'), 'sex': ('sex',), 'age': ('age',), 'institution': ('institutions',), 'municipality': ('municipalities',)}
 VALID_MDX_NAME = re.compile(r'^\[[^\]\r\n;]+\](?:\.&?\[(?:[^\]\r\n;]|\]\]){1,190}\])+$')
 MAX_CATALOG = 12000
 LOCK = threading.RLock()
@@ -207,7 +207,7 @@ def build_mdx(req: dict) -> tuple[str, list[str]]:
     week_end = int(req.get('week_end', 53))
     slicer = [pathology]
     if entity: slicer.append(entity)
-    if municipality: slicer.append(municipality)
+    if municipality and kind != 'municipality': slicer.append(municipality)
     if sex and kind != 'sex': slicer.append(sex)
     if age and kind != 'age': slicer.append(age)
     axes = AXES[kind]
@@ -218,14 +218,19 @@ def build_mdx(req: dict) -> tuple[str, list[str]]:
         rowset = 'CROSSJOIN({' + ', '.join(years) + '}, {' + ', '.join(wm) + '})'
     else:
         if len(years) != 1:
-            raise ValueError('La distribución demográfica requiere un solo año')
+            raise ValueError('El desglose por dimensión requiere un solo año')
         slicer.append(years[0])
         dim = axes[0]
         # Un miembro de sexo o edad no puede ir a la vez en eje y segmentador.
-        members = get_catalog(dim)
-        if not members or len(members) > 250:
-            raise RuntimeError('La dimensión no tiene un catálogo acotado de miembros')
-        rowset = '{' + ', '.join(m['id'] for m in members) + '}'
+        if kind == 'municipality':
+            if not entity:
+                raise ValueError('El mapa requiere seleccionar una entidad federativa')
+            rowset = WITH_HIERARCHIES['municipalities'] + '.Members'
+        else:
+            members = get_catalog(dim)
+            if not members or len(members) > 250:
+                raise RuntimeError('La dimensión no tiene un catálogo acotado de miembros')
+            rowset = '{' + ', '.join(m['id'] for m in members) + '}'
     where = '\nWHERE (' + ', '.join(slicer) + ')' if slicer else ''
     cube = get_config()['cubo'].replace(']', ']]')
     mdx = (f'SELECT {{[Measures].[Casos]}} ON COLUMNS,\n'
@@ -316,6 +321,7 @@ def save_favorites(ids):
         raise ValueError('Hay patologías fuera del catálogo del cubo')
     cfg = get_config()
     cfg['favoritos'] = list(dict.fromkeys(ids))
+    cfg['favoritos_inicializados'] = True
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     tmp = CONFIG_PATH.with_suffix('.tmp')
     tmp.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding='utf-8')
@@ -350,7 +356,7 @@ def sync_favorites():
         for pathology in favorite:
             for kind in ('weekly', 'annual'):
                 request = {'kind': kind, 'pathology': pathology,
-                           'years': years if kind == 'annual' else years[:6],
+                           'years': years[:7],
                            'entity': state, 'week_start': 1, 'week_end': 53}
                 query_cube(request, force=True)
                 with LOCK:
@@ -419,7 +425,7 @@ class Handler(BaseHTTPRequestHandler):
                     activity = RECENT_ACTIVITY.copy()
                 self.json_response(200, {'modo': 'excel_local' if cfg['origen_conexion'] == 'excel' else 'conector_local', 'servidor': cfg['servidor'], 'catalogo': cfg['catalogo'],
                                          'intervalo_minutos': cfg['intervalo_actualizacion_minutos'],
-                                         'favoritos': cfg['favoritos'], 'actividad': activity,
+                                         'favoritos': cfg['favoritos'], 'favoritos_inicializados': cfg.get('favoritos_inicializados', False), 'actividad': activity,
                                          'autenticacion': 'conexión guardada en el libro local' if cfg['origen_conexion'] == 'excel' else 'integrada o sesión temporal (sin credenciales en el navegador)'})
             elif p.path == '/api/diagnostic':
                 self.json_response(200, diagnostico_olap())
