@@ -29,7 +29,7 @@ if (-not $pythonCmd) { throw 'No se encuentra Python. Instale Python 3.10+ y vue
 $python=$pythonCmd.Source
 & $python -c 'import sys;sys.exit(0 if sys.version_info >= (3,10) else 1)' 2>$null
 if ($LASTEXITCODE -ne 0) { throw 'CAHOS necesita Python 3.10 o posterior.' }
-[IO.File]::WriteAllText((Join-Path $base 'python_ejecutable.txt'),$python,(New-Object Text.UTF8Encoding($false)))
+[IO.File]::WriteAllText((Join-Path $base 'python_ejecutable.txt'),$python,(New-Object System.Text.UTF8Encoding($false)))
 # Copiar solo código de aplicación, no libros de Excel, credenciales ni bases.
 $allow=@('servidor.py','conector_sinave.ps1','visor_local.html','mapa_sonora.js',
   'geografia_inegi.py','poblacion_sonora.py','configuracion.ejemplo.json',
@@ -50,7 +50,7 @@ if (-not (Test-Path -LiteralPath $popDest)) {
   $d=New-Object System.Windows.Forms.OpenFileDialog
   $d.Title='CAHOS: seleccionar Excel de proyecciones municipales Sonora 2015-2030 (opcional)'
   $d.Filter='Excel (*.xlsx)|*.xlsx'
-  if ($d.ShowDialog() -eq [Windows.Forms.DialogResult]::OK) {
+  if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
     $importer=Join-Path $PSScriptRoot 'importar_poblacion.py'
     & $python $importer $d.FileName
     if ($LASTEXITCODE -ne 0) { Write-Host '[POBLACION] No se pudo validar el archivo; las tasas permanecerán deshabilitadas.' -ForegroundColor Yellow }
@@ -91,7 +91,7 @@ try {
   $desktop=[Environment]::GetFolderPath('Desktop')
   if (Test-Path -LiteralPath $desktop -PathType Container) {
     $shortcut=Join-Path $desktop 'CAHOS - Observatorio SUIVE.url'
-    [IO.File]::WriteAllText($shortcut,"[InternetShortcut]`r`nURL=http://127.0.0.1:8789/`r`n",(New-Object Text.UTF8Encoding($false)))
+    [IO.File]::WriteAllText($shortcut,"[InternetShortcut]`r`nURL=http://127.0.0.1:8789/`r`n",(New-Object System.Text.UTF8Encoding($false)))
     Write-Host '[ATAJO] Acceso al visor creado en el Escritorio.' -ForegroundColor Green
   }
 } catch { Write-Host '[ATAJO] Puede guardar http://127.0.0.1:8789/ como favorito.' -ForegroundColor Yellow }
