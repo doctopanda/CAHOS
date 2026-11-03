@@ -18,7 +18,7 @@ from urllib.parse import parse_qs, urlparse
 from poblacion_sonora import poblacion_anual
 from geografia_inegi import obtener_geojson
 
-APP_VERSION = '0.6.0'
+APP_VERSION = '0.6.1'
 ROOT = Path(__file__).resolve().parent
 # Los snapshots son LOCALES, nunca se publican automaticamente en GitHub Pages.
 PRIVATE_ROOT = Path(os.environ.get('LOCALAPPDATA', str(ROOT))) / 'CAHOS' / 'extracciones_privadas'
