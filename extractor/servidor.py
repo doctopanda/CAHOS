@@ -20,7 +20,10 @@ ROOT = Path(__file__).resolve().parent
 # Los snapshots son LOCALES, nunca se publican automaticamente en GitHub Pages.
 PRIVATE_ROOT = Path(os.environ.get('LOCALAPPDATA', str(ROOT))) / 'CAHOS' / 'extracciones_privadas'
 PRIVATE_ROOT.mkdir(parents=True, exist_ok=True)
-CONFIG_PATH = ROOT / 'configuracion.json'
+# Preferencias y ruta del XLSX se guardan fuera del repositorio público.
+CONFIG_PATH = Path(os.environ.get('LOCALAPPDATA', str(ROOT))) / 'CAHOS' / 'configuracion_local.json'
+DEFAULT_CONFIG_PATH = ROOT / 'configuracion.ejemplo.json'
+LEGACY_CONFIG_PATH = ROOT / 'configuracion.json'
 BRIDGE_PATH = ROOT / 'conector_sinave.ps1'
 WITH_HIERARCHIES = {
     'pathologies': '[Padecimientos].[Padecimiento]',
@@ -44,7 +47,16 @@ RECENT_ACTIVITY: dict = {'ultima_consulta': None, 'ultima_extraccion_automatica'
 
 
 def get_config():
-    cfg = json.loads(CONFIG_PATH.read_text(encoding='utf-8'))
+    cfg = json.loads(DEFAULT_CONFIG_PATH.read_text(encoding='utf-8-sig'))
+    for local_source in (LEGACY_CONFIG_PATH, CONFIG_PATH):
+        if local_source.exists():
+            cfg.update(json.loads(local_source.read_text(encoding='utf-8-sig')))
+    cfg.setdefault('origen_conexion', 'integrada')
+    cfg.setdefault('ruta_archivo_excel', '')
+    if cfg['origen_conexion'] not in ('integrada', 'excel'):
+        raise ValueError('Origen de conexión desconocido')
+    if cfg['origen_conexion'] == 'excel' and not Path(cfg['ruta_archivo_excel']).is_file():
+        raise ValueError('No se encuentra el Excel original. Ejecuta SELECCIONAR_EXCEL.bat.')
     for key in ('servidor', 'catalogo', 'cubo', 'proveedor'):
         if key not in cfg or not isinstance(cfg[key], str):
             raise ValueError(f'Falta configuración: {key}')
@@ -54,7 +66,7 @@ def get_config():
 
 def run_connector(action: str, *, hierarchy: str = '', mdx: str = '') -> dict:
     cfg = get_config()
-    query = {'action': action, 'config': {k: cfg[k] for k in ('servidor', 'catalogo', 'cubo', 'proveedor')}}
+    query = {'action': action, 'config': {k: cfg[k] for k in ('servidor', 'catalogo', 'cubo', 'proveedor', 'origen_conexion', 'ruta_archivo_excel')}}
     if hierarchy:
         query['hierarchy'] = hierarchy
     if mdx:
@@ -304,6 +316,7 @@ def save_favorites(ids):
         raise ValueError('Hay patologías fuera del catálogo del cubo')
     cfg = get_config()
     cfg['favoritos'] = list(dict.fromkeys(ids))
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     tmp = CONFIG_PATH.with_suffix('.tmp')
     tmp.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding='utf-8')
     tmp.replace(CONFIG_PATH)
@@ -404,10 +417,10 @@ class Handler(BaseHTTPRequestHandler):
                 cfg = get_config()
                 with LOCK:
                     activity = RECENT_ACTIVITY.copy()
-                self.json_response(200, {'modo': 'conector_local', 'servidor': cfg['servidor'], 'catalogo': cfg['catalogo'],
+                self.json_response(200, {'modo': 'excel_local' if cfg['origen_conexion'] == 'excel' else 'conector_local', 'servidor': cfg['servidor'], 'catalogo': cfg['catalogo'],
                                          'intervalo_minutos': cfg['intervalo_actualizacion_minutos'],
                                          'favoritos': cfg['favoritos'], 'actividad': activity,
-                                         'autenticacion': 'integrada o sesión temporal (sin credenciales en el navegador)'})
+                                         'autenticacion': 'conexión guardada en el libro local' if cfg['origen_conexion'] == 'excel' else 'integrada o sesión temporal (sin credenciales en el navegador)'})
             elif p.path == '/api/diagnostic':
                 self.json_response(200, diagnostico_olap())
             elif p.path == '/api/catalog':
