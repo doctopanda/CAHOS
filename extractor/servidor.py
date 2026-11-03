@@ -235,8 +235,9 @@ def build_mdx(req: dict) -> tuple[str, list[str]]:
             rowset = '{' + ', '.join(m['id'] for m in members) + '}'
     where = '\nWHERE (' + ', '.join(slicer) + ')' if slicer else ''
     cube = get_config()['cubo'].replace(']', ']]')
+    props = 'MEMBER_CAPTION, MEMBER_UNIQUE_NAME' if kind == 'municipality' else 'MEMBER_CAPTION'
     mdx = (f'SELECT {{[Measures].[Casos]}} ON COLUMNS,\n'
-           f'NON EMPTY {rowset} DIMENSION PROPERTIES MEMBER_CAPTION ON ROWS\n'
+           f'NON EMPTY {rowset} DIMENSION PROPERTIES {props} ON ROWS\n'
            f'FROM [{cube}]{where}')
     return mdx, list(axes)
 
@@ -267,6 +268,15 @@ def normalise_flat_response(result: dict, axes: list[str]):
     out = []
     for values in result['rows']:
         obj = {ax: str(values[ix]) if values[ix] is not None else '' for ax, ix in idx.items()}
+        # Para cartografia, aprovechar la clave del miembro devuelta por MSOLAP.
+        # Si el proveedor no expone MEMBER_UNIQUE_NAME, la UI usará
+        # nombres normalizados con diagnóstico de claves sin emparejar.
+        if 'municipalities' in axes:
+            pref = WITH_HIERARCHIES['municipalities'].upper()
+            ids = [i for i, h in enumerate(h_upper)
+                   if pref in h and 'MEMBER_UNIQUE_NAME' in h]
+            if ids:
+                obj['municipalities_id'] = str(values[ids[0]] or '')
         val = values[m]
         if val is None or str(val).strip() == '':
             obj['cases'] = None
