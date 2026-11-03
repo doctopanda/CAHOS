@@ -18,6 +18,7 @@ from urllib.parse import parse_qs, urlparse
 from poblacion_sonora import poblacion_anual
 from geografia_inegi import obtener_geojson
 
+APP_VERSION = '0.6.0'
 ROOT = Path(__file__).resolve().parent
 # Los snapshots son LOCALES, nunca se publican automaticamente en GitHub Pages.
 PRIVATE_ROOT = Path(os.environ.get('LOCALAPPDATA', str(ROOT))) / 'CAHOS' / 'extracciones_privadas'
@@ -382,11 +383,21 @@ def sync_favorites():
 
 
 def recurring_sync():
-    # Primer barrido y luego sincronización automática sin intervención del navegador.
+    # Dar prioridad a la primera consulta interactiva y luego sincronizar
+    # mientras Windows mantenga encendido el servicio local.
+    time.sleep(60)
     while True:
-        if get_config().get('favoritos'):
-            sync_favorites()
-        time.sleep(get_config()['intervalo_actualizacion_minutos'] * 60)
+        delay = 360 * 60
+        try:
+            cfg = get_config()
+            delay = cfg['intervalo_actualizacion_minutos'] * 60
+            if cfg.get('favoritos'):
+                sync_favorites()
+        except Exception as exc:
+            with LOCK:
+                RECENT_ACTIVITY['ultimo_error'] = 'Sincronización automática: ' + str(exc)[:220]
+            delay = 5 * 60
+        time.sleep(delay)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -444,7 +455,7 @@ class Handler(BaseHTTPRequestHandler):
                 cfg = get_config()
                 with LOCK:
                     activity = RECENT_ACTIVITY.copy()
-                self.json_response(200, {'modo': 'excel_local' if cfg['origen_conexion'] == 'excel' else 'conector_local', 'servidor': cfg['servidor'], 'catalogo': cfg['catalogo'],
+                self.json_response(200, {'version': APP_VERSION, 'modo': 'excel_local' if cfg['origen_conexion'] == 'excel' else 'conector_local', 'servidor': cfg['servidor'], 'catalogo': cfg['catalogo'],
                                          'intervalo_minutos': cfg['intervalo_actualizacion_minutos'],
                                          'favoritos': cfg['favoritos'], 'favoritos_inicializados': cfg.get('favoritos_inicializados', False), 'actividad': activity,
                                          'autenticacion': 'conexión guardada en el libro local' if cfg['origen_conexion'] == 'excel' else 'integrada o sesión temporal (sin credenciales en el navegador)'})
