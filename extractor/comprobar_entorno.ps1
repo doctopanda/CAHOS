@@ -1,19 +1,27 @@
 # CAHOS: diagnostico local SINAVE, sin extraer casos ni mostrar credenciales.
 $ErrorActionPreference = 'Continue'
 Write-Host '--- Comprobacion previa del entorno (sin modificar el cubo) ---'
-$cfgFile = Join-Path $PSScriptRoot 'configuracion.json'
-if (-not (Test-Path -LiteralPath $cfgFile)) {
-  Write-Host '[CONFIGURACION] Falta configuracion.json. Copie configuracion.ejemplo.json, renombre y ajuste solo si tiene autorizacion.' -ForegroundColor Yellow
-  exit 2
-}
+$localCfg = Join-Path (Join-Path $env:LOCALAPPDATA 'CAHOS') 'configuracion_local.json'
+$rootCfg = Join-Path $PSScriptRoot 'configuracion.json'
+$exampleCfg = Join-Path $PSScriptRoot 'configuracion.ejemplo.json'
+$cfgFile = if (Test-Path -LiteralPath $localCfg) { $localCfg } elseif (Test-Path -LiteralPath $rootCfg) { $rootCfg } else { $exampleCfg }
 try {
   $cfg = Get-Content -LiteralPath $cfgFile -Raw -Encoding UTF8 | ConvertFrom-Json
   $server = [string]$cfg.servidor
-  if ($server -notmatch '^[A-Za-z0-9.-]+$') { throw 'servidor invalido' }
+  if ($server -notmatch '^[A-Za-z0-9.-]+$') { throw 'servidor no valido' }
   if ([string]::IsNullOrWhiteSpace([string]$cfg.catalogo) -or [string]::IsNullOrWhiteSpace([string]$cfg.cubo)) { throw 'catalogo o cubo vacio' }
-  Write-Host "[CONFIGURACION] Servidor: $server; catalogo y cubo indicados: SI"
+  $mode = if ($cfg.origen_conexion -eq 'excel') { 'Excel original (conexión guardada)' } else { 'Autenticacion de Windows/configuración de origen' }
+  Write-Host ('[CONFIGURACION] Modo: ' + $mode)
+  if ($cfg.origen_conexion -eq 'excel') {
+    if (Test-Path -LiteralPath ([string]$cfg.ruta_archivo_excel)) {
+      Write-Host '[EXCEL] Archivo seleccionado disponible; se abrira en modo de lectura.'
+    } else {
+      Write-Host '[EXCEL] Libro no encontrado. Ejecute SELECCIONAR_EXCEL.bat.' -ForegroundColor Yellow
+    }
+  }
+  Write-Host "[CONFIGURACION] Servidor: $server; cubo y catalogo definidos: SI"
 } catch {
-  Write-Host '[CONFIGURACION] Archivo JSON incorrecto. Revise configuracion.json.' -ForegroundColor Red
+  Write-Host '[CONFIGURACION] JSON incorrecto; ejecute SELECCIONAR_EXCEL.bat.' -ForegroundColor Red
   exit 2
 }
 Write-Host ('[WINDOWS] PowerShell: ' + $PSVersionTable.PSVersion.ToString() + '; Proceso 64 bits: ' + [Environment]::Is64BitProcess)
@@ -25,7 +33,7 @@ if ($found.Count -eq 0) {
   Write-Host '[MSOLAP] Instale o repare el proveedor OLE DB para Analysis Services autorizado por TI.'
 } else {
   Write-Host ('[MSOLAP] Proveedores registrados: ' + ($found -join ', '))
-  if ($provider -notin $found) { Write-Host '[MSOLAP] El proveedor de configuracion.json no aparece registrado. Ajuste la version con TI.' -ForegroundColor Yellow }
+  if ($cfg.origen_conexion -ne 'excel' -and $provider -notin $found) { Write-Host '[MSOLAP] El proveedor elegido no aparece registrado; revise su version con TI.' -ForegroundColor Yellow }
 }
 try {
   $ado = New-Object -ComObject ADODB.Connection
