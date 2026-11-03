@@ -49,5 +49,15 @@ try {
   Write-Host '[RED] No se resuelve el servidor por DNS. Compruebe red/VPN institucional.' -ForegroundColor Yellow
 }
 $credPath = Join-Path $env:LOCALAPPDATA 'CAHOS\acceso_sinave.xml'
-Write-Host ('[ACCESO] Credencial cifrada CAHOS guardada: ' + $(if(Test-Path -LiteralPath $credPath){'SI'}else{'NO (usara autenticacion de Windows si no hay variables de entorno)'}))
+Write-Host ('[ACCESO] En modo Excel se reutilizan parametros de conexion locales. Credencial CAHOS adicional: ' + $(if(Test-Path -LiteralPath $credPath){'SI'}else{'NO (no es requisito)'}))
 Write-Host '--- Fin de comprobaciones locales ---'
+if ($cfg.origen_conexion -ne 'excel') {
+  Write-Host '[ACCION] No se ha seleccionado el modo Excel. Seleccione su libro de cubos original.' -ForegroundColor Yellow
+  exit 7
+}
+if (-not (Test-Path -LiteralPath ([string]$cfg.ruta_archivo_excel) -PathType Leaf)) {
+  Write-Host '[ACCION] El libro guardado ya no se encuentra; vuelva a seleccionarlo.' -ForegroundColor Yellow
+  exit 8
+}
+Write-Host ('[ORIGEN CONFIRMADO] Libro local: ' + [IO.Path]::GetFileName([string]$cfg.ruta_archivo_excel)) -ForegroundColor Green
+exit 0
