@@ -45,7 +45,7 @@ function catalogLabel(dim,id){return state.catalog[dim]?.find(x=>x.id===id)?.nom
 function yearNumber(id){return Number((catalogLabel('years',id).match(/(?:19|20)\d{2}/)||[])[0])||0;}
 function yearIds(){return (state.catalog.years||[]).filter(x=>/(?:19|20)\d{2}/.test(x.nombre)).sort((a,b)=>Number(b.nombre.match(/(?:19|20)\d{2}/)[0])-Number(a.nombre.match(/(?:19|20)\d{2}/)[0])).map(x=>x.id);}
 function filterMunicipalities(){let term=$('#municipalitySearch').value.trim().toLowerCase(),selected=$('#municipalitySelect').value;let picks=(state.catalog.municipalities||[]).filter(x=>x.nombre.toLowerCase().includes(term)).slice(0,150);if(selected&&!picks.some(x=>x.id===selected)){let obj=state.catalog.municipalities.find(x=>x.id===selected);if(obj)picks.unshift(obj);}options($('#municipalitySelect'),picks,'Todos los municipios',selected);}
-function normalizeSearch(text){return String(text||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLocaleLowerCase('es').trim();}
+function normalizeSearch(text){return String(text||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es').trim();}
 function renderPathologyOptions(){
   const sel=$('#diseaseSelect'),all=state.catalog.pathologies||[],old=sel.value;
   const term=normalizeSearch($('#pathologyQuickSearch').value);
