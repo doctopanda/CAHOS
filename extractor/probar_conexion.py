@@ -7,6 +7,12 @@ from servidor import diagnostico_olap, get_catalog, get_config
 def main():
     print('CAHOS | Diagnostico de acceso al cubo SINAVE')
     try:
+        cfg = get_config()
+        if cfg.get('origen_conexion') != 'excel':
+            print('0. ORIGEN INCORRECTO: modo Windows, no libro original.')
+            print('   Ejecute SELECCIONAR_EXCEL.bat o PROBAR_CONEXION.bat.')
+            return 3
+        print('0. Origen confirmado: conexion OLAP guardada en ' + Path(cfg['ruta_archivo_excel']).name)
         r=diagnostico_olap()
         print('1. Conexion OLAP: OK ('+r['catalogo']+')')
     except Exception as ex:
