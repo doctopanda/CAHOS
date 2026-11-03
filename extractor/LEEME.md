@@ -1,3 +1,21 @@
+# CAHOS | Modo cubo desde Excel (sin escribir credenciales nuevas)
+
+**Nuevo: origen de conexión `excel`.** El libro `Cubos_2003_Actual.xlsx` incluye una conexión OLAP guardada. El extractor puede reutilizarla directamente desde el archivo local, sin modificar el libro, sin exportaciones manuales y sin copiar contraseñas al repositorio.
+
+## Puesta en marcha con la conexión que ya utiliza Excel
+
+1. Descargue el proyecto desde GitHub: **Code > Download ZIP**. Extraiga todo y abra la carpeta `extractor`.
+2. Ejecute **`SELECCIONAR_EXCEL.bat`**. Elija su libro original de cubos SINAVE, ubicado donde lo guarde normalmente. Esto solo almacena su ruta en `%LOCALAPPDATA%\\CAHOS\\configuracion_local.json`; **no lo modifica ni lo copia**.
+3. Ejecute **`PROBAR_CONEXION.bat`**. El sistema intentará abrir la conexión guardada y enumerar catálogos autorizados. Si el proveedor de Excel está disponible y la conexión sigue vigente, el resultado será `Conexion OLAP: OK`.
+4. Ejecute **`INICIAR_EXTRACTOR.bat`** y abra **http://127.0.0.1:8789**. En **Programación**, elija patologías; en **Panorama**, cambie año, semana, entidad, municipio, sexo y edad. Los cambios generan consultas MDX `SELECT` al cubo.
+5. Configure patologías favoritas y actualización periódica, que funcionará mientras el equipo y el servicio estén encendidos.
+
+**Importante:** abrir el libro como «solo lectura» impide modificar el archivo, pero no sustituye los permisos del servidor. Aunque no te pida usuario/contraseña, el libro puede incorporar datos de autenticación guardados; CAHOS solo los usa temporalmente en memoria. No envíe a GitHub ni comparta por chat ese libro ni los archivos guardados en `%LOCALAPPDATA%\\CAHOS`.
+
+Los datos quedan en el equipo local. **GitHub Pages no puede consultar el servidor local** ni divulgará datos automáticamente. Para publicar datos reales habrá que autorizar un mecanismo de API segura o agregados aprobados.
+
+---
+
 # CAHOS · Extractor automático SUIVE v0.4 (Windows)
 
 **Propósito.** Leer el cubo OLAP del SINAVE con la cuenta institucional autorizada, en modo de solo lectura. Ofrece un servicio local con consultas MDX parametrizadas por enfermedad, año, semana, entidad, municipio, sexo y grupo de edad. Una lista configurable de patologías se consulta automáticamente cada seis horas mientras el servicio esté activo.
