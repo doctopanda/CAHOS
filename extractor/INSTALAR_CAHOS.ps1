@@ -30,6 +30,8 @@ $python=$pythonCmd.Source
 & $python -c 'import sys;sys.exit(0 if sys.version_info >= (3,10) else 1)' 2>$null
 if ($LASTEXITCODE -ne 0) { throw 'CAHOS necesita Python 3.10 o posterior.' }
 [IO.File]::WriteAllText((Join-Path $base 'python_ejecutable.txt'),$python,(New-Object System.Text.UTF8Encoding($false)))
+# El instalador también debe resolver instancias anteriores en el puerto 8789.
+& (Join-Path $PSScriptRoot 'DETENER_CAHOS.ps1')
 # Copiar solo código de aplicación, no libros de Excel, credenciales ni bases.
 $allow=@('servidor.py','conector_sinave.ps1','visor_local.html','mapa_sonora.js',
   'geografia_inegi.py','poblacion_sonora.py','configuracion.ejemplo.json',
@@ -58,6 +60,14 @@ if (-not (Test-Path -LiteralPath $popDest)) {
     Write-Host '[POBLACION] Se omitió por ahora; se podrán incorporar después.' -ForegroundColor Yellow
   }
 }
+# Comprobar el inicio ANTES de registrar arranques permanentes.
+& (Join-Path $app 'ARRANQUE_AUTOMATICO.ps1')
+$status=Invoke-RestMethod -Uri 'http://127.0.0.1:8789/api/status' -TimeoutSec 5 -ErrorAction Stop
+if ([string]$status.version -ne '0.6.2') {
+  throw ('Servicio no actualizado. Version activa: '+[string]$status.version)
+}
+Write-Host '[SERVICIO] CAHOS 0.6.2 confirmado en localhost:8789.' -ForegroundColor Green
+
 # No es necesario administrador. Si la política impide tareas, usar carpeta Inicio del usuario.
 $name='CAHOS-SUIVE-Extractor'
 $ps='powershell.exe'
@@ -69,7 +79,7 @@ try {
   $action=New-ScheduledTaskAction -Execute $ps -Argument $args -WorkingDirectory $app
   $trigger=New-ScheduledTaskTrigger -AtLogOn -User $user
   $principal=New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
-  Register-ScheduledTask -TaskName $name -Action $action -Trigger $trigger -Principal $principal -Description 'CAHOS cubo SINAVE, proceso privado del usuario' -Force -ErrorAction Stop | Out-Null
+  Register-ScheduledTask -TaskName $name -Action $action -Trigger $trigger -Principal $principal -Description 'CAHOS 0.6.2: proceso local de lectura SINAVE' -Force -ErrorAction Stop | Out-Null
   $scheduled=$true
   Write-Host '[ARRANQUE] Registrado al iniciar sesión en Windows.' -ForegroundColor Green
 } catch {
@@ -86,7 +96,7 @@ try {
   $link.Save()
   Write-Host '[ARRANQUE] Registrado en la carpeta Inicio del usuario.' -ForegroundColor Green
 }
-& (Join-Path $app 'ARRANQUE_AUTOMATICO.ps1')
+
 try {
   $desktop=[Environment]::GetFolderPath('Desktop')
   if (Test-Path -LiteralPath $desktop -PathType Container) {
