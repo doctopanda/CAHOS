@@ -1,3 +1,15 @@
+# CAHOS v0.6 · Inicio automático y mapa municipal
+
+**Instalación local recomendada (Windows):** descargue este repositorio como ZIP, abra la carpeta \`extractor\` y ejecute \`INSTALAR_CAHOS.bat\` **una sola vez**. El instalador conserva la conexión OLAP original del Excel, permite importar una vez las proyecciones demográficas, copia el motor a \`%LOCALAPPDATA%\CAHOS\app\`, registra arranque con Windows y abre el visor en \`http://127.0.0.1:8789\`.
+
+A partir de ahí, no es necesario ejecutar cada día \`PROBAR_CONEXION.bat\`, abrir Python ni consultar manualmente todas las fuentes. El visor intenta la consulta al abrir el panorama, actualiza el mapa cuando se selecciona y sincroniza las patologías programadas en el intervalo configurado mientras el equipo y la conexión estén disponibles.
+
+**Fuentes y limitaciones:** conteos SUIVE del cubo SINAVE (conexión guardada en el Excel, solo lectura); polígonos de INEGI, 72 municipios; denominadores de proyecciones COESPO/CONAPO del Excel local, no del INEGI. La relación municipal intenta la clave \`CVEGEO\` antes de usar nombres, y avisa cuando el cubo no devuelve filas o no hay correspondencia cartográfica. Gris no equivale a cero. El canal endémico no imputa semanas sin dato.
+
+**GitHub Pages** es el portal estático y no comparte las credenciales ni las extracciones locales. Para consulta institucional remota se necesita una API HTTPS protegida y autorización específica de publicación.
+
+---
+
 # CAHOS | Plataforma de análisis epidemiológico
 
 CAHOS retoma su desarrollo como una plataforma modular. Su **primer módulo es el Visor SUIVE**, orientado a lectura y consulta parametrizada de cubos del SINAVE: padecimiento, años, semanas epidemiológicas, entidad/municipio, sexo y edad.
