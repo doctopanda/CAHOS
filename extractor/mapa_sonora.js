@@ -12,9 +12,9 @@ const codeFrom=v=>{
 };
 const cleanMunicipalName=v=>{
  const raw=String(v||'');
- const tail=raw.match(/\\[([^\\]]+)\\]\\s*$/);
+ const tail=raw.match(/\[([^\]]+)\]\s*$/);
  const candidates=[raw,tail?.[1],raw.split(',')[0],raw.split('|').pop(),raw.split(' - ')[0]]
-  .filter(Boolean).map(x=>norm(x.replace(/\\b26[0-9]{3}\\b/g,'').replace(/^\\d{1,3}\\s*[-.]?\\s*/,'')));
+  .filter(Boolean).map(x=>norm(x.replace(/\b26[0-9]{3}\b/g,'').replace(/^\d{1,3}\s*[-.]?\s*/,'')));
  return [...new Set(candidates.filter(Boolean))];
 };
 function reconcileMunicipios(){
