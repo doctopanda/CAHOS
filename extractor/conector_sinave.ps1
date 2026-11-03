@@ -72,7 +72,21 @@ try {
   $connection = New-Object -ComObject ADODB.Connection
   $connection.ConnectionTimeout = 20
   $connection.CommandTimeout = 75
-  $connection.Open($connectionString)
+  try {
+    $connection.Open($connectionString)
+  } catch {
+    # Algunos libros antiguos usan MSOLAP.5, ya retirado de soporte.
+    # Si falta esa versión, probar el proveedor MSOLAP instalado sin cambiar
+    # los demás parámetros de la conexión guardada.
+    $reason = [string]$_.Exception.Message
+    if ([string]$cfg.origen_conexion -eq 'excel' -and
+        $connectionString -match '(?i)Provider=MSOLAP\.[0-9]+' -and
+        $reason -match '(?i)provider cannot be found|proveedor.*no se encuentra|class not registered|clase no registrada|REGDB_E_CLASSNOTREG') {
+      $modern = [regex]::Replace($connectionString, '(?i)Provider=MSOLAP\.[0-9]+', 'Provider=MSOLAP')
+      $connection.Open($modern)
+      $modern = $null
+    } else { throw }
+  }
   $connectionString = $null
   $rows = New-Object System.Collections.ArrayList
   $columns = @()
