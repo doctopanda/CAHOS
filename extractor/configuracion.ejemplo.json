@@ -1,0 +1,10 @@
+{
+  "servidor": "cubo.sinave.gob.mx",
+  "catalogo": "Cubo_2003_Actual",
+  "cubo": "Cubo_2003_Actual",
+  "proveedor": "MSOLAP",
+  "intervalo_actualizacion_minutos": 360,
+  "tiempo_maximo_consulta_segundos": 90,
+  "favoritos": [],
+  "entidad_preferida": "Sonora"
+}

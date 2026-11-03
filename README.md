@@ -28,3 +28,11 @@ La carpeta `public/` es la única publicada por el flujo de GitHub Actions `.git
 3. Activar actualización automática de patologías programadas, trazabilidad y corte SE.
 4. Validar casos/tasas y cálculos de canales endémicos frente a fuentes oficiales.
 5. Incorporar nuevos módulos de CAHOS sin alterar la lectura SUIVE.
+
+## Fase siguiente: extractor automatizado v0.4 (Windows)
+
+El código del extractor de solo lectura está en [extractor/](extractor/) y su [manual de conexión y validación](extractor/LEEME.md).
+
+En un equipo Windows autorizado, copie `extractor/configuracion.ejemplo.json` a `extractor/configuracion.json`, compruebe la conectividad con `PROBAR_CONEXION.bat`, y luego ejecute `INICIAR_EXTRACTOR.bat`. Si la cuenta requiere credenciales adicionales, utilice `CONFIGURAR_ACCESO.ps1` para cifrarlas localmente con DPAPI, nunca para publicarlas.
+
+**Estado real:** el conector MDX está implementado y probado de forma local con respuestas simuladas, pero el acceso al servidor SINAVE y la exactitud de los resultados todavía están pendientes de validación en una red institucional. No se publican cifras SUIVE sin permiso ni controles de acceso. GitHub Pages no puede consultar el puerto 127.0.0.1 del equipo de extracción; la API HTTPS autenticada es una etapa distinta.

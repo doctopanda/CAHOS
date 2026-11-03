@@ -1,0 +1,104 @@
+# Puente local, consultas OLAP de solo lectura. Ningún comando de escritura está expuesto.
+# ENTRADA: JSON por stdin. SALIDA: JSON por stdout.
+$ErrorActionPreference = 'Stop'
+[Console]::InputEncoding = New-Object System.Text.UTF8Encoding($false)
+[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+$connection = $null
+$recordset = $null
+try {
+  $inputJson = [Console]::In.ReadToEnd()
+  $request = $inputJson | ConvertFrom-Json
+  $cfg = $request.config
+  if ($cfg.servidor -notmatch '^[a-zA-Z0-9.-]+$' -or $cfg.catalogo -notmatch '^[\w .-]+$' -or $cfg.cubo -notmatch '^[\w .-]+$') { throw 'Configuración del servidor no válida' }
+  if ($cfg.proveedor -notin @('MSOLAP','MSOLAP.5','MSOLAP.6','MSOLAP.7','MSOLAP.8')) { throw 'Proveedor no permitido' }
+  $parts = @(
+    ('Provider=' + $cfg.proveedor),
+    ('Data Source=' + $cfg.servidor),
+    ('Initial Catalog=' + $cfg.catalogo),
+    'Persist Security Info=False',
+    'Connect Timeout=20',
+    'MDX Compatibility=1',
+    'MDX Missing Member Mode=Error'
+  )
+  # Orden de autenticacion: credencial cifrada Windows DPAPI; variables de entorno; Windows SSPI.
+  # Nunca se lee la contrasena almacenada en el Excel original.
+  $saved = Join-Path $env:LOCALAPPDATA 'CAHOS\acceso_sinave.xml'
+  if (Test-Path -LiteralPath $saved) {
+    $cred = Import-Clixml -LiteralPath $saved
+    $user = $cred.UserName
+    $secret = $cred.GetNetworkCredential().Password
+    $parts += ('User ID="' + $user.Replace('"','""') + '"')
+    $parts += ('Password="' + $secret.Replace('"','""') + '"')
+    $secret = $null
+  } elseif ($env:SUIVE_USER -and $env:SUIVE_PASSWORD) {
+    $parts += ('User ID="' + $env:SUIVE_USER.Replace('"','""') + '"')
+    $parts += ('Password="' + $env:SUIVE_PASSWORD.Replace('"','""') + '"')
+  } else {
+    $parts += 'Integrated Security=SSPI'
+  }
+  $connection = New-Object -ComObject ADODB.Connection
+  $connection.ConnectionTimeout = 20
+  $connection.CommandTimeout = 75
+  $connection.Open(($parts -join ';'))
+  $rows = New-Object System.Collections.ArrayList
+  $columns = @()
+  if ($request.action -eq 'probe') {
+    [Console]::Out.Write((@{ok=$true; connected=$true; provider=[string]$cfg.proveedor; catalog=[string]$cfg.catalogo} | ConvertTo-Json -Compress))
+    exit 0
+  } elseif ($request.action -eq 'catalog') {
+    $dim = [string]$request.hierarchy
+    if ($dim -notin @('[Padecimientos].[Padecimiento]', '[Años].[Año]', '[Semanas epidemiológicas].[Semana]', '[Municipios].[Municipio]', '[Entidades].[Entidad]', '[Sexo].[Sexo]', '[Grupos de edades].[Grupo de edad]', '[Instituciones].[Institución]')) { throw 'Jerarquía no autorizada' }
+    # MDSCHEMA_MEMBERS, restricciones: catálogo, esquema, cubo, dimensión, jerarquía.
+    # Algunos proveedores antiguos requieren VARIANT Empty para las posiciones sin restricción.
+    $restrictions = New-Object 'object[]' 5
+    $restrictions[2] = [string]$cfg.cubo
+    $restrictions[4] = $dim
+    try {
+      $recordset = $connection.OpenSchema(38, $restrictions)
+    } catch {
+      # DMV de solo lectura, disponible en numerosas versiones de Analysis Services.
+      $cmd = New-Object -ComObject ADODB.Command
+      $cmd.ActiveConnection = $connection
+      $cmd.CommandTimeout = 75
+      $escapedCube = ([string]$cfg.cubo).Replace("'", "''")
+      $escapedDim = $dim.Replace("'", "''")
+      $cmd.CommandText = "SELECT MEMBER_UNIQUE_NAME, MEMBER_CAPTION, MEMBER_TYPE, HIERARCHY_UNIQUE_NAME FROM `$SYSTEM.MDSCHEMA_MEMBERS WHERE CUBE_NAME = '$escapedCube' AND HIERARCHY_UNIQUE_NAME = '$escapedDim'"
+      $recordset = $cmd.Execute()
+    }
+  } elseif ($request.action -eq 'query') {
+    $mdx = [string]$request.mdx
+    # Defensa en profundidad: el Python genera exclusivamente SELECT con miembros del catálogo.
+    if ($mdx.Length -gt 30000 -or $mdx -notmatch '^SELECT\s' -or $mdx -match '(?i)\b(CREATE|ALTER|DROP|DELETE|UPDATE|INSERT|PROCESS|BACKUP|RESTORE|ASSL)\b') { throw 'Solo se autorizan consultas MDX SELECT' }
+    $cmd = New-Object -ComObject ADODB.Command
+    $cmd.ActiveConnection = $connection
+    $cmd.CommandTimeout = 75
+    $cmd.CommandText = $mdx
+    $recordset = $cmd.Execute()
+  } else { throw 'Acción no autorizada' }
+  for ($j=0; $j -lt $recordset.Fields.Count; $j++) { $columns += [string]$recordset.Fields.Item($j).Name }
+  $maxRows = 7500
+  while (-not $recordset.EOF) {
+    if ($rows.Count -ge $maxRows) { throw 'Resultado demasiado grande: reduzca años, semanas o territorio' }
+    $v = @()
+    for ($j=0; $j -lt $recordset.Fields.Count; $j++) {
+      $item = $recordset.Fields.Item($j).Value
+      if ($null -eq $item -or $item -is [DBNull]) { $v += $null }
+      elseif ($item -is [string]) { $v += $item }
+      elseif ($item -is [bool]) { $v += $item }
+      elseif ($item -is [ValueType]) { $v += $item }
+      else { $v += [string]$item }
+    }
+    [void]$rows.Add($v)
+    $recordset.MoveNext()
+  }
+  $output = @{ ok=$true; columns=@($columns); rows=@($rows) }
+  [Console]::Out.Write(($output | ConvertTo-Json -Depth 8 -Compress))
+} catch {
+  $safe = 'No se pudo completar la consulta OLAP. Verifica permisos, proveedor MSOLAP, VPN o red institucional y nombres del cubo.'
+  # No se imprimen cadenas de conexión, credenciales ni trazas detalladas.
+  [Console]::Out.Write((@{ok=$false; error=$safe; tipo='conexion_o_consulta'} | ConvertTo-Json -Compress))
+  exit 1
+} finally {
+  if ($null -ne $recordset) { try { $recordset.Close() } catch {} }
+  if ($null -ne $connection) { try { $connection.Close() } catch {} }
+}

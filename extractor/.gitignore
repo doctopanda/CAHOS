@@ -1,0 +1,8 @@
+configuracion.json
+*.xlsx
+*.xls
+*.env
+acceso_sinave.xml
+extracciones_privadas/
+__pycache__/
+*.log
