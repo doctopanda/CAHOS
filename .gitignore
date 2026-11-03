@@ -1,0 +1,23 @@
+# CAHOS: nunca publicar extracción o credenciales institucionales
+*.xlsx
+*.xls
+*.xlsm
+*.csv
+*.tsv
+*.zip
+*.env
+*.env.*
+*.pfx
+*.pem
+*.key
+**/secret*
+**/credential*
+**/credencial*
+backend/
+private/
+privado/
+extracciones/
+exportaciones/
+datos/
+__pycache__/
+.DS_Store
