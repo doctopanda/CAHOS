@@ -15,6 +15,8 @@ import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
+from poblacion_sonora import poblacion_anual
+from geografia_inegi import obtener_geojson
 
 ROOT = Path(__file__).resolve().parent
 # Los snapshots son LOCALES, nunca se publican automaticamente en GitHub Pages.
@@ -419,6 +421,15 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_header('Content-Length', str(len(content)))
                 self.end_headers()
                 self.wfile.write(content)
+            elif p.path == '/mapa_sonora.js':
+                data = (ROOT / 'mapa_sonora.js').read_bytes()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/javascript; charset=utf-8')
+                self.send_header('X-Content-Type-Options', 'nosniff')
+                self.send_header('Cache-Control', 'no-cache')
+                self.send_header('Content-Length', str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
             elif p.path == '/api/status':
                 cfg = get_config()
                 with LOCK:
@@ -427,6 +438,13 @@ class Handler(BaseHTTPRequestHandler):
                                          'intervalo_minutos': cfg['intervalo_actualizacion_minutos'],
                                          'favoritos': cfg['favoritos'], 'favoritos_inicializados': cfg.get('favoritos_inicializados', False), 'actividad': activity,
                                          'autenticacion': 'conexión guardada en el libro local' if cfg['origen_conexion'] == 'excel' else 'integrada o sesión temporal (sin credenciales en el navegador)'})
+            elif p.path == '/api/geografia/sonora':
+                self.json_response(200, obtener_geojson())
+            elif p.path == '/api/poblacion':
+                year_txt = parse_qs(p.query).get('year',[''])[0]
+                if not year_txt.isdigit():
+                    raise ValueError('Indica año válido para denominadores.')
+                self.json_response(200, poblacion_anual(int(year_txt)))
             elif p.path == '/api/diagnostic':
                 self.json_response(200, diagnostico_olap())
             elif p.path == '/api/catalog':
