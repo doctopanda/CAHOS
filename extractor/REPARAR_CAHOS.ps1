@@ -1,4 +1,4 @@
-# CAHOS 0.6.1 | aplicar reparacion sin reinstalar Python ni MSOLAP.
+# CAHOS 0.6.2 | aplicar reparacion sin reinstalar Python ni MSOLAP.
 # Ejecute desde una copia reciente de GitHub CAHOS/extractor.
 $ErrorActionPreference='Stop'
 Write-Host '===========================================' -ForegroundColor Cyan
@@ -29,22 +29,37 @@ foreach ($name in $allow) {
   if (-not (Test-Path -LiteralPath $src -PathType Leaf)) { throw ('Falta el archivo '+$name+'. Descargue el ZIP completo desde GitHub.') }
   Copy-Item -LiteralPath $src -Destination (Join-Path $app $name) -Force
 }
-Write-Host '[CAHOS] Codigo actualizado a version 0.6.1. No se tocó el Excel original.' -ForegroundColor Green
-# Sólo un disparador, preferentemente Programador de tareas.
-$name='CAHOS-SUIVE-Extractor'
+Write-Host '[CAHOS] Codigo actualizado a version 0.6.2. No se tocó el Excel original.' -ForegroundColor Green
+# Primero comprobar que NO queda la versión antigua. Detener por puerto
+# ocurre dentro de DETENER_CAHOS.ps1; si el puerto sigue ocupado, se aborta.
+Write-Host '[CAHOS] Iniciando ahora el servicio actualizado, una sola vez...'
 $script=Join-Path $app 'ARRANQUE_AUTOMATICO.ps1'
+& $script
+try {
+  $status=Invoke-RestMethod -Uri 'http://127.0.0.1:8789/api/status' -TimeoutSec 4 -ErrorAction Stop
+} catch {
+  throw 'El servicio actualizado no responde. No se programará un arranque defectuoso.'
+}
+if ([string]$status.version -ne '0.6.2' -or
+    [string]$status.servidor -ne 'cubo.sinave.gob.mx') {
+  throw ('El puerto 8789 responde con versión '+[string]$status.version+
+         ', no con CAHOS 0.6.2. No se programará un arranque duplicado.')
+}
+Write-Host '[CAHOS] Servicio 0.6.2 validado en puerto 8789.' -ForegroundColor Green
+# Registrar el inicio automático sólo después de comprobar el proceso.
+$name='CAHOS-SUIVE-Extractor'
 $args='-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "'+$script+'"'
-$installed=$false
 try {
   $user=[Security.Principal.WindowsIdentity]::GetCurrent().Name
   $action=New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $args -WorkingDirectory $app
   $trigger=New-ScheduledTaskTrigger -AtLogOn -User $user
   $principal=New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
-  Register-ScheduledTask -TaskName $name -Action $action -Trigger $trigger -Principal $principal -Description 'CAHOS: lectura OLAP local silenciosa' -Force | Out-Null
-  $installed=$true
-  Write-Host '[CAHOS] Arranque de Windows registrado como tarea unica.' -ForegroundColor Green
+  $existingTask=Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
+  if($existingTask){Unregister-ScheduledTask -TaskName $name -Confirm:$false -ErrorAction Stop}
+  Register-ScheduledTask -TaskName $name -Action $action -Trigger $trigger -Principal $principal -Description 'CAHOS 0.6.2: lectura OLAP local silenciosa' -ErrorAction Stop | Out-Null
+  Write-Host '[CAHOS] Arranque único registrado al iniciar sesión en Windows.' -ForegroundColor Green
 } catch {
-  Write-Host '[CAHOS] Windows no permitió la tarea programada. Creando atajo Inicio.' -ForegroundColor Yellow
+  Write-Host '[CAHOS] Windows no permitió registrar tarea. Usando solo carpeta Inicio.' -ForegroundColor Yellow
   $startup=[Environment]::GetFolderPath('Startup')
   $path=Join-Path $startup 'CAHOS Extractor.lnk'
   $wsh=New-Object -ComObject WScript.Shell
@@ -55,7 +70,5 @@ try {
   $link.WindowStyle=7
   $link.Save()
 }
-# Arranque UNA sola vez; si falla queda el error visible en esta ventana.
-& $script
-Write-Host '[CAHOS] Servicio actualizado y activo: http://127.0.0.1:8789' -ForegroundColor Green
+Write-Host '[CAHOS] Reparación terminada. Excel, población y extracciones intactos.' -ForegroundColor Green
 Start-Process 'http://127.0.0.1:8789'
