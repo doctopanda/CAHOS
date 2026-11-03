@@ -1,4 +1,4 @@
-"""SUIVE AUTO v0.2. Servidor estrictamente local; consulta OLAP por PowerShell/MSOLAP.
+"""CAHOS SUIVE: servicio local de extracción OLAP de solo lectura.
 Sin dependencias Python de terceros. No utiliza ni extrae las claves del XLSX original.
 """
 from __future__ import annotations
@@ -82,6 +82,9 @@ def run_connector(action: str, *, hierarchy: str = '', mdx: str = '') -> dict:
             input=json.dumps(query, ensure_ascii=False), text=True, encoding='utf-8', errors='replace',
             capture_output=True, timeout=min(int(cfg.get('tiempo_maximo_consulta_segundos', 90)), 180),
             cwd=str(ROOT), env=os.environ.copy(),
+            # pythonw.exe no tiene consola; sin CREATE_NO_WINDOW, cada
+            # consulta OLAP abre una ventana powershell/conhost pasajera.
+            creationflags=(subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0),
         )
     if not proc.stdout.strip():
         raise RuntimeError('El proveedor no devolvió datos. Comprueba Microsoft MSOLAP y la conectividad institucional.')
