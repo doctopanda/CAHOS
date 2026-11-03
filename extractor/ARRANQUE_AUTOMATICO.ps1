@@ -13,7 +13,7 @@ function Get-CahosLocal {
 }
 $active = Get-CahosLocal
 if ($null -ne $active) {
-  if ([string]$active.version -eq '0.6.0') { exit 0 }
+  if ([string]$active.version -eq '0.6.1') { exit 0 }
   throw 'Otra versión de CAHOS está ejecutándose en 127.0.0.1:8789. Cierre el extractor anterior y abra CAHOS otra vez.'
 }
 if (Test-Path -LiteralPath $pythonFile) {
@@ -35,7 +35,7 @@ $ready=$false
 for ($n=0; $n -lt 12; $n++) {
   Start-Sleep -Milliseconds 650
   $active = Get-CahosLocal
-  if ($null -ne $active -and [string]$active.version -eq '0.6.0') { $ready=$true; break }
+  if ($null -ne $active -and [string]$active.version -eq '0.6.1') { $ready=$true; break }
 }
 if (-not $ready) {
   throw 'CAHOS: el servicio no respondió en localhost:8789. Verifique si hay otra instancia o problemas de Python.'
