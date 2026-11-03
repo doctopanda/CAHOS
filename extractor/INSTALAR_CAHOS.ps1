@@ -33,7 +33,9 @@ if ($LASTEXITCODE -ne 0) { throw 'CAHOS necesita Python 3.10 o posterior.' }
 # Copiar solo código de aplicación, no libros de Excel, credenciales ni bases.
 $allow=@('servidor.py','conector_sinave.ps1','visor_local.html','mapa_sonora.js',
   'geografia_inegi.py','poblacion_sonora.py','configuracion.ejemplo.json',
-  'ARRANQUE_AUTOMATICO.ps1')
+  'ARRANQUE_AUTOMATICO.ps1','importar_poblacion.py','IMPORTAR_POBLACION.bat',
+  'CONFIGURAR_ORIGEN_EXCEL.ps1','SELECCIONAR_EXCEL.bat',
+  'ABRIR_CAHOS.bat','comprobar_entorno.ps1','PROBAR_CONEXION.bat','probar_conexion.py')
 foreach ($name in $allow) {
   $src=Join-Path $PSScriptRoot $name
   if (-not (Test-Path -LiteralPath $src -PathType Leaf)) { throw ('Falta archivo: '+$name) }
