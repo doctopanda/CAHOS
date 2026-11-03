@@ -3,6 +3,8 @@
   "catalogo": "Cubo_2003_Actual",
   "cubo": "Cubo_2003_Actual",
   "proveedor": "MSOLAP",
+  "origen_conexion": "integrada",
+  "ruta_archivo_excel": "",
   "intervalo_actualizacion_minutos": 360,
   "tiempo_maximo_consulta_segundos": 90,
   "favoritos": [],
