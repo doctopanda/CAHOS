@@ -87,6 +87,14 @@ try {
   Write-Host '[ARRANQUE] Registrado en la carpeta Inicio del usuario.' -ForegroundColor Green
 }
 & (Join-Path $app 'ARRANQUE_AUTOMATICO.ps1')
+try {
+  $desktop=[Environment]::GetFolderPath('Desktop')
+  if (Test-Path -LiteralPath $desktop -PathType Container) {
+    $shortcut=Join-Path $desktop 'CAHOS - Observatorio SUIVE.url'
+    [IO.File]::WriteAllText($shortcut,"[InternetShortcut]`r`nURL=http://127.0.0.1:8789/`r`n",(New-Object Text.UTF8Encoding($false)))
+    Write-Host '[ATAJO] Acceso al visor creado en el Escritorio.' -ForegroundColor Green
+  }
+} catch { Write-Host '[ATAJO] Puede guardar http://127.0.0.1:8789/ como favorito.' -ForegroundColor Yellow }
 Write-Host '[SERVICIO] Responde en http://127.0.0.1:8789' -ForegroundColor Green
 Write-Host '[TERMINADO] No necesitará iniciar Python, comprobar OLAP ni importar datos en cada sesión.' -ForegroundColor Green
 Start-Process 'http://127.0.0.1:8789'
