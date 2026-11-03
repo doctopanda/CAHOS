@@ -1,32 +1,62 @@
-# CAHOS: desactivar SOLO las tareas/procesos de este proyecto, conservar datos.
+# CAHOS | Detener solo el servidor de CAHOS y deshabilitar arranques duplicados.
+# Ninguna operación elimina Excel, credenciales, configuración o extracciones locales.
 $ErrorActionPreference = 'Stop'
-$name='CAHOS-SUIVE-Extractor'
-$task=Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
-if ($task) {
-  try { Stop-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue } catch {}
-  Disable-ScheduledTask -TaskName $name -ErrorAction Stop | Out-Null
-  Write-Host '[CAHOS] Tarea automatica detenida y deshabilitada.' -ForegroundColor Green
+$taskName = 'CAHOS-SUIVE-Extractor'
+$task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+if ($null -ne $task) {
+  try { Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue } catch {}
+  Disable-ScheduledTask -TaskName $taskName -ErrorAction Stop | Out-Null
+  Write-Host '[CAHOS] Arranque programado detenido y deshabilitado.' -ForegroundColor Green
 }
-$startup=Join-Path ([Environment]::GetFolderPath('Startup')) 'CAHOS Extractor.lnk'
-if (Test-Path -LiteralPath $startup) {
-  Remove-Item -LiteralPath $startup -Force
-  Write-Host '[CAHOS] Se elimino el arranque duplicado de la carpeta Inicio.'
+$shortcut=Join-Path ([Environment]::GetFolderPath('Startup')) 'CAHOS Extractor.lnk'
+if (Test-Path -LiteralPath $shortcut) {
+  Remove-Item -LiteralPath $shortcut -Force
+  Write-Host '[CAHOS] Eliminado el acceso redundante de Inicio.'
 }
-# Detener solamente el servidor de CAHOS. NO detener todos los Python/PowerShell.
+# Identificar el servidor HTTP de CAHOS antes de detener proceso alguno.
+$confirmed=$false
 try {
-  $processes=Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='pythonw.exe'" -ErrorAction Stop
-  foreach ($item in $processes) {
-    $cmd=[string]$item.CommandLine
-    if ($cmd -match '(?i)(?:^|[\\/"\s])(?:[^"\s]*[\\/])?servidor\.py(?:["\s]|$)' -and $cmd -match '(?i)cahos') {
-      try {
-        Stop-Process -Id $item.ProcessId -Force -ErrorAction Stop
-        Write-Host ('[CAHOS] Servicio anterior detenido (PID '+$item.ProcessId+').')
-      } catch {
-        Write-Host '[CAHOS] No se pudo detener una instancia. Cierre su ventana anterior.' -ForegroundColor Yellow
-      }
-    }
+  $status=Invoke-RestMethod -Uri 'http://127.0.0.1:8789/api/status' -TimeoutSec 3 -ErrorAction Stop
+  $confirmed=([string]$status.servidor -eq 'cubo.sinave.gob.mx' -and
+              [string]$status.catalogo -eq 'Cubo_2003_Actual')
+  if ($confirmed) {
+    Write-Host ('[CAHOS] Instancia detectada; version: '+$(if($status.version){$status.version}else{'anterior'}))
   }
 } catch {
-  Write-Host '[CAHOS] No se pudo consultar la lista de procesos. Si sigue abierto, cierre el extractor anterior.' -ForegroundColor Yellow
+  Write-Host '[CAHOS] El servicio no responde a /api/status; no se detendran procesos sin identificarlos.'
 }
-Write-Host '[CAHOS] No se borraron configuraciones, Excel, datos ni credenciales.' -ForegroundColor Green
+try {
+  $listeners=@(Get-NetTCPConnection -State Listen -LocalPort 8789 -ErrorAction Stop |
+    Where-Object { $_.LocalAddress -in @('127.0.0.1','::1') })
+} catch {
+  $listeners=@()
+  Write-Host '[CAHOS] No se pudo inspeccionar el puerto TCP. Revise manualmente si sigue ocupado.' -ForegroundColor Yellow
+}
+$owners=@($listeners | Select-Object -ExpandProperty OwningProcess -Unique)
+foreach($pidToCheck in $owners) {
+  $proc=Get-CimInstance Win32_Process -Filter "ProcessId = $pidToCheck" -ErrorAction SilentlyContinue
+  $name=if($proc){[string]$proc.Name}else{'desconocido'}
+  $cmd=if($proc){[string]$proc.CommandLine}else{''}
+  # Solo detenemos una instancia CAHOS CONFIRMADA, servida por Python
+  # y ejecutando servidor.py. No se detienen otros Python, PowerShell ni Windows.
+  if($confirmed -and $name -match '(?i)^pythonw?\.exe$' -and
+     $cmd -match '(?i)(?:^|[\\/"\s])(?:[^"\s]*[\\/])?servidor\.py(?:["\s]|$)') {
+    Stop-Process -Id $pidToCheck -Force -ErrorAction Stop
+    Write-Host ("[CAHOS] Instancia anterior detenida en puerto 8789 (PID $pidToCheck).") -ForegroundColor Green
+  } else {
+    Write-Host ("[CAHOS] Puerto ocupado por proceso PID $pidToCheck ($name); no se detuvo por seguridad.") -ForegroundColor Yellow
+  }
+}
+for($n=0; $n -lt 16; $n++){
+  $still=@(Get-NetTCPConnection -State Listen -LocalPort 8789 -ErrorAction SilentlyContinue |
+    Where-Object { $_.LocalAddress -in @('127.0.0.1','::1') })
+  if($still.Count -eq 0){break}
+  Start-Sleep -Milliseconds 250
+}
+$remaining=@(Get-NetTCPConnection -State Listen -LocalPort 8789 -ErrorAction SilentlyContinue |
+  Where-Object { $_.LocalAddress -in @('127.0.0.1','::1') })
+if($remaining.Count -gt 0){
+  $remainingPid=($remaining | Select-Object -First 1).OwningProcess
+  throw "El puerto 8789 sigue ocupado (PID $remainingPid). No se reiniciara CAHOS hasta verificar que proceso es."
+}
+Write-Host '[CAHOS] Puerto 8789 libre. Datos y conexión original conservados.' -ForegroundColor Green
