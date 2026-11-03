@@ -5,8 +5,13 @@ cd /d "%~dp0"
 echo CAHOS - Servicio local OLAP
 if exist "%LOCALAPPDATA%\CAHOS\app\ARRANQUE_AUTOMATICO.ps1" (
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%LOCALAPPDATA%\CAHOS\app\ARRANQUE_AUTOMATICO.ps1"
-  if not errorlevel 1 start "" "http://127.0.0.1:8789"
-  exit /b %ERRORLEVEL%
+  if errorlevel 1 (
+    echo CAHOS no pudo iniciar. Si otra version sigue abierta, cierrala y reintenta.
+    pause
+    exit /b 1
+  )
+  start "" "http://127.0.0.1:8789"
+  exit /b 0
 )
 set "PYTHON_EXE="
 where python >nul 2>&1
