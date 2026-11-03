@@ -4,6 +4,48 @@
 const $=s=>document.querySelector(s);
 const norm=v=>String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("es").replace(/\b(municipio|de|sonora)\b/g,"").replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
 let shapes=null,observaciones=null,population=null,selectedCode=null,detailName=null;
+let joinState={byCode:new Map(),totalRows:0,withCases:0,linkedRows:0,unlinked:[]};
+let currentQueryKey='',requestRunning=false,refreshTimer=null;
+const codeFrom=v=>{
+ const m=String(v||'').match(/(?:^|[^0-9])(26[0-9]{3})(?![0-9])/);
+ return m?m[1]:'';
+};
+const cleanMunicipalName=v=>{
+ const raw=String(v||'');
+ const tail=raw.match(/\[([^\]]+)\]\s*$/);
+ const candidates=[raw,tail?.[1],raw.split(',')[0],raw.split('|').pop(),raw.split(' - ')[0]]
+  .filter(Boolean).map(x=>norm(x.replace(/\b26[0-9]{3}\b/g,'').replace(/^\d{1,3}\s*[-.]?\s*/,'')));
+ return [...new Set(candidates.filter(Boolean))];
+};
+function reconcileMunicipios(){
+ const byCode=new Map(),byName=new Map();
+ for(const feat of (shapes?.features||[])){
+  const code=String(feat.properties?.cvegeo||'');
+  byCode.set(code,feat);
+  const key=norm(feat.properties?.nombre);
+  if(!byName.has(key))byName.set(key,[]);
+  byName.get(key).push(code);
+ }
+ const result={byCode:new Map(),totalRows:(observaciones?.rows||[]).length,withCases:0,linkedRows:0,unlinked:[]};
+ for(const row of (observaciones?.rows||[])){
+  const cases=Number(row.cases);
+  if(row.cases==null||!Number.isFinite(cases))continue;
+  result.withCases++;
+  let code=codeFrom(row.municipalities_id)||codeFrom(row.municipalities);
+  if(!byCode.has(code)){
+   const possible=new Set();
+   for(const key of cleanMunicipalName(row.municipalities)){
+    for(const found of (byName.get(key)||[]))possible.add(found);
+   }
+   code=possible.size===1?[...possible][0]:'';
+  }
+  if(code&&byCode.has(code)){
+   result.linkedRows++;
+   result.byCode.set(code,(result.byCode.get(code)||0)+cases);
+  }else if(result.unlinked.length<5)result.unlinked.push(String(row.municipalities||'(sin nombre)').slice(0,80));
+ }
+ return result;
+}
 const getF=()=>({
  pathology:$("#diseaseSelect")?.value||"",year:$("#yearSelect")?.value||"",
  entity:$("#entitySelect")?.value||"",sex:$("#sexSelect")?.value||"",age:$("#ageSelect")?.value||""
@@ -13,13 +55,11 @@ const yearLabel=id=>{
  return Number((String(entry?.nombre||"").match(/(?:19|20)\d{2}/)||[])[0])||0;
 };
 const label=(dim,id)=>state.catalog[dim]?.find(o=>o.id===id)?.nombre||"";
-const getMunicipality=(name)=>{
- const observed=(observaciones?.rows||[]).filter(row=>norm(row.municipalities)===norm(name));
- return observed.length?observed.reduce((n,row)=>n+(Number(row.cases)||0),0):null;
-};
-const populationFor=(name,f)=>{
+const getMunicipality=(name,code)=>joinState.byCode.has(String(code))?joinState.byCode.get(String(code)):null;
+const populationFor=(name,f,code)=>{
  if(!population?.disponible)return null;
- const match=population.municipios.find(m=>norm(m.nombre)===norm(name));
+ const match=population.municipios.find(m=>String(m.clave)===String(code))||
+  population.municipios.find(m=>norm(m.nombre)===norm(name));
  if(!match)return null;
  const sex=norm(label("sex",f.sex));
  const age=norm(label("age",f.age));
@@ -50,10 +90,11 @@ function fillColor(value,max){
  const a=[221,239,232],b=[15,111,98],c=a.map((v,i)=>Math.round(v+(b[i]-v)*Math.sqrt(t)));
  return "rgb("+c.join(",")+")";
 }
-function drawAgeCurve(name){
+function drawAgeCurve(name,code){
  const root=$("#mapPopulation");root.replaceChildren();
  if(!population?.disponible){root.textContent="Sin denominadores. Ejecute IMPORTAR_POBLACION.bat con su libro de proyecciones.";return;}
- const m=population.municipios.find(x=>norm(x.nombre)===norm(name));
+ const m=population.municipios.find(x=>String(x.clave)===String(code))||
+  population.municipios.find(x=>norm(x.nombre)===norm(name));
  if(!m){root.textContent="No se encontró un emparejamiento exacto de municipio para las curvas poblacionales.";return;}
  const ages=Object.keys(m.edades_sexo?.H||{}).sort((a,b)=>parseInt(a)-parseInt(b));
  if(!ages.length){root.textContent="Sin distribución de edades.";return;}
@@ -98,7 +139,8 @@ function render(){
  const point=p=>[(p[0]*.87-x0)*scale+25,(y1-p[1])*scale+25];
  const vals=all.map(x=>{
   const nm=x.properties?.nombre;
-  const cases=getMunicipality(nm),denom=populationFor(nm,f);
+  const code=x.properties?.cvegeo;
+  const cases=getMunicipality(nm,code),denom=populationFor(nm,f,code);
   return {name:nm,code:x.properties?.cvegeo,cases,denom,rate:cases!=null&&denom?(cases/denom)*1e5:null};
  });
  const v=vals.filter(x=>Number.isFinite(x[metric]));const max=Math.max(1,...v.map(x=>x[metric]));
@@ -127,15 +169,21 @@ function render(){
    $("#mapInfoBody").textContent=(value.cases==null?"Casos: sin dato":("Casos: "+value.cases.toLocaleString("es-MX")))+
    " · "+(value.denom?"Población: "+value.denom.toLocaleString("es-MX"):"Denominador: no compatible")+
    " · "+(value.rate!=null?"Tasa: "+value.rate.toFixed(2)+" /100 mil":"Tasa no calculable");
-   drawAgeCurve(value.name);render();};
+   drawAgeCurve(value.name,value.code);render();};
   path.addEventListener("click",choose);
   path.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();choose();}});
   svg.append(path);
  }
- $("#mapStatus").textContent=vals.filter(x=>x.cases!=null).length+" municipios con registros devueltos por el cubo · "+
-  (population?.disponible?"Denominadores 2015–2030 cargados":"Sin denominadores poblacionales")+
-  " · ausencia de un municipio no equivale automáticamente a cero.";
- if(detailName)drawAgeCurve(detailName);
+ const matchedMunicipios=joinState.byCode.size;
+ const diagnostic=joinState.totalRows===0
+  ?'La consulta municipal no devolvió filas. El total anual no demuestra que exista desagregación municipal en la selección.'
+  :matchedMunicipios===0
+   ?'El cubo devolvió '+joinState.totalRows+' filas, pero ninguna coincide con las claves/nombres de INEGI. '+(joinState.unlinked.length?'Ejemplos de etiquetas sin emparejar: '+joinState.unlinked.join(', ')+'.':'')
+   :matchedMunicipios+' de 72 municipios coloreables; '+joinState.totalRows+' filas del cubo ('+joinState.linkedRows+' emparejadas).'+
+      (joinState.unlinked.length?' Algunas etiquetas sin emparejar: '+joinState.unlinked.join(', ')+'.':'');
+ $("#mapStatus").textContent=diagnostic+' '+(population?.disponible?'Proyecciones poblacionales disponibles.':'Sin denominadores poblacionales.')+
+  ' Gris significa sin información asociable, no cero casos.';
+ if(detailName)drawAgeCurve(detailName,selectedCode);
 }
 async function loadShapes(){
  if(shapes)return;
@@ -151,9 +199,11 @@ async function loadShapes(){
  if(!shapes.features||shapes.features.length!==72)throw Error("No se validaron las 72 geometrías de INEGI");
 }
 async function query(){
+ if(requestRunning)return;
  const f=getF(),year=yearLabel(f.year);
  if(!f.pathology||!year){$("#mapStatus").textContent="Selecciona primero una patología y año en Panorama.";return;}
  if(!f.entity){$("#mapStatus").textContent="Selecciona la entidad Sonora en Panorama.";return;}
+ requestRunning=true;
  $("#mapQuery").disabled=true;
  $("#mapStatus").textContent="Consultando municipios del cubo SINAVE…";
  try{
@@ -166,6 +216,8 @@ async function query(){
   if(out[1].status!=="fulfilled")throw out[1].reason;
   observaciones=out[1].value;
   population=out[2].status==="fulfilled"?out[2].value:{disponible:false};
+  joinState=reconcileMunicipios();
+  currentQueryKey=JSON.stringify(f);
   $("#mapTitleDisease").textContent=label("pathologies",f.pathology)+" · "+year;
   selectedCode=null;detailName=null;
   $("#mapInfoTitle").textContent="Selecciona un municipio";
@@ -173,10 +225,23 @@ async function query(){
   $("#mapPopulation").textContent="Selecciona un polígono para mostrar la curva demográfica.";
   render();
  }catch(e){$("#mapStatus").textContent="No se pudo elaborar el mapa: "+String(e.message||e).slice(0,220);}
- finally{$("#mapQuery").disabled=false;}
+ finally{requestRunning=false;$("#mapQuery").disabled=false;}
 }
 $("#mapQuery")?.addEventListener("click",query);
 $("#mapMetric")?.addEventListener("change",render);
-document.querySelector('[data-p="mapa"]')?.addEventListener("click",async()=>{if(!shapes){try{await loadShapes();render();}catch(e){$("#mapStatus").textContent="Cartografía oficial no disponible: "+String(e.message||e).slice(0,180);}}});
+document.querySelector('[data-p="mapa"]')?.addEventListener("click",async()=>{
+ try{
+  await loadShapes();
+  if(currentQueryKey!==JSON.stringify(getF()))await query();
+  else render();
+ }catch(e){$("#mapStatus").textContent="Cartografía oficial no disponible: "+String(e.message||e).slice(0,180);}
+});
+for(const id of ['#diseaseSelect','#yearSelect','#entitySelect','#sexSelect','#ageSelect']){
+ $(id)?.addEventListener('change',()=>{
+  if(!$("#view-mapa")?.classList.contains('hide')){
+   clearTimeout(refreshTimer);refreshTimer=setTimeout(query,900);
+  }
+ });
+}
 window.CAHOSMapa={consultar:query};
 })();
