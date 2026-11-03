@@ -3,6 +3,11 @@ setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
 echo CAHOS - Servicio local OLAP
+if exist "%LOCALAPPDATA%\CAHOS\app\ARRANQUE_AUTOMATICO.ps1" (
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%LOCALAPPDATA%\CAHOS\app\ARRANQUE_AUTOMATICO.ps1"
+  if not errorlevel 1 start "" "http://127.0.0.1:8789"
+  exit /b %ERRORLEVEL%
+)
 set "PYTHON_EXE="
 where python >nul 2>&1
 if not errorlevel 1 (
