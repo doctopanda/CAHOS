@@ -1,3 +1,24 @@
+# CAHOS v0.6 | Instalación automática y mapa municipal
+
+**La versión recomendada ya no requiere ejecutar PROBAR_CONEXION ni INICIAR_EXTRACTOR diariamente.**
+
+1. Cierre por única vez la antigua ventana del extractor que esté ocupando el puerto 8789.
+2. Descargue el repositorio CAHOS como ZIP y extráigalo en una carpeta temporal.
+3. Abra \`extractor\INSTALAR_CAHOS.bat\` una sola vez. Use la conexión del Excel ya configurada (no se pide contraseña nueva); si falta, el instalador abre el selector.
+4. Si todavía no hay población local, seleccione el libro oficial de proyecciones municipales Sonora 2015–2030 una sola vez; su importación se conserva en \`%LOCALAPPDATA%\CAHOS\poblacion_sonora.json\`. Se puede omitir y agregar después, en cuyo caso no habrá tasas.
+5. Windows inicia el extractor local de forma automática al iniciar sesión, usando el Programador de tareas (o la carpeta Inicio del usuario si la política lo restringe). El servicio sigue actualizando favoritas según el intervalo configurado mientras esté encendido y haya acceso al cubo.
+6. Para abrir CAHOS sin usar terminal: guarde un acceso directo a \`http://127.0.0.1:8789\`, o haga doble clic en \`extractor\ABRIR_CAHOS.bat\`. En el primer arranque, el instalador ya abre el navegador.
+
+**Fuentes:** casos del cubo SINAVE consultado por MSOLAP; polígonos de los 72 municipios descargados de los servicios oficiales de INEGI; denominadores de proyecciones COESPO/CONAPO, importados al equipo desde su libro de trabajo. **INEGI no es el origen de la población proyectada** y los casos no se descargan de INEGI.
+
+**Mapa:** la aplicación usa \`CVEGEO\` cuando puede extraerse del identificador MDX municipal; si no, intenta comparar denominaciones normalizadas y muestra cuántas filas quedaron sin asociación. Los polígonos sin casos asociados se presentan como *sin dato*, nunca como cero.
+
+**Control epidemiológico:** el panel no inventa semanas faltantes; los canales P25/P50/P75 se marcan exploratorios y solo incluyen semanas con al menos cinco observaciones históricas de los seis años anteriores.
+
+**Nota de arquitectura:** GitHub Pages solo publica código HTML/JS y cartografía pública. No puede conectarse a \`127.0.0.1:8789\` desde otro equipo ni consultar el cubo SINAVE por sí solo. El servicio local nunca se expone a internet. Una versión institucional en la nube necesita despliegue y permisos expresos de su API privada.
+
+---
+
 # CAHOS | Modo cubo desde Excel (sin escribir credenciales nuevas)
 
 **Nuevo: origen de conexión `excel`.** El libro `Cubos_2003_Actual.xlsx` incluye una conexión OLAP guardada. El extractor puede reutilizarla directamente desde el archivo local, sin modificar el libro, sin exportaciones manuales y sin copiar contraseñas al repositorio.
