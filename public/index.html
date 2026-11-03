@@ -49,7 +49,7 @@ function normalizeSearch(text){return String(text||'').normalize('NFD').replace(
 function renderPathologyOptions(){
   const sel=$('#diseaseSelect'),all=state.catalog.pathologies||[],old=sel.value;
   const term=normalizeSearch($('#pathologyQuickSearch').value);
-  const matching=all.filter(p=>normalizeSearch(p.nombre).includes(term));
+  const matching=all.filter(p=>normalizeSearch(p.nombre).includes(term));const matchesCount=matching.length;
   const favoriteIds=new Set(state.favorites);
   const selectedId=old||(state.favorites.length?state.favorites[0]:'');
   const selectedItem=all.find(p=>p.id===selectedId);
@@ -63,7 +63,7 @@ function renderPathologyOptions(){
     sel.append(group);
   }
   sel.value=(selectedItem&&matching.some(x=>x.id===selectedId))?selectedId:'';
-  $('#pathologyQuickCount').textContent=all.length?(term?(matching.length+' coincidencias de '+all.length):(all.length+' patologías disponibles')):'Esperando catálogo del cubo';
+  $('#pathologyQuickCount').textContent=all.length?(term?(matchesCount+' coincidencias de '+all.length):(all.length+' patologías disponibles')):'Esperando catálogo del cubo';
 }
 function favoritesUI(){let sel=$('#diseaseSelect');renderPathologyOptions();let list=$('#favoriteSide');list.replaceChildren();state.favorites.forEach(id=>{let b=document.createElement('button');b.className='favorite'+(id===sel.value?' on':'');b.textContent='● '+catalogLabel('pathologies',id);b.onclick=()=>{sel.value=id;favoritesUI();queryAll();switchPage('panorama');};list.append(b);});$('#favoritesCount').textContent=state.favorites.length;renderDiseaseList();}
 async function loadCatalog(dim){let ret=await GET('/api/catalog?dim='+encodeURIComponent(dim));state.catalog[dim]=ret.members;return ret.members;}
