@@ -92,8 +92,8 @@ function render(){
  const pointPairs=[];
  for(const feature of all)for(const ring of rings(feature.geometry))for(const p of ring){if(Array.isArray(p)&&p.length>=2&&Number.isFinite(p[0])&&Number.isFinite(p[1]))pointPairs.push(p);}
  if(!pointPairs.length){$("#mapStatus").textContent="INEGI no devolvió coordenadas válidas.";return;}
- const lons=pointPairs.map(p=>p[0]*.87),lats=pointPairs.map(p=>p[1]);
- const x0=Math.min(...lons),x1=Math.max(...lons),y0=Math.min(...lats),y1=Math.max(...lats);
+ let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;
+ for(const p of pointPairs){const x=p[0]*.87,y=p[1];if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}
  const scale=Math.min(850/(x1-x0),535/(y1-y0));
  const point=p=>[(p[0]*.87-x0)*scale+25,(y1-p[1])*scale+25];
  const vals=all.map(x=>{
