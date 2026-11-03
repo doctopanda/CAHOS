@@ -37,9 +37,31 @@ foreach($pidToCheck in $owners) {
   $proc=Get-CimInstance Win32_Process -Filter "ProcessId = $pidToCheck" -ErrorAction SilentlyContinue
   $name=if($proc){[string]$proc.Name}else{'desconocido'}
   $cmd=if($proc){[string]$proc.CommandLine}else{''}
-  # Solo detenemos una instancia CAHOS CONFIRMADA, servida por Python
-  # y ejecutando servidor.py. No se detienen otros Python, PowerShell ni Windows.
-  if($confirmed -and $name -match '(?i)^pythonw?\.exe$' -and
+  # Solo detener una instancia CAHOS confirmada, dueña del puerto y ejecutando servidor.py.
+  # Windows puede nombrar el intérprete pythonw3.12.exe, python3.12.exe, etc.
+  # No se detienen otros procesos Python ni PowerShell.
+  if($confirmed -and $name -match '(?i)^pythonw?(?:\d+(?:\.\d+)*)?\.exe -and
+     $cmd -match '(?i)(?:^|[\\/"\s])(?:[^"\s]*[\\/])?servidor\.py(?:["\s]|$)') {
+    Stop-Process -Id $pidToCheck -Force -ErrorAction Stop
+    Write-Host ("[CAHOS] Instancia anterior detenida en puerto 8789 (PID $pidToCheck).") -ForegroundColor Green
+  } else {
+    Write-Host ("[CAHOS] Puerto ocupado por proceso PID $pidToCheck ($name); no se detuvo por seguridad.") -ForegroundColor Yellow
+  }
+}
+for($n=0; $n -lt 16; $n++){
+  $still=@(Get-NetTCPConnection -State Listen -LocalPort 8789 -ErrorAction SilentlyContinue |
+    Where-Object { $_.LocalAddress -in @('127.0.0.1','::1') })
+  if($still.Count -eq 0){break}
+  Start-Sleep -Milliseconds 250
+}
+$remaining=@(Get-NetTCPConnection -State Listen -LocalPort 8789 -ErrorAction SilentlyContinue |
+  Where-Object { $_.LocalAddress -in @('127.0.0.1','::1') })
+if($remaining.Count -gt 0){
+  $remainingPid=($remaining | Select-Object -First 1).OwningProcess
+  throw "El puerto 8789 sigue ocupado (PID $remainingPid). No se reiniciara CAHOS hasta verificar que proceso es."
+}
+Write-Host '[CAHOS] Puerto 8789 libre. Datos y conexión original conservados.' -ForegroundColor Green
+ -and
      $cmd -match '(?i)(?:^|[\\/"\s])(?:[^"\s]*[\\/])?servidor\.py(?:["\s]|$)') {
     Stop-Process -Id $pidToCheck -Force -ErrorAction Stop
     Write-Host ("[CAHOS] Instancia anterior detenida en puerto 8789 (PID $pidToCheck).") -ForegroundColor Green
