@@ -40,7 +40,7 @@ foreach($pidToCheck in $owners) {
   # Solo detener una instancia CAHOS confirmada, dueña del puerto y ejecutando servidor.py.
   # Windows puede nombrar el intérprete pythonw3.12.exe, python3.12.exe, etc.
   # No se detienen otros procesos Python ni PowerShell.
-  if($confirmed -and $name -match '(?i)^pythonw?(?:\d+(?:\.\d+)*)?\.exe -and
+  if($confirmed -and $name -match '(?i)^pythonw?(?:\d+(?:\.\d+)*)?\.exe$' -and
      $cmd -match '(?i)(?:^|[\\/"\s])(?:[^"\s]*[\\/])?servidor\.py(?:["\s]|$)') {
     Stop-Process -Id $pidToCheck -Force -ErrorAction Stop
     Write-Host ("[CAHOS] Instancia anterior detenida en puerto 8789 (PID $pidToCheck).") -ForegroundColor Green
