@@ -21,3 +21,8 @@ exportaciones/
 datos/
 __pycache__/
 .DS_Store
+
+# Configuracion local; contiene rutas y preferencias del equipo
+configuracion.json
+configuracion_local.json
+acceso_sinave.xml
