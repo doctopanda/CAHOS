@@ -128,9 +128,21 @@ try {
   $output = @{ ok=$true; columns=@($columns); rows=@($rows) }
   [Console]::Out.Write(($output | ConvertTo-Json -Depth 8 -Compress))
 } catch {
-  $safe = 'No se pudo completar la consulta OLAP. Verifica permisos, proveedor MSOLAP, VPN o red institucional y nombres del cubo.'
-  # No se imprimen cadenas de conexión, credenciales ni trazas detalladas.
-  [Console]::Out.Write((@{ok=$false; error=$safe; tipo='conexion_o_consulta'} | ConvertTo-Json -Compress))
+  # Diagnóstico por categoría; NUNCA mostrar el mensaje bruto del proveedor,
+  # porque puede incluir detalles de conexión y credenciales del libro.
+  $raw = [string]$_.Exception.Message
+  $code = 'CONEXION_OLAP_NO_VALIDADA'
+  $safe = 'No fue posible conectar al cubo. Verifique que Excel pueda actualizar el libro original en este equipo.'
+  if ($raw -match 'ARCHIVO_EXCEL_NO_DISPONIBLE|LIBRO_SIN_|CONEXION_INCOMPLETA|LA_CONEXION_NO_ES_MSOLAP') {
+    $code = 'ORIGEN_EXCEL'; $safe = 'No se pudo usar la conexión del Excel seleccionado. Compruebe que es el libro de cubos SINAVE.'
+  } elseif ($raw -match '(?i)provider cannot be found|proveedor.*no se encuentra|class not registered|clase no registrada|REGDB_E_CLASSNOTREG|MSOLAP.*not registered') {
+    $code = 'PROVEEDOR_MSOLAP'; $safe = 'El proveedor MSOLAP del libro no está disponible en esta arquitectura de Windows. Revise la versión con TI.'
+  } elseif ($raw -match '(?i)login failed|authentication|credenciales|logon failure|access denied|acceso denegado|unauthorized|usuario.*contrase') {
+    $code = 'ACCESO_ORIGINAL'; $safe = 'La conexión del libro no pudo autenticarse. Pruebe actualizar ese mismo libro directamente en Excel.'
+  } elseif ($raw -match '(?i)timeout|timed out|tiempo de espera|network|red.*no disponible|host.*not found|servidor.*no encontrado|could not connect') {
+    $code = 'RED_O_VPN'; $safe = 'No se localizó o respondió el servidor del cubo. Verifique la conectividad del equipo.'
+  }
+  [Console]::Out.Write((@{ok=$false; error=$safe; tipo=$code} | ConvertTo-Json -Compress))
   exit 1
 } finally {
   if ($null -ne $recordset) { try { $recordset.Close() } catch {} }
