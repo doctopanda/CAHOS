@@ -6,6 +6,27 @@ echo ===================================================
 echo CAHOS - Diagnostico de lectura SINAVE
 echo ===================================================
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0comprobar_entorno.ps1"
+set "CHECK_CODE=%ERRORLEVEL%"
+if "%CHECK_CODE%"=="7" goto ELEGIR_EXCEL
+if "%CHECK_CODE%"=="8" goto ELEGIR_EXCEL
+if not "%CHECK_CODE%"=="0" goto ERROR_ENTORNO
+goto CONTINUAR
+
+:ELEGIR_EXCEL
+echo.
+echo [CAHOS] No esta seleccionada la conexion original. Abriremos el selector de Excel.
+call "%~dp0SELECCIONAR_EXCEL.bat"
+if errorlevel 1 goto ERROR_ENTORNO
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0comprobar_entorno.ps1"
+if errorlevel 1 goto ERROR_ENTORNO
+goto CONTINUAR
+
+:ERROR_ENTORNO
+echo [CAHOS] No podemos probar el cubo hasta configurar el libro original.
+pause
+exit /b 4
+
+:CONTINUAR
 echo.
 set "PYTHON_EXE="
 where python >nul 2>&1
