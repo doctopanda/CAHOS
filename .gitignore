@@ -26,3 +26,8 @@ __pycache__/
 configuracion.json
 configuracion_local.json
 acceso_sinave.xml
+
+# Agente cloud: nunca subir identidades, tokens ni estado privado
+cloud_agent_token.txt
+cloud_agent_status.json
+cloud_agent_token.*
