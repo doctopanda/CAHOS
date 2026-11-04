@@ -281,7 +281,7 @@ async function loadCases(){
     await new Promise(resolve=>setTimeout(resolve,5000));
     const progress=await api("/api/jobs/"+encodeURIComponent(jobId));
     if(progress.status==="ready"){result=progress.result;completed=true;break}
-    if(["failed","awaiting_review","result_unavailable"].includes(progress.status)){
+    if(["failed","awaiting_review","result_unavailable","no_data"].includes(progress.status)){
      result=progress;completed=true;break;
     }
     if(!["queued","running"].includes(progress.status)){result=progress;completed=true;break}
@@ -297,6 +297,12 @@ async function loadCases(){
    state.caseQuality=result.validacion||"revisión interna";
    inform(check.municipalities+" municipios conciliados. Total estatal "+fmt(check.total)+" casos. "+
     (state.provisional?"VISTA PRELIMINAR RESTRINGIDA A ADMINISTRADOR MAESTRO.":"Consulta habilitada para tu rol."),"ok");
+  }else if(result?.status==="no_data"){
+   const selected=label("pathologies",pathology);
+   const alternative=selected==="Conjuntivitis(B30, H10.0)"?
+     " En el catálogo existe Conjuntivitis(H10), un miembro distinto que puedes elegir explícitamente.":"";
+   inform("SIN FILAS EN SINAVE: el miembro seleccionado no devolvió registros. No implica cero casos ni una tasa nula."+
+    alternative,"");
   }else if(result?.status==="failed"){
    const extra=result.retry_after?(" Próximo intento permitido: "+
     new Date(result.retry_after).toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"})+"."):"";
