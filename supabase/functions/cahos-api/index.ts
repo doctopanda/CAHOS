@@ -115,6 +115,18 @@ async function requestQuery(body,user,req){
  }
  const active=await db("GET","cahos_jobs?select=id,state&query_hash=eq."+hash+"&state=in.(queued,running)&limit=1");
  if(active.length)return send(req,{status:active[0].state,job_id:active[0].id},202);
+ // Protect the institutional OLAP connection from browser polling after a failed job.
+ const failures=await db("GET","cahos_jobs?select=id,error_code,finished_at&query_hash=eq."+hash+
+   "&state=eq.failed&order=finished_at.desc&limit=1");
+ if(failures.length){
+   const failedAt=Date.parse(failures[0].finished_at||"");
+   const retryAt=failedAt+15*60*1000;
+   if(Number.isFinite(retryAt)&&Date.now()<retryAt)
+    return send(req,{status:"failed",job_id:failures[0].id,
+      error_code:failures[0].error_code||"extractor_error",
+      failed_at:failures[0].finished_at,retry_after:new Date(retryAt).toISOString(),
+      message:"El cubo no completó la última consulta. Se suspendieron las repeticiones durante 15 minutos."});
+ }
  let inserted;
  try{inserted=await db("POST","cahos_jobs",[{query_hash:hash,query_kind:params.kind,entity_code:"26",request_params:params,requester_id:user.userId}]);}
  catch(_e){
@@ -306,10 +318,18 @@ async function handler(req){
   const j=(await db("GET","cahos_jobs?select=id,state,requester_id,result_snapshot_id,error_code&limit=1&id=eq."+jobId))[0];
   if(!j||!(j.requester_id===user.userId||user.role==="admin"))return send(req,{error:"job_not_found"},404);
   if(j.state==="done"&&j.result_snapshot_id){
-   const a=await db("GET","cahos_snapshots?select=*&id=eq."+j.result_snapshot_id+"&publication_status=eq.approved&limit=1");
-   if(a.length)return send(req,{status:"ready",result:asCube(a[0])});
-   return send(req,{status:"awaiting_review",message:"Se completó la extracción; requiere validación de datos."});
+   const a=await db("GET","cahos_snapshots?select=*&id=eq."+j.result_snapshot_id+"&limit=1");
+   if(!a.length)return send(req,{status:"result_unavailable",message:"La extracción terminó pero no tiene snapshot."});
+   if(a[0].publication_status==="approved")return send(req,{status:"ready",result:asCube(a[0])});
+   if(user.isMaster===true)return send(req,{status:"ready",result:{
+     ...asCube(a[0]),provisional:true,publication_status:"pending",
+     warning:"VISTA PRELIMINAR PRIVADA. No constituye un corte epidemiológico oficial."}});
+   return send(req,{status:"awaiting_review",
+     message:"La extracción municipal continúa restringida por controles de privacidad."});
   }
+  if(j.state==="failed")return send(req,{status:"failed",
+    error_code:j.error_code||"extractor_error",
+    message:"El extractor local no completó esta consulta. No se volverá a ejecutar automáticamente."});
   return send(req,{status:j.state,error_code:j.error_code||null});
  }
  if(path==="/api/favorites"&&req.method==="POST"){
