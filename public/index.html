@@ -67,10 +67,40 @@
 <section id="view-source" class="view hide"><div class="panel"><h2>Origen, actualización y trazabilidad</h2><div id="sourceInfo" class="method">Cargando estado del servicio...</div><p class="method"><b>Extractor automático v0.4 para Windows:</b> el código y la guía de instalación están en <a href="https://github.com/doctopanda/CAHOS/tree/main/extractor" target="_blank" rel="noopener noreferrer">CAHOS / extractor</a>. Primero valida la conexión con PROBAR_CONEXION.bat en una computadora institucional. GitHub Pages permanece sin datos reales hasta disponer de una API HTTPS autenticada.</p><h3>Seguridad operativa</h3><p class="method">GitHub Pages no ejecuta el servidor OLAP. El visor requiere una API institucional HTTPS, con autenticación, controles de acceso y autorización de origen. Las consultas se generan a partir de dimensiones y miembros verificados por el catálogo OLAP. El conector PowerShell únicamente ejecuta consultas de lectura SELECT. El extractor local puede reutilizar una conexión OLAP guardada en un Excel seleccionado por el usuario; esta nunca se envía a GitHub Pages. Requiere conexión vigente y proveedor MSOLAP en Windows.</p><h3>Fuentes territoriales y denominadores</h3><p class="method">Cartografía municipal: INEGI Marco Geoestadístico, 72 municipios. Denominadores por edad, sexo y año: proyecciones COESPO/CONAPO 2015–2030, importadas localmente con IMPORTAR_POBLACION.bat. Tasas solo con estratos compatibles y fuente identificada.</p><h3>SEED y LESP: integración pendiente de validación</h3><p class="method">SEED 2026: tablas dinámicas de mortalidad, sin causa básica CIE-10 identificada en el archivo proporcionado. No se asignan defunciones a padecimientos SUIVE. LESP: informe con nombres y folios; no se publica ni se carga a la página pública de GitHub, requiere un proceso protegido de agregación, conciliación y eliminación de identificadores.</p><h3>Advertencias epidemiológicas</h3><p class="method">Las cifras representan notificaciones del sistema según la medida Casos; no equivalen necesariamente a individuos únicos. No se suman tasas ni denominadores repetidos. Un año parcial no es comparable con uno completo a menos que se limite el mismo periodo. El momento de descarga no sustituye el corte oficial de publicación.</p></div></section>
 <footer>CAHOS · Módulo SUIVE · Interfaz GitHub Pages · Datos exclusivamente desde un servicio institucional autorizado · <a href="./conexion.html">Estado del backend Supabase</a> · <a href="./acceso.html">Acceso seguro / Agente</a></footer>
 </main></div>
-<script src="./configuracion-publica.js"></script><script src="./cahos-auth.js"></script>
+<script src="./configuracion-publica.js"></script><script src="./cahos-auth.js"></script><script src="./cahos-state.js"></script>
 <script>
 const $=s=>document.querySelector(s);const num=x=>Number(x||0).toLocaleString('es-MX',{maximumFractionDigits:1});const COLORS=['#178d79','#7766a5','#c1944e','#bf6862','#2d6f96','#86a445','#b17aaf','#515d78','#56a8a2'];
 const state={catalog:{},favorites:[],status:null,data:{},path:'panorama',running:false,canReview:false,awaitingReview:false,populationByYear:new Map()};
+const remembered=window.CAHOSSelection?.read()||{};
+function rememberFilters(){const g=id=>$(id)?.value||'';
+ window.CAHOSSelection?.update({pathology:g('#diseaseSelect'),year:g('#yearSelect'),
+  entity:g('#entitySelect'),municipality:g('#municipalitySelect'),sex:g('#sexSelect'),age:g('#ageSelect'),
+  week_start:Number(g('#weekStart')||1),week_end:Number(g('#weekEnd')||53),
+  pathology_search:g('#pathologyQuickSearch'),municipality_search:g('#municipalitySearch'),panel:state.path});
+}
+function restoreFilters(){
+ const select=(id,val)=>{const e=$(id);if(!e||!val)return false;
+  if(![...e.options].some(o=>o.value===val))return false;e.value=val;return true};
+ select('#yearSelect',remembered.year);select('#entitySelect',remembered.entity);
+ select('#sexSelect',remembered.sex);select('#ageSelect',remembered.age);
+ const w1=Number(remembered.week_start),w2=Number(remembered.week_end);
+ if(Number.isInteger(w1)&&w1>=1&&w1<=53)$('#weekStart').value=w1;
+ if(Number.isInteger(w2)&&w2>=1&&w2<=53)$('#weekEnd').value=w2;
+ $('#municipalitySearch').value=remembered.municipality_search||'';
+ filterMunicipalities();select('#municipalitySelect',remembered.municipality);
+ $('#pathologyQuickSearch').value=remembered.pathology_search||'';
+ renderPathologyOptions();
+ if(remembered.pathology){
+  if(![...$('#diseaseSelect').options].some(o=>o.value===remembered.pathology)){
+   const p=state.catalog.pathologies.find(x=>x.id===remembered.pathology);
+   if(p)$('#diseaseSelect').append(new Option(p.nombre,p.id));
+  }
+  select('#diseaseSelect',remembered.pathology);
+ }
+ const page=remembered.panel||'panorama';
+ if(['panorama','mapa','endemic','demography','program','source'].includes(page))switchPage(page);
+}
+
 function setNotice(text,type='warn'){$('#globalNotice').className='notice '+(type==='err'?'err':type==='ok'?'':'warn');$('#globalNotice').textContent=text;}
 
 async function loadPopulationSummary(year){
@@ -202,14 +232,14 @@ $('#intervalLabel').textContent=`Intervalo: cada ${state.status.intervalo_minuto
      catch(error){$('#programFeedback').textContent='Preselección provisional: guarda en Programación para conservarla. '+error.message;}
    }
  }
- favoritesUI();setNotice('Catálogo conectado. Elige una patología y consulta los datos. Los cortes y valores se obtienen del servidor, no del Excel.','ok');
+ favoritesUI();restoreFilters();setNotice('Catálogo conectado. Recuperamos tus filtros de la consulta anterior.','ok');
  await loadPopulationSummary(yearNumber($('#yearSelect').value));
  if(state.favorites.length&&!seededNow)await queryAll();}
 catch(e){$('#connectionStatus').textContent='● No se pudo acceder al cubo';$('#connectionStatus').className='pill bad';setNotice('No hay consulta real disponible: '+e.message+' La aplicación no presenta números inventados.','err');}}
 function renderDiseaseList(){let term=$('#diseaseSearch').value.trim().toLowerCase(),list=$('#pathologyList');list.replaceChildren();let items=(state.catalog.pathologies||[]).filter(x=>x.nombre.toLowerCase().includes(term)).slice(0,150);for(let x of items){let row=document.createElement('div');row.className='disease';let span=document.createElement('span');span.textContent=x.nombre;let btn=document.createElement('button');let selected=state.favorites.includes(x.id);btn.textContent=selected?'✓':'+';btn.className=selected?'on':'';btn.setAttribute('aria-label',selected?'Quitar de favoritas':'Agregar a favoritas');btn.onclick=()=>{if(selected)state.favorites=state.favorites.filter(y=>y!==x.id);else if(state.favorites.length<25)state.favorites.push(x.id);else{alert('Máximo 25 patologías programadas');return;}favoritesUI();};row.append(span,btn);list.append(row);}if(!items.length)list.textContent=state.catalog.pathologies?.length?'Sin coincidencias':'Sin catálogo cargado';}
-function switchPage(page){state.path=page;document.querySelectorAll('.view').forEach(x=>x.classList.toggle('hide',x.id!=='view-'+page));document.querySelectorAll('[data-p]').forEach(x=>x.classList.toggle('on',x.dataset.p===page));}
+function switchPage(page){state.path=page;rememberFilters();document.querySelectorAll('.view').forEach(x=>x.classList.toggle('hide',x.id!=='view-'+page));document.querySelectorAll('[data-p]').forEach(x=>x.classList.toggle('on',x.dataset.p===page));}
 function validFilters(){let w1=Number($('#weekStart').value),w2=Number($('#weekEnd').value);if(!Number.isInteger(w1)||!Number.isInteger(w2)||w1<1||w2>53||w1>w2)throw Error('Selecciona semanas entre 1 y 53 y verifica que la inicial sea menor o igual a la final.');let pathology=$('#diseaseSelect').value,year=$('#yearSelect').value;if(!pathology||!year)throw Error('Selecciona una patología del catálogo y un año.');let years=yearIds().filter(id=>yearNumber(id)<=yearNumber(year)).slice(0,7);if(!years.includes(year))years.unshift(year);return {pathology,year,years,entity:$('#entitySelect').value,municipality:$('#municipalitySelect').value,sex:$('#sexSelect').value,age:$('#ageSelect').value,week_start:w1,week_end:w2};}
-let autoQueryRetries=0;async function queryAll(){if(state.running)return;try{let f=validFilters();busy(true);setNotice('Consultando el cubo mediante MDX. Las cifras se calculan desde la extracción de solo lectura.');const [weekly,annual,sex,age]=await Promise.all([
+let autoQueryRetries=0;async function queryAll(){if(state.running)return;try{let f=validFilters();rememberFilters();busy(true);setNotice('Consultando el cubo mediante MDX. Las cifras se calculan desde la extracción de solo lectura.');const [weekly,annual,sex,age]=await Promise.all([
 POST('/api/query',{kind:'weekly',pathology:f.pathology,years:f.years,entity:f.entity,municipality:f.municipality,sex:f.sex,age:f.age,week_start:f.week_start,week_end:f.week_end}),
 POST('/api/query',{kind:'annual',pathology:f.pathology,years:f.years,entity:f.entity,municipality:f.municipality,sex:f.sex,age:f.age}),
 POST('/api/query',{kind:'sex',pathology:f.pathology,years:[f.year],entity:f.entity,municipality:f.municipality,age:f.age}),
@@ -284,6 +314,11 @@ function drawEndemic(matrix,year,f){
  drawLines('#endemicChart',series,weeks);
 }
 window.addEventListener('focus',()=>{if(state.awaitingReview&&!state.running)queryAll();});
+document.querySelectorAll('#filters input,#filters select').forEach(e=>{
+ e.addEventListener('change',rememberFilters);
+ if(e.tagName==='INPUT')e.addEventListener('input',rememberFilters);
+});
+window.addEventListener('pagehide',rememberFilters);
 $('#yearSelect').addEventListener('change',()=>loadPopulationSummary(yearNumber($('#yearSelect').value)));
 $('#nav').addEventListener('click',e=>{let b=e.target.closest('[data-p]');if(b)switchPage(b.dataset.p);});$('#analyze').onclick=queryAll;$('#diseaseSelect').onchange=()=>{favoritesUI();queryAll();};$('#diseaseSearch').oninput=renderDiseaseList;$('#pathologyQuickSearch').oninput=renderPathologyOptions;$('#municipalitySearch').oninput=filterMunicipalities;$('#saveFavorites').onclick=async()=>{try{await POST('/api/favorites',{favoritos:state.favorites});$('#programFeedback').textContent='Programación guardada. La sincronización automática ha sido iniciada.';setNotice('Configuración guardada. El cubo recibirá consultas automáticas de tus patologías favoritas.','ok');favoritesUI();}catch(e){$('#programFeedback').textContent=e.message;}};$('#exportData').onclick=()=>{let d=state.data;if(!d.weekly){alert('Consulta una patología primero');return;}let heads=['tipo','years','weeks','sex','age','cases','extraido_en','estado_validacion'];let output=['\uFEFF'+heads.join(',')];for(let kind of ['weekly','annual','sex','age'])for(let row of d[kind].rows){let x={...row,tipo:kind,extraido_en:d[kind].extraido_en,estado_validacion:d[kind].provisional?'PRELIMINAR_SIN_VALIDAR':(d[kind].validacion||'REVISION_TECNICA')};output.push(heads.map(h=>{let t=String(x[h]??'');if(/^[=+@-]/.test(t))t="'"+t;return '"'+t.replace(/"/g,'""')+'"'}).join(','));}let blob=new Blob([output.join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=d.weekly?.provisional?'CAHOS_PRELIMINAR_SIN_VALIDAR.csv':'CAHOS_CONSISTENCIA_TECNICA.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);};$('#forceRefresh').onclick=async()=>{try{await POST('/api/refresh',{favoritos:true});$('#programFeedback').textContent='Se solicitó actualización automática; consulta el estado más tarde o abre una patología.';}catch(e){$('#programFeedback').textContent=e.message;}};
 async function initialize(){
