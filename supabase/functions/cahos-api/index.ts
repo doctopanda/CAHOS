@@ -40,10 +40,10 @@ async function auth(req){
  if(!response.ok)return null;
  const user=await response.json();
  if(!uuid(user?.id))return null;
- const found=await db("GET","cahos_members?select=role,enabled,entity_code&user_id=eq."+user.id+"&limit=1");
+ const found=await db("GET","cahos_members?select=role,is_master,enabled,entity_code&user_id=eq."+user.id+"&limit=1");
  const member=found[0];
  if(!member?.enabled)return {userId:user.id,role:"disabled",entity:""};
- return {userId:user.id,role:member.role,entity:member.entity_code};
+ return {userId:user.id,role:member.role,isMaster:member.is_master===true,entity:member.entity_code};
 }
 async function identity(req){
  const authHeader=req.headers.get("authorization")||"";
@@ -103,8 +103,14 @@ async function requestQuery(body,user,req){
  const hash=await sha256(JSON.stringify(params));
  const snapshot=await getPublished(hash,user);
  if(snapshot)return send(req,asCube(snapshot));
- const pending=await db("GET","cahos_snapshots?select=id&query_hash=eq."+hash+"&publication_status=eq.pending&limit=1");
- if(pending.length)return send(req,{status:"awaiting_review",message:"Resultado extraído, pendiente de validación epidemiológica."},202);
+ const pending=await db("GET","cahos_snapshots?select=id,query_hash,query_kind,result_rows,extracted_at,source_system,coverage,publication_status&query_hash=eq."+hash+"&publication_status=eq.pending&limit=1");
+ if(pending.length){
+  if(user.isMaster===true){
+   return send(req,{...asCube(pending[0]),provisional:true,publication_status:"pending",
+     warning:"VISTA PRELIMINAR PARA ADMINISTRADOR MAESTRO. Datos SIN validar ni autorizados para publicación."});
+  }
+  return send(req,{status:"awaiting_review",message:"Resultado extraído, pendiente de validación epidemiológica."},202);
+ }
  const active=await db("GET","cahos_jobs?select=id,state&query_hash=eq."+hash+"&state=in.(queued,running)&limit=1");
  if(active.length)return send(req,{status:active[0].state,job_id:active[0].id},202);
  let inserted;
