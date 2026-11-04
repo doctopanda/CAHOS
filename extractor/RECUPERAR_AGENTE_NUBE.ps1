@@ -22,6 +22,26 @@ Write-Host ('[ANTES] Detener con bateria: '+[string]$task.Settings.StopIfGoingOn
 Write-Host ('[ANTES] Requiere red: '+[string]$task.Settings.RunOnlyIfNetworkAvailable)
 Write-Host ('[ANTES] Requiere inactividad: '+[string]$task.Settings.RunOnlyIfIdle)
 Write-Host ('[ANTES] Reinicios: '+[string]$task.Settings.RestartCount)
+
+# Last Task Scheduler events may identify power/idle/network stops.
+try {
+ $events=@(Get-WinEvent -FilterHashtable @{
+   LogName='Microsoft-Windows-TaskScheduler/Operational'
+   StartTime=(Get-Date).AddHours(-4)
+ } -MaxEvents 250 -ErrorAction Stop | Where-Object {
+   [string]$_.Message -like '*CAHOS-CLOUD-AGENT*'
+ } | Select-Object -First 6)
+ if($events.Count -gt 0){
+  foreach($event in $events){
+   $summary=([string]$event.Message -replace '[\r\n]+',' ')
+   if($summary.Length -gt 260){$summary=$summary.Substring(0,260)}
+   Write-Host ('[HISTORIAL] '+$event.TimeCreated+' ID '+$event.Id+': '+$summary)
+  }
+ }else{Write-Host '[HISTORIAL] Sin eventos recientes asociados al agente.'}
+}catch{
+ Write-Host '[HISTORIAL] No disponible. Puede habilitarse desde Programador de tareas.' -ForegroundColor Yellow
+}
+
 if(-not(Test-Path -LiteralPath $source -PathType Leaf)){throw 'Falta agente_nube.py en esta descarga.'}
 if(-not(Test-Path -LiteralPath $installed -PathType Leaf)){throw 'No se encontro el agente instalado.'}
 if(-not(Test-Path -LiteralPath $token -PathType Leaf)){throw 'No se encontro vinculacion local. El token no se modificara.'}
