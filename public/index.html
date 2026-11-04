@@ -116,6 +116,8 @@ function reviewGate(statuses=[]){
 }
 function clearPreliminary(){
  state.data={};$('#exportData').disabled=true;
+ $('#populationRate').textContent='—';
+ $('#populationRateSub').textContent='Se requiere numerador compatible con la selección actual';
  for(const id of ['kCases','kAnnual','kChange','kSync'])$('#'+id).textContent='—';
  for(const id of ['weeklyChart','yearChart','annualChart','endemicChart','sexChart','ageChart']){
   const div=document.createElement('div');div.className='placeholder';
