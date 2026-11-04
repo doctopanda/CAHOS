@@ -12,7 +12,12 @@ import urllib.request
 from datetime import datetime, timezone
 
 APP = Path(__file__).resolve().parent
-PRIVATE = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "CAHOS"
+# The scheduled-task environment may not provide LOCALAPPDATA consistently.
+# The installer always places this agent in <LocalAppData>/CAHOS/cloud.
+# Derive the private state directory from the installed script location.
+PRIVATE = APP.parent if APP.name.lower() == "cloud" else (
+    Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "CAHOS"
+)
 PRIVATE.mkdir(parents=True, exist_ok=True)
 TOKEN_FILE = PRIVATE / "cloud_agent_token.txt"
 STATE_FILE = PRIVATE / "cloud_agent_status.json"
