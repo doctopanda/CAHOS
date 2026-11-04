@@ -16,6 +16,7 @@ jobs:
       - name: Compilar Python del agente sin conectarse al cubo
         run: |
           python -m compileall -q extractor
+          python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Validar JavaScript del backend sin secrets
         run: |
           node --check < supabase/functions/cahos-api/index.ts
