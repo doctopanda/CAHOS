@@ -270,13 +270,25 @@ async function loadCases(){
   drawMap();
   const body={kind:"municipality",pathology,years:[year],entity:state.member.entity,
    sex:$("sex").value||"",age:$("age").value||""};
-  let result=null;
-  for(let attempt=0;attempt<10;attempt++){
-   result=await api("/api/query","POST",body);
-   if(result?.rows||result?.status==="awaiting_review"||result?.status==="failed")break;
-   if(!["queued","running"].includes(result?.status))break;
-   inform("Extracción municipal en curso. Intento de consulta "+(attempt+1)+"/10; el agente trabaja en Supabase.");
-   await new Promise(resolve=>setTimeout(resolve,6000));
+  // Create or discover exactly one job. Polling GET never resubmits an OLAP query.
+  let result=await api("/api/query","POST",body);
+  if(["queued","running"].includes(result?.status)&&result?.job_id){
+   const jobId=String(result.job_id);
+   let completed=false;
+   for(let attempt=0;attempt<30;attempt++){
+    inform("Consulta municipal "+(result.status==="queued"?"en cola":"en proceso")+
+     " · trabajo "+(attempt+1)+"/30. No se generan extracciones duplicadas.");
+    await new Promise(resolve=>setTimeout(resolve,5000));
+    const progress=await api("/api/jobs/"+encodeURIComponent(jobId));
+    if(progress.status==="ready"){result=progress.result;completed=true;break}
+    if(["failed","awaiting_review","result_unavailable"].includes(progress.status)){
+     result=progress;completed=true;break;
+    }
+    if(!["queued","running"].includes(progress.status)){result=progress;completed=true;break}
+    result={...progress,job_id:jobId};
+   }
+   if(!completed&&["queued","running"].includes(result?.status))
+    inform("El agente sigue procesando el trabajo. No se repetirá la extracción; regresa más tarde.","");
   }
   if(Array.isArray(result?.rows)){
    const check=matchMunicipios(result.rows);
@@ -285,8 +297,14 @@ async function loadCases(){
    state.caseQuality=result.validacion||"revisión interna";
    inform(check.municipalities+" municipios conciliados. Total estatal "+fmt(check.total)+" casos. "+
     (state.provisional?"VISTA PRELIMINAR RESTRINGIDA A ADMINISTRADOR MAESTRO.":"Consulta habilitada para tu rol."),"ok");
+  }else if(result?.status==="failed"){
+   const extra=result.retry_after?(" Próximo intento permitido: "+
+    new Date(result.retry_after).toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"})+"."):"";
+   inform("Consulta detenida: el agente informó "+(result.error_code||"extractor_error")+
+    ". No se repetirá automáticamente."+extra+
+    " Prueba una patología cuya extracción municipal ya terminó previamente.","error");
   }else if(result?.status==="awaiting_review"){
-   inform("La extracción contiene datos municipales, pero permanece restringida por privacidad. El mapa puede mostrar la capa de población; los casos municipales requieren acceso maestro.");
+   inform("El desglose municipal permanece restringido por privacidad. La capa poblacional sigue disponible.");
   }else if(["queued","running"].includes(result?.status)){
    inform("La extracción continúa en la cola. Vuelve a pulsar Consultar territorio dentro de unos momentos.");
   }else{
@@ -334,7 +352,8 @@ async function initialize(){
   else if(state.features.length){state.selected=null;blank($("pyramid"),"Selecciona un municipio");blank($("trend"),"Selecciona un municipio")}
   inform("Cartografía y población disponibles. "+(profile.is_master?
    "La cuenta maestra puede consultar desgloses municipales preliminares.":"Los datos municipales retenidos no se publican a perfiles sin autorización."),"ok");
-  if($("pathology").value)await loadCases();
+  if($("pathology").value)
+   inform("Patología y filtros recuperados. Pulsa Consultar territorio para una consulta controlada. Abrir el mapa ya no crea trabajos automáticamente.","ok");
  }catch(e){inform("No se pudo iniciar MAPA CAHOS: "+e.message,"error");drawMap()}
 }
 $("search").addEventListener("input",searchPathology);
