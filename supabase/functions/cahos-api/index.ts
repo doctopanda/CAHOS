@@ -25,8 +25,7 @@ function adminHeaders(extra={}){
  return h;
 }
 async function db(method,route,body=null,prefer="return=representation"){
- const opts={method,headers:adminHeaders({"prefer":prefer})};
- if(body!==null)opts.body=JSON.stringify(body);
+ const opts=body===null?{method,headers:adminHeaders({"prefer":prefer})}:{method,headers:adminHeaders({"prefer":prefer}),body:JSON.stringify(body)};
  const r=await fetch(BASE+"/rest/v1/"+route,opts);
  if(!r.ok)throw new Error("db_"+r.status);
  if(r.status===204)return [];
@@ -255,6 +254,23 @@ async function handler(req){
     {enabled:false,revoked_at:dateISO()});
   if(changed.length!==1)return send(req,{error:"agent_not_found"},404);
   return send(req,{ok:true});
+ }
+ if(path.startsWith("/admin/snapshot/")&&req.method==="GET"){
+  if(user.role!=="admin")return send(req,{error:"admin_only"},403);
+  const snapId=path.split("/").pop();
+  if(!uuid(snapId))return send(req,{error:"invalid_snapshot"},400);
+  const rows=await db("GET","cahos_snapshots?select=id,query_kind,filter_params,result_rows,coverage,extracted_at,publication_status&limit=1&id=eq."+snapId);
+  if(!rows.length)return send(req,{error:"snapshot_not_found"},404);
+  const snapshot=rows[0],entries=snapshot.result_rows;
+  const total=entries.filter(x=>x.cases!==null&&Number.isFinite(x.cases)).reduce((a,x)=>a+x.cases,0);
+  return send(req,{id:snapId,query_kind:snapshot.query_kind,filter_params:snapshot.filter_params,
+    coverage:snapshot.coverage,extracted_at:snapshot.extracted_at,publication_status:snapshot.publication_status,
+    rows_count:entries.length,sum_cases:total,preview:entries.slice(0,20)});
+ }
+ if(path==="/admin/agents"&&req.method==="GET"){
+  if(user.role!=="admin")return send(req,{error:"admin_only"},403);
+  const agents=await db("GET","cahos_agents?select=id,label,enabled,created_at,last_seen_at,revoked_at&order=created_at.desc&limit=20");
+  return send(req,{agents});
  }
  if(path==="/admin/pending"&&req.method==="GET"){
   if(user.role!=="admin")return send(req,{error:"admin_only"},403);
