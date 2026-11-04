@@ -3,7 +3,7 @@
 (()=>{
  "use strict";
  const KEY="CAHOS_SHARED_FILTERS_V1";
- const FIELDS=["pathology","year","entity","municipality","sex","age","week_start","week_end","pathology_search","municipality_search","panel"];
+ const FIELDS=["pathology","year","entity","municipality","sex","age","week_start","week_end","pathology_search","municipality_search","panel","pop_year","pop_municipality"];
  const cleanText=(v,max=250)=>typeof v==="string"?v.slice(0,max):"";
  const read=()=>{
   try{
