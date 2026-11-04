@@ -46,6 +46,18 @@ async function auth(req){
  if(!member?.enabled)return {userId:user.id,role:"disabled",entity:""};
  return {userId:user.id,role:member.role,entity:member.entity_code};
 }
+async function identity(req){
+ const authHeader=req.headers.get("authorization")||"";
+ const token=authHeader.startsWith("Bearer ")?authHeader.slice(7).trim():"";
+ if(/^[a-f0-9]{64}$/i.test(token)){
+  const hash=await sha256(token);
+  const agents=await db("GET","cahos_agents?select=id,enabled,revoked_at&token_hash=eq."+hash+"&limit=1");
+  const agent=agents[0];
+  if(!agent?.enabled||agent.revoked_at)return null;
+  return {userId:null,agentId:agent.id,role:"agent",entity:"26"};
+ }
+ return await auth(req);
+}
 function allowed(user){return user&&user.role!=="disabled"}
 function checkUser(user,role){return allowed(user)&&(role==="any"||user.role===role||(role==="analyst"&&user.role==="admin"))}
 const eq=(v)=>encodeURIComponent(v);
@@ -113,7 +125,7 @@ async function claimJob(user,req){
  if(!rows.length)return send(req,{job:null});
  const j=rows[0],lease=new Date(Date.now()+6*60*1000).toISOString();
  const patchRoute="cahos_jobs?id=eq."+j.id+"&state=eq."+(isExpired?"running":"queued")+(isExpired?"&lease_until=lt."+eq(now):"");
- const updated=await db("PATCH",patchRoute,{state:"running",started_at:now,lease_until:lease,worker_id:user.userId,attempts:j.attempts+1});
+ const updated=await db("PATCH",patchRoute,{state:"running",started_at:now,lease_until:lease,agent_id:user.agentId,attempts:j.attempts+1});
  if(updated.length!==1)return send(req,{job:null});
  return send(req,{job:{id:j.id,params:j.request_params,attempts:j.attempts+1}});
 }
@@ -140,7 +152,7 @@ function cleanRows(rows){
 }
 async function commitResult(user,data,req){
  if(!uuid(data.job_id))return send(req,{error:"invalid_job_id"},400);
- const found=await db("GET","cahos_jobs?select=*&id=eq."+data.job_id+"&worker_id=eq."+user.userId+"&state=eq.running&limit=1");
+ const found=await db("GET","cahos_jobs?select=*&id=eq."+data.job_id+"&agent_id=eq."+user.agentId+"&state=eq.running&limit=1");
  const job=found[0];if(!job)return send(req,{error:"job_not_assigned"},409);
  if(data.error){
   const errorCode=String(data.error).replace(/[^a-z0-9_-]/gi,"").slice(0,60)||"extractor_error";
@@ -153,8 +165,8 @@ async function commitResult(user,data,req){
  const coverage={status:"unverified",corte_oficial:result.corte_oficial??null};
  const saved=await db("POST","cahos_snapshots?on_conflict=query_hash",[{query_hash:job.query_hash,query_kind:job.query_kind,pathology_id:job.request_params.pathology,entity_code:job.entity_code,filter_params:job.request_params,result_rows:rows,coverage,source_system:"SINAVE_OLAP",extracted_at:dateISO(),publication_status:"pending",approved_by:null,approved_at:null}],"resolution=merge-duplicates,return=representation");
  const snapshot=saved[0];
- await db("PATCH","cahos_jobs?id=eq."+job.id+"&worker_id=eq."+user.userId+"&state=eq.running",{state:"done",result_snapshot_id:snapshot.id,finished_at:dateISO(),lease_until:null});
- await db("POST","cahos_sync_state?on_conflict=worker_name",[{worker_name:"ca-agent-"+user.userId.slice(0,8),status:"idle",last_success_at:dateISO(),last_attempt_at:dateISO(),updated_at:dateISO()}],"resolution=merge-duplicates,return=representation");
+ await db("PATCH","cahos_jobs?id=eq."+job.id+"&agent_id=eq."+user.agentId+"&state=eq.running",{state:"done",result_snapshot_id:snapshot.id,finished_at:dateISO(),lease_until:null});
+ await db("POST","cahos_sync_state?on_conflict=worker_name",[{worker_name:"ca-agent-"+user.agentId.slice(0,8),status:"idle",last_success_at:dateISO(),last_attempt_at:dateISO(),updated_at:dateISO()}],"resolution=merge-duplicates,return=representation");
  return send(req,{ok:true,state:"awaiting_review",snapshot_id:snapshot.id});
 }
 async function catalogSync(user,data,req){
@@ -174,14 +186,14 @@ async function handler(req){
  const url=new URL(req.url),s=url.pathname;
  const i=s.indexOf("/cahos-api");
  const path=i>=0?(s.slice(i+10)||"/"):s;
- if(path==="/health"&&req.method==="GET")return send(req,{ok:true,service:"CAHOS cloud API",version:"0.2",phase:"agent_registration_pending",worker:"not_connected",epidemiological_data_available:false});
+ if(path==="/health"&&req.method==="GET")return send(req,{ok:true,service:"CAHOS cloud API",version:"0.3",phase:"agent_registration_ready",worker:"not_connected",epidemiological_data_available:false});
  if(!BASE||!PUBLIC_KEY||!SERVICE_KEY)return send(req,{error:"backend_configuration_pending"},503);
- const user=await auth(req);
+ const user=await identity(req);
  if(!allowed(user))return send(req,{error:user?"access_not_approved":"authentication_required"},user?403:401);
  if(path==="/api/status"&&req.method==="GET"){
   if(user.role==="agent")return send(req,{error:"not_a_viewer"},403);
   const [state,fav]=await Promise.all([db("GET","cahos_sync_state?select=worker_name,last_success_at,last_attempt_at,status&limit=10"),db("GET","cahos_favorites?select=pathology_id&user_id=eq."+user.userId+"&limit=25")]);
-  return send(req,{version:"cloud-0.2",modo:"supabase_protected",servidor:"SINAVE via CAHOS Agent",catalogo:"Cubo_2003_Actual",intervalo_minutos:360,favoritos:fav.map(x=>x.pathology_id),favoritos_inicializados:true,
+  return send(req,{version:"cloud-0.3",modo:"supabase_protected",servidor:"SINAVE via CAHOS Agent",catalogo:"Cubo_2003_Actual",intervalo_minutos:360,favoritos:fav.map(x=>x.pathology_id),favoritos_inicializados:true,
     actividad:{ultima_consulta:state[0]?.last_success_at||null,ultima_extraccion_automatica:state[0]?.last_success_at||null,ultimo_error:null},estado_agente:state.length?state:"not_paired"});
  }
  if(path==="/api/catalog"&&req.method==="GET"){
@@ -225,7 +237,23 @@ async function handler(req){
  }
  if(path==="/worker/heartbeat"&&req.method==="POST"){
   if(user.role!=="agent")return send(req,{error:"agent_only"},403);
-  await db("POST","cahos_sync_state?on_conflict=worker_name",[{worker_name:"ca-agent-"+user.userId.slice(0,8),status:"running",last_attempt_at:dateISO(),updated_at:dateISO()}],"resolution=merge-duplicates,return=minimal");
+  await db("POST","cahos_sync_state?on_conflict=worker_name",[{worker_name:"ca-agent-"+user.agentId.slice(0,8),status:"running",last_attempt_at:dateISO(),updated_at:dateISO()}],"resolution=merge-duplicates,return=minimal");
+  return send(req,{ok:true});
+ }
+ if(path==="/admin/create-agent"&&req.method==="POST"){
+  if(user.role!=="admin")return send(req,{error:"admin_only"},403);
+  const bytes=crypto.getRandomValues(new Uint8Array(32));
+  const token=[...bytes].map(x=>x.toString(16).padStart(2,"0")).join("");
+  const hash=await sha256(token);
+  const added=await db("POST","cahos_agents",[{token_hash:hash,label:"CAHOS Windows Agent",created_by:user.userId}]);
+  return send(req,{agent_id:added[0].id,token,warning:"Copie el token una sola vez en el Windows autorizado. No estará disponible nuevamente."},201);
+ }
+ if(path==="/admin/revoke-agent"&&req.method==="POST"){
+  if(user.role!=="admin")return send(req,{error:"admin_only"},403);
+  const body=requireObject(await req.json());if(!uuid(body.agent_id))return send(req,{error:"invalid_agent_id"},400);
+  const changed=await db("PATCH","cahos_agents?id=eq."+body.agent_id+"&created_by=eq."+user.userId+"&enabled=eq.true",
+    {enabled:false,revoked_at:dateISO()});
+  if(changed.length!==1)return send(req,{error:"agent_not_found"},404);
   return send(req,{ok:true});
  }
  if(path==="/admin/pending"&&req.method==="GET"){
