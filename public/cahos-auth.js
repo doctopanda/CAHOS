@@ -46,5 +46,15 @@ async function api(path,opts={}){
  if(!response.ok)throw new Error(body?.error||"No fue posible completar la solicitud.");
  return {body,status:response.status};
 }
-window.CAHOSAuth=Object.freeze({login,signup,logout,accessToken,api,getSession:get});
+async function profile(){
+ const token=await accessToken();
+ if(!token)throw new Error("Inicia sesión para consultar tu perfil CAHOS.");
+ const response=await fetch(base()+"/rest/v1/cahos_members?select=role,is_master,enabled,entity_code&limit=1",{
+  headers:{"apikey":publicKey(),"Authorization":"Bearer "+token,"Accept":"application/json"},
+  cache:"no-store"});
+ if(!response.ok)throw new Error("No se pudo verificar el perfil CAHOS.");
+ const data=await response.json();
+ return Array.isArray(data)?(data[0]||null):null;
+}
+window.CAHOSAuth=Object.freeze({login,signup,logout,accessToken,api,profile,getSession:get});
 })();
