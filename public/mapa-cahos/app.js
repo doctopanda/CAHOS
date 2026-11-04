@@ -490,10 +490,17 @@ function showDetail(code){
  const cases=state.municipal.get(code),denom=rateDenominator(code);
  const rate=cases!==undefined&&denom?cases/denom*100000:null;
  $("name").textContent=feature?.properties?.nombre||record?.municipality_name||"Sonora";
- const labels=zonesFor(code).map(id=>state.regionalization?.zones.find(x=>x.id===id)?.label||id);
- $("municipalityRegions").textContent=labels.length?
-  labels.join(" + ")+" · Clasificación operativa CAHOS propuesta.":
-  "Sin asignación entre las seis zonas operativas propuestas.";
+ const assignments=[];
+ for(const key of ["custom","districts","coespo"]){
+  const membership=CAHOSRegions.membership(state.regionalization,key,code).map(x=>x.name);
+  const description={custom:"Zonas CAHOS",districts:"Distrito de Salud",coespo:"COESPO"}[key];
+  assignments.push(description+": "+(membership.join(" + ")||"sin asignación"));
+ }
+ const seats=state.regionalization?.regionalizations?.imss?.regions?.filter(x=>x.seat_municipality===code)||[];
+ assignments.push("IMSS Bienestar: "+(seats.length?
+  "sede de "+seats.map(x=>x.name).join(" y "):
+  "delimitación municipal pendiente"));
+ $("municipalityRegions").textContent=assignments.join(" · ");
  $("note").textContent=state.provisional?"Vista preliminar privada · sin corte oficial certificado":
    "Datos territoriales según permisos del usuario y disponibilidad de extracciones.";
  $("cases").textContent=cases===undefined?"—":fmt(cases);
