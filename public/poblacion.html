@@ -38,7 +38,7 @@
 <section class="panel"><h2>Interpretación epidemiológica</h2><p class="hint" id="interpretation">Sin población cargada. Los gráficos y las tasas no utilizan valores simulados.</p>
 <p class="hint"><strong>Fórmula:</strong> tasa = casos registrados / población del mismo estrato × 100,000. Las bandas etarias de SUIVE no siempre coinciden con los quinquenios de la proyección, por lo que no se imputan denominadores de edad exacta sin un método documentado.</p><p class="hint" id="source">Fuente: pendiente de importar.</p></section>
 </main>
-<script src="./configuracion-publica.js"></script><script src="./cahos-auth.js"></script>
+<script src="./configuracion-publica.js"></script><script src="./cahos-auth.js"></script><script src="./cahos-state.js"></script>
 <script>
 const el=id=>document.getElementById(id);
 const fmt=n=>Number(n||0).toLocaleString("es-MX");
@@ -46,6 +46,10 @@ const BANDS=["00_04","05_09","10_14","15_19","20_24","25_29","30_34","35_39","40
 const names=BANDS.map(x=>x==="65_mm"?"65+":x.replace("_","–"));
 const NS="http://www.w3.org/2000/svg";
 const state={status:null,year:2026,rows:[],population:null,profile:null};
+const saved=window.CAHOSSelection?.read()||{};
+const savePopulation=()=>window.CAHOSSelection?.update({
+ pop_year:el("year").value,pop_municipality:el("municipality").value
+});
 function setNotice(msg,level=""){el("notice").className="notice "+level;el("notice").textContent=msg}
 function svgAdd(parent,tag,attrs={},value){
  const n=document.createElementNS(NS,tag);
@@ -105,7 +109,7 @@ function lineChart(svg,labels,series,options={}){
  });
 }
 function renderPopulation(){
- const chosen=el("municipality").value;
+ const chosen=el("municipality").value;savePopulation();
  const selected=chosen?state.rows.filter(r=>r.municipality_code===chosen):state.rows;
  const data=coords(selected);
  if(!selected.length||!data.total){setNotice("No se encuentran denominadores para esta selección.","err");return;}
@@ -162,6 +166,8 @@ async function loadYear(){
   select.replaceChildren(new Option("Todo Sonora",""));
   state.rows.forEach(row=>select.append(new Option(row.municipality_name,row.municipality_code)));
   if(state.rows.some(x=>x.municipality_code===selected))select.value=selected;
+  else if(state.rows.some(x=>x.municipality_code===saved.pop_municipality))
+   select.value=saved.pop_municipality;
   renderPopulation();
  }catch(e){setNotice("Error de consulta poblacional: "+e.message,"err")}
 }
@@ -174,7 +180,12 @@ async function init(){
   const years=state.status.years?.filter(r=>r.complete).sort((a,b)=>b.year-a.year)||[];
   const year=el("year");year.replaceChildren();
   for(const y of years)year.append(new Option(y.year+" · "+fmt(y.total),String(y.year)));
-  if(years.length){year.value=years.some(x=>x.year===2026)?"2026":String(years[0].year);await loadYear();}
+  if(years.length){
+   const rememberedYear=Number(saved.pop_year||saved.year);
+   year.value=years.some(x=>x.year===rememberedYear)?String(rememberedYear):
+     years.some(x=>x.year===2026)?"2026":String(years[0].year);
+   await loadYear();
+  }
   else{
    year.append(new Option("2026 (pendiente)","2026"));
    setNotice("La API poblacional está instalada, pero falta cargar las proyecciones. Como Administrador Maestro puedes importar el archivo normalizado.");
