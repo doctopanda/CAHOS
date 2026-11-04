@@ -279,7 +279,8 @@ async function handler(req){
   const total=entries.filter(x=>x.cases!==null&&Number.isFinite(x.cases)).reduce((a,x)=>a+x.cases,0);
   return send(req,{id:snapId,query_kind:snapshot.query_kind,filter_params:snapshot.filter_params,
     coverage:snapshot.coverage,extracted_at:snapshot.extracted_at,publication_status:snapshot.publication_status,
-    rows_count:entries.length,sum_cases:total,preview:entries.slice(0,20)});
+    rows_count:entries.length,sum_cases:total,preview:entries.slice(0,20),
+    ...(url.searchParams.get("full")==="1"?{rows:entries}:{})});
  }
  if(path==="/admin/agents"&&req.method==="GET"){
   if(user.role!=="admin")return send(req,{error:"admin_only"},403);
@@ -288,13 +289,21 @@ async function handler(req){
  }
  if(path==="/admin/pending"&&req.method==="GET"){
   if(user.role!=="admin")return send(req,{error:"admin_only"},403);
-  const snapshots=await db("GET","cahos_snapshots?select=id,query_kind,pathology_id,entity_code,extracted_at,coverage&publication_status=eq.pending&order=extracted_at.desc&limit=30");
+  const snapshots=await db("GET","cahos_snapshots?select=id,query_kind,pathology_id,entity_code,filter_params,extracted_at,coverage&publication_status=eq.pending&order=extracted_at.desc&limit=30");
   return send(req,{snapshots});
  }
  if(path==="/admin/approve"&&req.method==="POST"){
   if(user.role!=="admin")return send(req,{error:"admin_only"},403);
-  const body=requireObject(await req.json());if(!uuid(body.snapshot_id))return send(req,{error:"invalid_snapshot"},400);
-  const approved=await db("PATCH","cahos_snapshots?id=eq."+body.snapshot_id+"&publication_status=eq.pending",{publication_status:"approved",approved_by:user.userId,approved_at:dateISO()});
+  const body=requireObject(await req.json());
+  if(!uuid(body.snapshot_id))return send(req,{error:"invalid_snapshot"},400);
+  const note=typeof body.review_note==="string"?body.review_note.trim():"";
+  if(body.verified!==true||note.length<10||note.length>350)return send(req,{error:"Se requiere confirmación y una nota de validación (10 a 350 caracteres)."},400);
+  const selected=await db("GET","cahos_snapshots?select=id,coverage,publication_status&id=eq."+body.snapshot_id+"&limit=1");
+  if(!selected.length||selected[0].publication_status!=="pending")return send(req,{error:"snapshot_not_pending"},409);
+  const coverage={...(selected[0].coverage||{}),status:"verified_by_administrator",
+    validation_note:note.replace(/[\x00-\x1f]/g," "),validated_at:dateISO()};
+  const approved=await db("PATCH","cahos_snapshots?id=eq."+body.snapshot_id+"&publication_status=eq.pending",
+    {publication_status:"approved",coverage,approved_by:user.userId,approved_at:dateISO()});
   if(approved.length!==1)return send(req,{error:"snapshot_not_pending"},409);
   return send(req,{ok:true,approved_id:body.snapshot_id});
  }
