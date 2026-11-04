@@ -92,7 +92,7 @@ function fillColor(value,max){
 }
 function drawAgeCurve(name,code){
  const root=$("#mapPopulation");root.replaceChildren();
- if(!population?.disponible){root.textContent="Sin denominadores. Ejecute IMPORTAR_POBLACION.bat con su libro de proyecciones.";return;}
+ if(!population?.disponible){root.textContent="Sin denominadores disponibles desde CAHOS Cloud. Comprueba el módulo de población.";return;}
  const m=population.municipios.find(x=>String(x.clave)===String(code))||
   population.municipios.find(x=>norm(x.nombre)===norm(name));
  if(!m){root.textContent="No se encontró un emparejamiento exacto de municipio para las curvas poblacionales.";return;}
@@ -210,7 +210,12 @@ async function query(){
   const out=await Promise.allSettled([
    loadShapes(),
    POST("/api/query",{kind:"municipality",pathology:f.pathology,years:[f.year],entity:f.entity,sex:f.sex,age:f.age}),
-   GET("/api/poblacion?year="+year)
+   GET("/api/population?year="+year).then(data=>{
+     if(!data.available||!Array.isArray(data.rows))return {disponible:false};
+     return {disponible:true,anio:year,fuente:data.source,
+      municipios:data.rows.map(x=>({clave:x.municipality_code,nombre:x.municipality_name,
+       edades_sexo:{H:x.male,M:x.female}}))};
+    })
   ]);
   if(out[0].status!=="fulfilled")throw out[0].reason;
   if(out[1].status!=="fulfilled")throw out[1].reason;
