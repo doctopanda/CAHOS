@@ -621,7 +621,7 @@ async function initialize(){
   await loadRegionalization();
   state.year=yrNumber($("year").value)||2026;
   await loadPopulation();
-  initLeafletMap(geo);
+  if($("mapBase").value==="osm")initLeafletMap(geo);
   drawMap();
   if(state.selected&&state.featureMap.has(state.selected))showDetail(state.selected);
   else if(state.features.length){state.selected=null;blank($("pyramid"),"Selecciona un municipio");blank($("trend"),"Selecciona un municipio")}
@@ -640,6 +640,12 @@ for(const id of ["pathology","year","sex","age"]){
  });
 }
 $("metric").addEventListener("change",drawMap);
+$("mapBase").addEventListener("change",()=>{drawMap();save();});
+$("regionScheme").addEventListener("change",()=>{
+ state.selectedZones.clear();
+ save();refreshZoneChips();renderTerritorialSummary();drawMap();
+ if(state.selected&&state.featureMap.has(state.selected))showDetail(state.selected);
+});
 $("addMunicipalityBtn").addEventListener("click",()=>{
  const code=$("addMunicipality").value;
  if(code&&state.featureMap.has(code)){
@@ -655,7 +661,7 @@ $("clearTerritory").addEventListener("click",()=>{
 $("consult").addEventListener("click",loadCases);
 for(const [id,mult] of [["zoomIn",.72],["zoomOut",1.38]]){
  $(id).addEventListener("click",()=>{
-  if(state.leafletMap){
+  if(state.leafletMap&&$("mapBase").value==="osm"){
    if(mult<1)state.leafletMap.zoomIn();else state.leafletMap.zoomOut();
    return;
   }
@@ -666,7 +672,7 @@ for(const [id,mult] of [["zoomIn",.72],["zoomOut",1.38]]){
  });
 }
 $("resetZoom").addEventListener("click",()=>{
- if(state.leafletMap&&state.leafletLayer){
+ if(state.leafletMap&&state.leafletLayer&&$("mapBase").value==="osm"){
   state.leafletMap.fitBounds(state.leafletLayer.getBounds(),{padding:[12,12],maxZoom:9});
   return;
  }
