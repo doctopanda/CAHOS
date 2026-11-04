@@ -39,7 +39,7 @@ small,.hint{font-size:12px;color:#6d827b}#alert{min-height:46px;padding:12px;bor
 <button id="copyAgent" type="button" class="secondary hide">Copiar token</button>
 <hr><h2>Extracciones pendientes de revisión</h2>
 <p class="hint">No apruebes cifras hasta contrastar el corte, la cobertura y los totales contra SINAVE.</p>
-<button id="pending" type="button" class="secondary">Consultar pendientes</button><div id="pendingList"></div>
+<div class="actions"><a href="./revision.html">Abrir mesa de validación y descarga de agregados</a></div><div id="pendingList" class="hide"></div><button id="pending" type="button" class="secondary hide">Consultar pendientes</button>
 </div>
 <div id="alert" role="status">Ingresa con una cuenta Supabase para continuar. Si es tu primer ingreso, solicita la habilitación del administrador.</div>
 <p><a href="./">Regresar al visor</a> · <a href="./conexion.html">Estado de la infraestructura</a></p>
@@ -125,6 +125,6 @@ async function showPending(){
   message("Solo los resultados que apruebes estarán disponibles para usuarios autorizados.");
  }catch(err){message(err.message)}
 }
-el("pending").onclick=showPending;
+el("pending").onclick=()=>location.assign("./revision.html");
 render();
 </script></body></html>
