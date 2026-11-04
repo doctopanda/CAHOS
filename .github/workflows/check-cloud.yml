@@ -5,6 +5,7 @@ on:
     paths:
       - 'extractor/**'
       - 'public/**'
+      - 'tests/**'
       - 'supabase/functions/**'
       - '.github/workflows/check-cloud.yml'
   workflow_dispatch:
