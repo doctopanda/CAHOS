@@ -20,6 +20,8 @@ jobs:
         run: |
           node --check < supabase/functions/cahos-api/index.ts
           node --check public/cahos-auth.js
+          node --check public/cahos-state.js
+          node --check public/mapa-cahos/app.js
           node --check public/mapa_sonora.js
       - name: Validar scripts en HTML
         run: |
@@ -27,7 +29,7 @@ jobs:
           from pathlib import Path
           import re
           import subprocess
-          for path in (Path('public/index.html'), Path('public/acceso.html'), Path('public/conexion.html'), Path('public/poblacion.html'), Path('public/revision.html')):
+          for path in (Path('public/index.html'), Path('public/acceso.html'), Path('public/conexion.html'), Path('public/poblacion.html'), Path('public/revision.html'), Path('public/mapa-cahos/index.html')):
               source=path.read_text(encoding='utf-8')
               scripts=re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>', source)
               for script in scripts:
