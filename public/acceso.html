@@ -1,0 +1,99 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CAHOS | Acceso seguro</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#173f38;background:#f1f7f4}
+*{box-sizing:border-box}body{margin:0;padding:clamp(18px,4vw,48px)}
+main{max-width:820px;margin:auto}.eyebrow{font-weight:800;letter-spacing:2px;color:#298472;font-size:11px}
+h1{font-size:clamp(26px,4vw,38px);margin:7px 0}.lead{color:#5a756d;line-height:1.6}
+.panel{border:1px solid #d4e5dc;border-radius:18px;background:#fff;padding:24px;margin:18px 0;box-shadow:0 14px 30px #123b2f0c}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}label{font-size:12px;font-weight:750;color:#456960}
+input{margin-top:6px;display:block;width:100%;padding:12px;border-radius:9px;border:1px solid #bfd4c9;font:inherit}
+button{background:#116f5e;border:0;border-radius:9px;padding:11px 15px;color:#fff;font-weight:750;font:inherit;cursor:pointer}
+button.secondary{background:#e1f1ea;color:#125946}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}a{color:#126f59;font-weight:700}
+small,.hint{font-size:12px;color:#6d827b}#alert{min-height:46px;padding:12px;border-radius:10px;background:#edf5f1;color:#225746;margin-top:16px;overflow-wrap:anywhere}
+#agentToken{word-break:break-all;padding:12px;background:#edf5f1;border-radius:9px;font-family:ui-monospace,monospace;font-size:12px}
+.hide{display:none}h2{margin-top:0;font-size:19px}hr{border:0;border-top:1px solid #e2ebe7;margin:22px 0}
+@media(max-width:560px){.grid{grid-template-columns:1fr}}
+</style></head><body><main>
+<div class="eyebrow">CAHOS · INTELIGENCIA EPIDEMIOLÓGICA</div><h1>Acceso seguro al observatorio</h1>
+<p class="lead">La cuenta identifica al usuario y determina qué resultados autorizados puede consultar. El cubo SINAVE permanece detrás del agente central y nunca se conecta directamente al navegador.</p>
+<div class="panel" id="login">
+<h2>Ingresa a CAHOS</h2>
+<form id="authForm">
+<div class="grid">
+<label>Correo electrónico<input type="email" id="email" autocomplete="username" required></label>
+<label>Contraseña<input type="password" id="password" autocomplete="current-password" minlength="8" required></label>
+</div>
+<div class="actions"><button type="submit">Ingresar</button><button class="secondary" id="signup" type="button">Crear cuenta</button></div>
+</form>
+<p class="hint">Una cuenta nueva no obtiene automáticamente acceso a información epidemiológica. El administrador debe habilitarla y asignarle un rol.</p>
+</div>
+<div class="panel hide" id="logged">
+<h2>Sesión activa</h2><p id="summary">Autenticado en Supabase.</p>
+<div class="actions"><a href="./">Abrir visor CAHOS</a><button class="secondary" id="refresh" type="button">Verificar permisos</button><button class="secondary" id="logout" type="button">Cerrar sesión</button></div>
+<hr><h2>Vinculación del agente central</h2>
+<p class="hint">Solo administradores CAHOS habilitados. El token se muestra una sola vez y se guarda exclusivamente en el Windows autorizado.</p>
+<div class="actions"><button id="createAgent" type="button">Generar token de agente</button><a href="https://github.com/doctopanda/CAHOS/tree/main/extractor">Instalador Windows</a></div>
+<p id="agentToken" class="hide"></p>
+<button id="copyAgent" type="button" class="secondary hide">Copiar token</button>
+<hr><h2>Extracciones pendientes de revisión</h2>
+<p class="hint">No apruebes cifras hasta contrastar el corte, la cobertura y los totales contra SINAVE.</p>
+<button id="pending" type="button" class="secondary">Consultar pendientes</button><div id="pendingList"></div>
+</div>
+<div id="alert" role="status">Ingresa con una cuenta Supabase para continuar. Si es tu primer ingreso, solicita la habilitación del administrador.</div>
+<p><a href="./">Regresar al visor</a> · <a href="./conexion.html">Estado de la infraestructura</a></p>
+</main>
+<script src="./configuracion-publica.js"></script><script src="./cahos-auth.js"></script>
+<script>
+const el=id=>document.getElementById(id);
+function message(t){el("alert").textContent=t}
+async function render(){
+ const has=await CAHOSAuth.accessToken();
+ el("login").classList.toggle("hide",!!has);el("logged").classList.toggle("hide",!has);
+ if(has){
+  try{const r=await CAHOSAuth.api("/api/status");el("summary").textContent="Acceso habilitado. Modo "+r.body.modo+"; fuente "+r.body.servidor+".";message("Sesión y permisos confirmados.");}
+  catch(e){el("summary").textContent="Cuenta autenticada. Falta aprobación del administrador o conexión del backend.";message(e.message)}
+ }
+}
+el("authForm").addEventListener("submit",async e=>{
+ e.preventDefault();const email=el("email").value.trim(),password=el("password").value;
+ try{await CAHOSAuth.login(email,password);el("password").value="";await render();}catch(err){message(err.message)}
+});
+el("signup").addEventListener("click",async()=>{
+ const email=el("email").value.trim(),password=el("password").value;
+ if(!email||password.length<8){message("Introduce correo y contraseña de al menos ocho caracteres.");return}
+ try{await CAHOSAuth.signup(email,password);el("password").value="";message("Registro recibido. Si se exige confirmación, revisa tu correo. Después el administrador debe habilitar tu cuenta.");await render();}
+ catch(e){message(e.message)}
+});
+el("logout").onclick=()=>{CAHOSAuth.logout();el("agentToken").textContent="";el("agentToken").classList.add("hide");render()};
+el("refresh").onclick=render;
+el("createAgent").onclick=async()=>{
+ try{
+  const r=await CAHOSAuth.api("/admin/create-agent",{method:"POST",body:{}});
+  const token=r.body.token;
+  if(!/^[a-f0-9]{64}$/i.test(token))throw new Error("Respuesta de vinculación inválida");
+  el("agentToken").textContent=token;el("agentToken").classList.remove("hide");el("copyAgent").classList.remove("hide");
+  message("Copia el token y pégalo en INSTALAR_AGENTE_NUBE.bat del equipo autorizado. No lo compartas en chats ni repositorios.");
+ }catch(err){message(err.message)}
+};
+el("copyAgent").onclick=async()=>{
+ try{await navigator.clipboard.writeText(el("agentToken").textContent);message("Token copiado. Guárdalo solo en la computadora que ejecutará el agente.");}
+ catch{message("Selecciona el token mostrado y cópialo manualmente.")}
+};
+el("pending").onclick=async()=>{
+ const root=el("pendingList");root.replaceChildren();
+ try{
+  const data=(await CAHOSAuth.api("/admin/pending")).body.snapshots||[];
+  if(!data.length){root.textContent="Sin extracciones pendientes.";return}
+  const ul=document.createElement("ul");
+  for(const item of data){
+   const li=document.createElement("li");
+   li.textContent=item.query_kind+" · "+item.pathology_id+" · "+item.extracted_at+" (pendiente de validación en SINAVE)";
+   ul.append(li);
+  }
+  root.append(ul);message("Los resultados permanecen bloqueados hasta su revisión epidemiológica.");
+ }catch(err){message(err.message)}
+};
+render();
+</script></body></html>
