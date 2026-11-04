@@ -247,22 +247,38 @@ catch(e){$('#connectionStatus').textContent='● No se pudo acceder al cubo';$('
 function renderDiseaseList(){let term=$('#diseaseSearch').value.trim().toLowerCase(),list=$('#pathologyList');list.replaceChildren();let items=(state.catalog.pathologies||[]).filter(x=>x.nombre.toLowerCase().includes(term)).slice(0,150);for(let x of items){let row=document.createElement('div');row.className='disease';let span=document.createElement('span');span.textContent=x.nombre;let btn=document.createElement('button');let selected=state.favorites.includes(x.id);btn.textContent=selected?'✓':'+';btn.className=selected?'on':'';btn.setAttribute('aria-label',selected?'Quitar de favoritas':'Agregar a favoritas');btn.onclick=()=>{if(selected)state.favorites=state.favorites.filter(y=>y!==x.id);else if(state.favorites.length<25)state.favorites.push(x.id);else{alert('Máximo 25 patologías programadas');return;}favoritesUI();};row.append(span,btn);list.append(row);}if(!items.length)list.textContent=state.catalog.pathologies?.length?'Sin coincidencias':'Sin catálogo cargado';}
 function switchPage(page){state.path=page;rememberFilters();document.querySelectorAll('.view').forEach(x=>x.classList.toggle('hide',x.id!=='view-'+page));document.querySelectorAll('[data-p]').forEach(x=>x.classList.toggle('on',x.dataset.p===page));}
 function validFilters(){let w1=Number($('#weekStart').value),w2=Number($('#weekEnd').value);if(!Number.isInteger(w1)||!Number.isInteger(w2)||w1<1||w2>53||w1>w2)throw Error('Selecciona semanas entre 1 y 53 y verifica que la inicial sea menor o igual a la final.');let pathology=$('#diseaseSelect').value,year=$('#yearSelect').value;if(!pathology||!year)throw Error('Selecciona una patología del catálogo y un año.');let years=yearIds().filter(id=>yearNumber(id)<=yearNumber(year)).slice(0,7);if(!years.includes(year))years.unshift(year);return {pathology,year,years,entity:$('#entitySelect').value,municipality:$('#municipalitySelect').value,sex:$('#sexSelect').value,age:$('#ageSelect').value,week_start:w1,week_end:w2};}
+async function queryWithSingleJob(payload){
+ let result=await POST('/api/query',payload);
+ if(!['queued','running'].includes(result?.status)||!result.job_id)return result;
+ const jobId=String(result.job_id);
+ for(let i=0;i<30;i++){
+  if(i%3===0)setNotice('El cubo procesa '+payload.kind+' (seguimiento '+(i+1)+'/30). No se duplican trabajos.','warn');
+  await new Promise(resolve=>setTimeout(resolve,5000));
+  const progress=await GET('/api/jobs/'+encodeURIComponent(jobId));
+  if(progress.status==='ready')return progress.result;
+  if(['failed','awaiting_review','result_unavailable'].includes(progress.status))return progress;
+  if(!['queued','running'].includes(progress.status))return progress;
+ }
+ return {status:'running',job_id:jobId,message:'Sigue en ejecución, sin crear una segunda extracción.'};
+}
 let autoQueryRetries=0;async function queryAll(){if(state.running)return;try{let f=validFilters();rememberFilters();busy(true);setNotice('Consultando el cubo mediante MDX. Las cifras se calculan desde la extracción de solo lectura.');const [weekly,annual,sex,age]=await Promise.all([
-POST('/api/query',{kind:'weekly',pathology:f.pathology,years:f.years,entity:f.entity,municipality:f.municipality,sex:f.sex,age:f.age,week_start:f.week_start,week_end:f.week_end}),
-POST('/api/query',{kind:'annual',pathology:f.pathology,years:f.years,entity:f.entity,municipality:f.municipality,sex:f.sex,age:f.age}),
-POST('/api/query',{kind:'sex',pathology:f.pathology,years:[f.year],entity:f.entity,municipality:f.municipality,age:f.age}),
-POST('/api/query',{kind:'age',pathology:f.pathology,years:[f.year],entity:f.entity,municipality:f.municipality,sex:f.sex})
+queryWithSingleJob({kind:'weekly',pathology:f.pathology,years:f.years,entity:f.entity,municipality:f.municipality,sex:f.sex,age:f.age,week_start:f.week_start,week_end:f.week_end}),
+queryWithSingleJob({kind:'annual',pathology:f.pathology,years:f.years,entity:f.entity,municipality:f.municipality,sex:f.sex,age:f.age}),
+queryWithSingleJob({kind:'sex',pathology:f.pathology,years:[f.year],entity:f.entity,municipality:f.municipality,age:f.age}),
+queryWithSingleJob({kind:'age',pathology:f.pathology,years:[f.year],entity:f.entity,municipality:f.municipality,sex:f.sex})
 ]);
  const queued=[weekly,annual,sex,age].filter(x=>x&&x.status);
  if(queued.length){
+  const errors=queued.filter(x=>x.status==='failed');
   const reviewing=queued.some(x=>x.status==='awaiting_review');
   reviewGate(queued);clearPreliminary();
-  const msg=reviewing?'El resultado quedó retenido por control de calidad o privacidad.':
-    'La consulta está en cola. El agente central la procesará.';
-  setNotice(msg+' Los resultados retenidos permanecen fuera de las cifras publicadas.','warn');
-  if(queued.some(x=>x.status==='queued'||x.status==='running')&&autoQueryRetries<6){
-   autoQueryRetries++;setTimeout(()=>{if(!state.running)queryAll();},30000);
-  }
+  const msg=errors.length?
+   'El agente no pudo completar '+errors.length+' productos ('+
+   errors.map(x=>x.error_code||'extractor_error').join(', ')+
+   '). El sistema no repetirá las solicitudes fallidas automáticamente.':
+   reviewing?'El resultado quedó retenido por calidad o privacidad.':
+   'La extracción sigue en proceso. No se generarán trabajos duplicados.';
+  setNotice(msg,'warn');
   return;
  }
  autoQueryRetries=0;
