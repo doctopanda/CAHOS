@@ -21,17 +21,41 @@ PRIVATE = APP.parent if APP.name.lower() == "cloud" else (
 PRIVATE.mkdir(parents=True, exist_ok=True)
 TOKEN_FILE = PRIVATE / "cloud_agent_token.txt"
 STATE_FILE = PRIVATE / "cloud_agent_status.json"
+DIAGNOSTIC_FILE = PRIVATE / "cloud_agent_diagnostic.log"
 API = "https://lywrtuibmzzsylfbybqo.supabase.co/functions/v1/cahos-api"
 PUBLIC_KEY = "sb_publishable_MW2u0v8hucbGgaW5Aol7lA_3mcoFhIy"
 DIMENSIONS = ("pathologies","years","weeks","municipalities","entities","sex","age","institutions")
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
+def diagnostic(event, exc=None):
+    """Minimal local diagnostics. Never log token, MDX, HTTP headers or exceptions' text."""
+    try:
+        code = type(exc).__name__ if exc is not None else "none"
+        winerror = getattr(exc, "winerror", None)
+        record = {"at": datetime.now(timezone.utc).isoformat(),
+                  "event": str(event)[:45], "error_type": code,
+                  "winerror": winerror if isinstance(winerror, int) else None}
+        with DIAGNOSTIC_FILE.open("a", encoding="utf-8") as out:
+            out.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
 def state(status, message):
-    output = {"status": status, "detail": message[:130],
+    output = {"status": status, "detail": str(message)[:130],
               "at": datetime.now(timezone.utc).isoformat()}
+    content = json.dumps(output, ensure_ascii=False)
     dest = STATE_FILE.with_suffix(".tmp")
-    dest.write_text(json.dumps(output, ensure_ascii=False), encoding="utf-8")
-    dest.replace(STATE_FILE)
+    try:
+        dest.write_text(content, encoding="utf-8")
+        dest.replace(STATE_FILE)
+    except OSError as exc:
+        diagnostic("atomic_status_write_failed", exc)
+        try:
+            STATE_FILE.write_text(content, encoding="utf-8")
+        except OSError as fallback:
+            diagnostic("fallback_status_write_failed", fallback)
+            # An optional status display must never terminate a working OLAP agent.
 
 def agent_token():
     token = os.environ.get("CAHOS_AGENT_TOKEN", "").strip()
@@ -108,6 +132,8 @@ def run_job(job):
         state("failed", "La consulta necesita revisión local; no se publicó")
 
 def run():
+    diagnostic("agent_started")
+    state("starting", "Arranque del agente CAHOS")
     if os.name != "nt":
         raise RuntimeError("windows_only")
     if not (APP/"servidor.py").exists():
@@ -143,4 +169,10 @@ def run():
             time.sleep(min(300, max(20,20*failures)))
 
 if __name__=="__main__":
-    run()
+    try:
+        run()
+    except BaseException as fatal:
+        diagnostic("agent_fatal_exit", fatal)
+        state("fatal", type(fatal).__name__)
+        raise
+
