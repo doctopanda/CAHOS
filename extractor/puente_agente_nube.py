@@ -4,6 +4,23 @@ import json
 import sys
 import servidor
 
+# Safe, fixed error codes. Never send provider messages, MDX or connection details.
+def safe_error_code(exc: Exception) -> str:
+    if isinstance(exc, ValueError):
+        return "local_query_validation_error"
+    message = str(exc).lower()
+    if "estructura de filas inesperada" in message or "metadatos de columnas" in message:
+        return "olap_result_axis_error"
+    if "no incluye la medida casos" in message:
+        return "olap_measure_missing"
+    if "miembro de" in message and "no existe" in message:
+        return "olap_catalog_member_missing"
+    if "proveedor no devolvió datos" in message:
+        return "olap_empty_provider_response"
+    if "too long" in message or "timeout" in message or "tiempo de espera" in message:
+        return "olap_query_timeout"
+    return "local_olap_error"
+
 ALLOWED_DIMS = frozenset(servidor.WITH_HIERARCHIES)
 ALLOWED_KINDS = frozenset(servidor.AXES)
 
@@ -31,7 +48,8 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except Exception:
-        # No raw provider errors or connection strings are written to the cloud.
-        print(json.dumps({"error": "local_olap_query_failed"}))
+    except Exception as exc:
+        # Print only a whitelisted technical category. Raw exception strings can
+        # contain OLAP connection details and must never leave this Windows PC.
+        print(json.dumps({"error": "local_olap_query_failed", "code": safe_error_code(exc)}))
         sys.exit(1)
