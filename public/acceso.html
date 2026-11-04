@@ -52,7 +52,14 @@ async function render(){
  const has=await CAHOSAuth.accessToken();
  el("login").classList.toggle("hide",!!has);el("logged").classList.toggle("hide",!has);
  if(has){
-  try{const r=await CAHOSAuth.api("/api/status");el("summary").textContent="Acceso habilitado. Modo "+r.body.modo+"; fuente "+r.body.servidor+".";message("Sesión y permisos confirmados.");}
+  try{
+   const [r,profile]=await Promise.all([CAHOSAuth.api("/api/status"),CAHOSAuth.profile()]);
+   const titulo=profile?.is_master?"ADMINISTRADOR MAESTRO":profile?.role==="admin"?"Administrador":profile?.role==="analyst"?"Analista":"Lector autorizado";
+   el("summary").textContent="Rol: "+titulo+" · Acceso "+(profile?.enabled?"habilitado":"pendiente")+
+     " · Fuente: "+r.body.servidor+".";
+   message(profile?.is_master?"Acceso Maestro habilitado para las funciones administrativas actuales de CAHOS.":"Sesión y permisos confirmados.");
+   for(const buttonId of ["createAgent","pending"])el(buttonId).disabled=!["admin","admin_master"].includes(profile?.role);
+  }
   catch(e){el("summary").textContent="Cuenta autenticada. Falta aprobación del administrador o conexión del backend.";message(e.message)}
  }
 }
