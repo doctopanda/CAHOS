@@ -353,7 +353,7 @@ function initLeafletMap(geo){
   const map=window.L.map("streetMap",{preferCanvas:true,zoomControl:true,minZoom:4,maxZoom:17});
   window.L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{
    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a> · INEGI',
-   maxZoom:17,maxNativeZoom:19
+   maxZoom:17,maxNativeZoom:19,referrerPolicy:"strict-origin-when-cross-origin"
   }).addTo(map);
   const layer=window.L.geoJSON(geo,{style:polygonStyle,onEachFeature:(feature,path)=>{
    const code=String(feature.properties.cvegeo);
