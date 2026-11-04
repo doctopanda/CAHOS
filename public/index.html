@@ -21,9 +21,9 @@
 <nav id="nav"><button class="nav on" data-p="panorama">◫ &nbsp; Panorama</button><button class="nav" data-p="mapa">▣ &nbsp; Mapa Sonora</button><button class="nav" data-p="endemic">⌁ &nbsp; Canal endémico</button><button class="nav" data-p="demography">♙ &nbsp; Edad y sexo</button><button class="nav" data-p="program">⚙ &nbsp; Programación</button><button class="nav" data-p="source">◉ &nbsp; Fuente</button></nav>
 <h3>Patologías activas</h3><div id="favoriteSide"></div><div class="tag">Conexión de lectura · Requiere red y permisos institucionales · No se almacenan contraseñas</div></aside>
 <main class="main"><header class="top"><div><div class="eyebrow">CAHOS · PLATAFORMA DE INTELIGENCIA EPIDEMIOLÓGICA</div><h1>Visor SUIVE</h1><div class="subtitle">Módulo de vigilancia epidemiológica · Consultas personalizadas y tableros de patologías</div></div><div class="pill warn" id="connectionStatus">● Comprobando conexión</div></header>
-<div class="notice warn" id="globalNotice">CAHOS usa un extractor central protegido. Las solicitudes pueden quedar en cola y los resultados se muestran únicamente después de su aprobación.</div><div class="reviewGate hide" id="reviewGate" role="status" aria-live="polite">
-<div><strong id="reviewGateTitle">Extracciones pendientes de validación</strong><span id="reviewGateDetail">Los resultados deben revisarse antes de mostrar cifras.</span></div>
-<a id="reviewGateLink" href="./revision.html">Revisar y validar extracciones</a>
+<div class="notice warn" id="globalNotice">CAHOS obtiene resultados del cubo mediante un agente autorizado. Los agregados superan controles técnicos internos antes de aparecer. La revisión técnica no equivale a corte oficial certificado.</div><div class="reviewGate hide" id="reviewGate" role="status" aria-live="polite">
+<div><strong id="reviewGateTitle">Extracciones sujetas a control de calidad</strong><span id="reviewGateDetail">Los resultados no se publican si fallan los controles técnicos o de privacidad.</span></div>
+<a id="reviewGateLink" href="./revision.html">Ver informe de calidad</a>
 </div><div class="loader hide" id="progress"></div>
 <section class="filters" id="filters">
 <label>Buscar patología del catálogo<input type="search" id="pathologyQuickSearch" placeholder="Dengue, sarampión, sífilis..." autocomplete="off"><span id="pathologyQuickCount" class="hint">Esperando catálogo del cubo</span></label>
@@ -71,7 +71,7 @@ function reviewGate(statuses=[]){
  $('#reviewGate').classList.toggle('hide',waiting===0);
  if(waiting){
   $('#reviewGateTitle').textContent=waiting+' de 4 productos pendientes de aprobación';
-  $('#reviewGateDetail').textContent='La extracción finalizó, pero faltan filtros, corte y contraste con SINAVE'+(processing?'; '+processing+' productos aún se están extrayendo.':'.');
+  $('#reviewGateDetail').textContent='El resultado no superó la liberación técnica automática o requiere controles de privacidad'+(processing?'; '+processing+' productos aún se están extrayendo.':'.');
   $('#reviewGateLink').classList.remove('hide');
  }
 }
@@ -176,7 +176,7 @@ POST('/api/query',{kind:'age',pathology:f.pathology,years:[f.year],entity:f.enti
  if(queued.length){
   const reviewing=queued.some(x=>x.status==='awaiting_review');
   reviewGate(queued);clearPreliminary();
-  const msg=reviewing?'La extracción terminó y está pendiente de revisión epidemiológica.':
+  const msg=reviewing?'El resultado quedó retenido por control de calidad o privacidad.':
     'La consulta está en cola. El agente central la procesará.';
   setNotice(msg+' No se presentan números sin validar.','warn');
   if(queued.some(x=>x.status==='queued'||x.status==='running')&&autoQueryRetries<6){
@@ -194,7 +194,8 @@ POST('/api/query',{kind:'age',pathology:f.pathology,years:[f.year],entity:f.enti
   $('#reviewGateDetail').textContent='Solo visible para Administrador Maestro. Las cifras son agregados provisionales del cubo y NO están aprobadas para publicación ni uso oficial.';
   setNotice('VISTA PRELIMINAR. Se muestran datos SIN VALIDAR para tu revisión como Administrador Maestro. Revisa y aprueba cada producto antes de publicarlo.','warn');
  }else{
-  setNotice(`Consulta validada: ${catalogLabel('pathologies',f.pathology)} · ${catalogLabel('years',f.year)} · resultados aprobados.`,'ok');
+  const official=[weekly,annual,sex,age].every(x=>x.oficial_corte_verificado===true);
+  setNotice(`Datos disponibles: ${catalogLabel('pathologies',f.pathology)} · ${catalogLabel('years',f.year)}. ${official?'Corte oficial identificado.':'Revisión técnica interna; corte oficial no certificado. No sustituye el panorama epidemiológico oficial.'}`,official?'ok':'warn');
  }}catch(e){setNotice('Error al consultar el cubo: '+e.message,'err');}finally{busy(false);}}
 function cleanRows(rows){return (rows||[]).filter(r=>r.cases!=null&&Number.isFinite(Number(r.cases))).map(r=>({...r,cases:Number(r.cases)}));}
 function tally(rows,k){let map=new Map();for(let r of cleanRows(rows)){let t=r[k];map.set(t,(map.get(t)||0)+r.cases);}return map;}
@@ -239,7 +240,7 @@ function drawEndemic(matrix,year,f){
  drawLines('#endemicChart',series,weeks);
 }
 window.addEventListener('focus',()=>{if(state.awaitingReview&&!state.running)queryAll();});
-$('#nav').addEventListener('click',e=>{let b=e.target.closest('[data-p]');if(b)switchPage(b.dataset.p);});$('#analyze').onclick=queryAll;$('#diseaseSelect').onchange=()=>{favoritesUI();queryAll();};$('#diseaseSearch').oninput=renderDiseaseList;$('#pathologyQuickSearch').oninput=renderPathologyOptions;$('#municipalitySearch').oninput=filterMunicipalities;$('#saveFavorites').onclick=async()=>{try{await POST('/api/favorites',{favoritos:state.favorites});$('#programFeedback').textContent='Programación guardada. La sincronización automática ha sido iniciada.';setNotice('Configuración guardada. El cubo recibirá consultas automáticas de tus patologías favoritas.','ok');favoritesUI();}catch(e){$('#programFeedback').textContent=e.message;}};$('#exportData').onclick=()=>{let d=state.data;if(!d.weekly){alert('Consulta una patología primero');return;}let heads=['tipo','years','weeks','sex','age','cases','extraido_en','estado_validacion'];let output=['\uFEFF'+heads.join(',')];for(let kind of ['weekly','annual','sex','age'])for(let row of d[kind].rows){let x={...row,tipo:kind,extraido_en:d[kind].extraido_en,estado_validacion:d[kind].provisional?'PRELIMINAR_SIN_VALIDAR':'APROBADO'};output.push(heads.map(h=>{let t=String(x[h]??'');if(/^[=+@-]/.test(t))t="'"+t;return '"'+t.replace(/"/g,'""')+'"'}).join(','));}let blob=new Blob([output.join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=d.weekly?.provisional?'CAHOS_PRELIMINAR_SIN_VALIDAR.csv':'CAHOS_CONSULTA_APROBADA.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);};$('#forceRefresh').onclick=async()=>{try{await POST('/api/refresh',{favoritos:true});$('#programFeedback').textContent='Se solicitó actualización automática; consulta el estado más tarde o abre una patología.';}catch(e){$('#programFeedback').textContent=e.message;}};
+$('#nav').addEventListener('click',e=>{let b=e.target.closest('[data-p]');if(b)switchPage(b.dataset.p);});$('#analyze').onclick=queryAll;$('#diseaseSelect').onchange=()=>{favoritesUI();queryAll();};$('#diseaseSearch').oninput=renderDiseaseList;$('#pathologyQuickSearch').oninput=renderPathologyOptions;$('#municipalitySearch').oninput=filterMunicipalities;$('#saveFavorites').onclick=async()=>{try{await POST('/api/favorites',{favoritos:state.favorites});$('#programFeedback').textContent='Programación guardada. La sincronización automática ha sido iniciada.';setNotice('Configuración guardada. El cubo recibirá consultas automáticas de tus patologías favoritas.','ok');favoritesUI();}catch(e){$('#programFeedback').textContent=e.message;}};$('#exportData').onclick=()=>{let d=state.data;if(!d.weekly){alert('Consulta una patología primero');return;}let heads=['tipo','years','weeks','sex','age','cases','extraido_en','estado_validacion'];let output=['\uFEFF'+heads.join(',')];for(let kind of ['weekly','annual','sex','age'])for(let row of d[kind].rows){let x={...row,tipo:kind,extraido_en:d[kind].extraido_en,estado_validacion:d[kind].provisional?'PRELIMINAR_SIN_VALIDAR':(d[kind].validacion||'REVISION_TECNICA')};output.push(heads.map(h=>{let t=String(x[h]??'');if(/^[=+@-]/.test(t))t="'"+t;return '"'+t.replace(/"/g,'""')+'"'}).join(','));}let blob=new Blob([output.join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=d.weekly?.provisional?'CAHOS_PRELIMINAR_SIN_VALIDAR.csv':'CAHOS_CONSISTENCIA_TECNICA.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);};$('#forceRefresh').onclick=async()=>{try{await POST('/api/refresh',{favoritos:true});$('#programFeedback').textContent='Se solicitó actualización automática; consulta el estado más tarde o abre una patología.';}catch(e){$('#programFeedback').textContent=e.message;}};
 async function initialize(){
   if(!window.SUIVE_CONFIG?.apiBaseUrl){
     $('#connectionStatus').textContent='● CAHOS público · sin conexión institucional';
