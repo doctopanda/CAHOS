@@ -266,6 +266,40 @@ async function handler(req){
   const dim=url.searchParams.get("dim");if(!DIMS.has(dim))return send(req,{error:"invalid_dimension"},400);
   const rows=await lookupCatalog(dim);return send(req,{dimension:dim,members:rows.map(x=>({id:x.member_id,nombre:x.label}))});
  }
+ if(path==="/api/population/status"&&req.method==="GET"){
+  if(user.role==="agent")return send(req,{error:"not_a_viewer"},403);
+  const all=await db("GET","cahos_population?select=year,population_total,source_sha256&order=year.asc&limit=1500");
+  const grouped={};for(const row of all){
+   const key=String(row.year);if(!grouped[key])grouped[key]={municipalities:0,population:0,hashes:[]};
+   grouped[key].municipalities++;grouped[key].population+=Number(row.population_total);
+   if(!grouped[key].hashes.includes(row.source_sha256))grouped[key].hashes.push(row.source_sha256);
+  }
+  const years=Object.entries(grouped).map(([year,v])=>({year:Number(year),
+   municipalities:v.municipalities,total:v.population,complete:v.municipalities===72&&v.hashes.length===1}));
+  return send(req,{available:years.length>0,years,expected_municipalities:72,
+   source:"COESPO/CONAPO Proyecciones municipales Sonora 2015-2030",precision:"grupo_quinquenal_y_65_mas"});
+ }
+ if(path==="/api/population/trend"&&req.method==="GET"){
+  if(user.role==="agent")return send(req,{error:"not_a_viewer"},403);
+  const code=url.searchParams.get("municipality");
+  if(!code||!/^26[0-9]{3}$/.test(code))return send(req,{error:"invalid_municipality_code"},400);
+  const rows=await db("GET","cahos_population?select=year,population_total,municipality_name,source_sha256&municipality_code=eq."+code+"&order=year.asc&limit=20");
+  return send(req,{municipality:code,rows});
+ }
+ if(path==="/api/population"&&req.method==="GET"){
+  if(user.role==="agent")return send(req,{error:"not_a_viewer"},403);
+  const year=Number(url.searchParams.get("year"));
+  if(!Number.isInteger(year)||year<2015||year>2030)return send(req,{error:"invalid_population_year"},400);
+  const entries=await db("GET","cahos_population?select=year,municipality_code,municipality_name,female,male,population_total,source,source_sha256&year=eq."+year+"&order=municipality_code.asc&limit=100");
+  if(entries.length!==72||new Set(entries.map(x=>x.source_sha256)).size!==1)
+   return send(req,{available:false,year,municipalities:entries.length,reason:"population_year_incomplete"},200);
+  const code=url.searchParams.get("municipality");
+  const selected=code?entries.filter(x=>x.municipality_code===code):entries;
+  if(code&&!/^26[0-9]{3}$/.test(code))return send(req,{error:"invalid_municipality_code"},400);
+  return send(req,{available:true,year,source:entries[0].source,source_sha256:entries[0].source_sha256,
+   municipality_count:72,precision:"quinquenios_y_65_mas",rows:selected});
+ }
+
  if(path==="/api/query"&&req.method==="POST")return await requestQuery(await req.json(),user,req);
  if(path.startsWith("/api/jobs/")&&req.method==="GET"){
   const jobId=path.split("/").pop();if(!uuid(jobId))return send(req,{error:"invalid_job_id"},400);
@@ -305,6 +339,41 @@ async function handler(req){
   await db("POST","cahos_sync_state?on_conflict=worker_name",[{worker_name:"ca-agent-"+user.agentId.slice(0,8),status:"running",last_attempt_at:dateISO(),updated_at:dateISO()}],"resolution=merge-duplicates,return=minimal");
   return send(req,{ok:true});
  }
+ if(path==="/admin/population/import"&&req.method==="POST"){
+  if(user.role!=="admin"||!user.isMaster)return send(req,{error:"master_admin_only"},403);
+  const body=requireObject(await req.json()),rows=body.rows,year=Number(body.year);
+  const sourceHash=String(body.source_sha256||"");
+  if(!Number.isInteger(year)||year<2015||year>2030||!/^[a-f0-9]{64}$/.test(sourceHash)||
+     !Array.isArray(rows)||rows.length!==72)return send(req,{error:"invalid_population_batch"},400);
+  const bands=["00_04","05_09","10_14","15_19","20_24","25_29","30_34","35_39","40_44","45_49","50_54","55_59","60_64","65_mm"];
+  const names=new Set(),prepared=[];
+  for(const item of rows){
+   if(!item||Number(item.year)!==year||typeof item.code!=="string"||!/^26[0-9]{3}$/.test(item.code)||
+     typeof item.name!=="string"||item.name.trim().length<2||item.name.length>100||
+     names.has(item.code))return send(req,{error:"invalid_population_identity"},400);
+   names.add(item.code);
+   let total=0;
+   for(const sex of ["M","H"]){
+    const block=item[sex];
+    if(!block||typeof block!=="object"||Object.keys(block).length!==14||
+       bands.some(key=>!Number.isSafeInteger(block[key])||block[key]<0||block[key]>1e7))
+       return send(req,{error:"invalid_population_age_sex"},400);
+    for(const key of bands)total+=block[key];
+   }
+   if(total!==item.total||total<=0||total>1e7)return send(req,{error:"invalid_population_total"},400);
+   prepared.push({year,municipality_code:item.code,municipality_name:item.name,
+    female:item.M,male:item.H,population_total:total,
+    source:"COESPO/CONAPO Sonora, Proyecciones municipales 2015-2030",source_sha256:sourceHash});
+  }
+  const existing=await db("GET","cahos_population?select=year,source_sha256&year=eq."+year+"&limit=100");
+  if(existing.length&&existing.some(x=>x.source_sha256!==sourceHash))
+   return send(req,{error:"year_already_loaded_from_different_source"},409);
+  await db("POST","cahos_population?on_conflict=year,municipality_code",prepared,
+   "resolution=merge-duplicates,return=minimal");
+  return send(req,{ok:true,year,municipalities:prepared.length,
+    population:prepared.reduce((n,r)=>n+r.population_total,0),source_sha256:sourceHash});
+ }
+
  if(path==="/admin/create-agent"&&req.method==="POST"){
   if(user.role!=="admin")return send(req,{error:"admin_only"},403);
   const bytes=crypto.getRandomValues(new Uint8Array(32));
