@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CAHOS | Mesa de validación epidemiológica</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#153b35;background:#f1f7f5}
+*{box-sizing:border-box}body{margin:0;padding:clamp(16px,3vw,38px)}main{max-width:1050px;margin:auto}
+h1{font-size:clamp(25px,3vw,36px);margin:5px 0}h2{font-size:17px;margin:0 0 9px}h3{font-size:15px;margin:0 0 8px}
+p{line-height:1.55}.eyebrow{font-size:11px;font-weight:850;letter-spacing:1.8px;color:#178572}
+.lead,.muted{color:#638078}.muted{font-size:12px}.nav{display:flex;gap:13px;flex-wrap:wrap;margin:15px 0}
+a{color:#146959;font-weight:700}.panel{background:#fff;border:1px solid #d9e7e1;border-radius:15px;padding:clamp(15px,2vw,24px);margin:15px 0;box-shadow:0 9px 22px #193f3208}
+.controls{display:flex;gap:9px;flex-wrap:wrap;margin:12px 0}
+button{border:0;border-radius:9px;background:#176959;color:white;font:inherit;font-weight:750;cursor:pointer;padding:10px 14px}
+button.alt{color:#176959;background:#e4f2ec}button:disabled{cursor:not-allowed;opacity:.5}
+.pill{display:inline-block;padding:5px 9px;background:#e4f2eb;border-radius:18px;color:#176959;font-size:12px;font-weight:750}
+.notice{padding:12px 15px;border-radius:10px;background:#fff6e6;border:1px solid #ead8b3;color:#6b552b}
+.note{display:block;color:#506e65;font-size:12px;font-weight:700;margin-top:13px}
+textarea{display:block;width:100%;min-height:78px;margin:7px 0;border:1px solid #bdd7c9;border-radius:9px;padding:10px;font:inherit;resize:vertical}
+.ack{display:flex;align-items:flex-start;gap:9px;font-size:13px;font-weight:620;line-height:1.5;margin-top:13px}
+.ack input{width:17px;height:17px;margin-top:2px;flex:none}
+pre{font-size:12px;line-height:1.45;white-space:pre-wrap;overflow:auto;word-break:break-word;max-height:350px;border:1px solid #e0ebe6;border-radius:9px;background:#f8fbf9;padding:12px}
+.dataLine{font-size:13px;color:#56716a;overflow-wrap:anywhere}.card{border:1px solid #dce8e1;border-radius:13px;padding:18px;margin:13px 0}
+.hide{display:none!important}#notice{margin:12px 0}
+</style></head><body><main>
+<div class="eyebrow">CAHOS · MESA DE CONTROL EPIDEMIOLÓGICO</div>
+<h1>Validación de extracciones SINAVE</h1>
+<p class="lead">Esta mesa es exclusiva para administradores habilitados. Los resultados extraídos no se publican automáticamente: requieren revisión del corte, de los filtros y de su consistencia con el cubo original.</p>
+<div class="nav"><a href="./">Volver al visor SUIVE</a><a href="./acceso.html">Acceso y cuenta</a><a href="./conexion.html">Estado de conexión</a></div>
+<div class="notice" id="notice" role="status">Comprobando sesión y extracciones pendientes...</div>
+<section class="panel"><div class="controls"><button type="button" id="refresh">Actualizar pendientes</button><span id="count" class="pill">Comprobando</span></div>
+<p class="muted">Cada serie semanal, anual, sexo o edad es un producto independiente. Aprueba solo tras comparar contra SINAVE. Los CSV contienen únicamente agregados recuperados del cubo, sin información nominal.</p>
+<div id="list"></div></section>
+</main>
+<script src="./configuracion-publica.js"></script><script src="./cahos-auth.js"></script>
+<script>
+const E=id=>document.getElementById(id);
+const setMessage=msg=>{E("notice").textContent=msg};
+const types={weekly:"Serie semanal",annual:"Serie anual",sex:"Distribución por sexo",age:"Distribución por edad",municipality:"Distribución municipal",institution:"Distribución institucional"};
+function memberLabel(x){
+ const s=String(x??""),a=s.lastIndexOf("&[");
+ return a>=0&&s.endsWith("]")?s.slice(a+2,-1):s;
+}
+function years(arr){return (Array.isArray(arr)?arr:[]).map(memberLabel).join(", ")}
+function csvVal(value){
+ let t=String(value??"");
+ if(/^[=+@-]/.test(t))t="'"+t;
+ return '"'+t.replace(/"/g,'""')+'"';
+}
+function makeButton(label,alt=false){
+ const button=document.createElement("button");
+ button.type="button";button.textContent=label;if(alt)button.className="alt";return button;
+}
+function put(container,tag,value,klass){
+ const node=document.createElement(tag);node.textContent=value;if(klass)node.className=klass;
+ container.append(node);return node;
+}
+async function load(){
+ E("list").replaceChildren();
+ E("count").textContent="Cargando";
+ try{
+  if(!await CAHOSAuth.accessToken()){
+   E("count").textContent="Sesión requerida";
+   setMessage("Necesitas iniciar sesión en Acceso y cuenta. Regresa a esta mesa después de ingresar como administrador.");
+   return;
+  }
+  const result=(await CAHOSAuth.api("/admin/pending")).body;
+  const rows=Array.isArray(result.snapshots)?result.snapshots:[];
+  E("count").textContent=rows.length+" pendientes";
+  if(rows.length===0){
+   setMessage("No hay extracciones pendientes. Puedes regresar al visor para consultar datos aprobados o solicitar nuevas consultas.");
+   return;
+  }
+  setMessage("Hay "+rows.length+" extracciones terminadas, pendientes de conciliación y autorización manual.");
+  for(const item of rows){
+   const f=item.filter_params||{};
+   const box=document.createElement("section");box.className="card";
+   const title=put(box,"h3",(types[item.query_kind]||item.query_kind)+" · "+memberLabel(item.pathology_id));
+   const m=put(box,"p","Años: "+(years(f.years)||"no identificados")+
+    (item.query_kind==="weekly"?" · Semanas: "+(f.week_start??1)+" a "+(f.week_end??53):"")+
+    " · Entidad: "+memberLabel(f.entity||item.entity_code)+
+    " · Extraído: "+new Date(item.extracted_at).toLocaleString("es-MX"),"dataLine");
+   const actions=document.createElement("div");actions.className="controls";
+   const inspect=makeButton("1. Revisar resumen",true);
+   const exportBtn=makeButton("Descargar CSV completo",true);
+   actions.append(inspect,exportBtn);box.append(actions);
+   const details=document.createElement("pre");details.className="hide";box.append(details);
+   const ack=document.createElement("label");ack.className="ack";
+   const check=document.createElement("input");check.type="checkbox";check.disabled=true;
+   const ackText=document.createElement("span");
+   ackText.textContent="Verifiqué contra SINAVE los filtros, la definición del padecimiento, los totales, la cobertura y el corte; autorizo este producto exclusivamente para usuarios habilitados.";
+   ack.append(check,ackText);box.append(ack);
+   const label=put(box,"label","Nota de validación epidemiológica (obligatoria, mínimo 10 caracteres)","note");
+   const note=document.createElement("textarea");note.maxLength=350;note.disabled=true;
+   note.placeholder="Ejemplo: Conciliado contra cubo SINAVE, SE 40/2026, 26 Sonora, totales y grupos verificados.";
+   label.append(note);
+   const approve=makeButton("2. Aprobar producto");approve.disabled=true;box.append(approve);
+   let inspected=false;
+   const update=()=>{approve.disabled=!(inspected&&check.checked&&note.value.trim().length>=10)};
+   check.onchange=update;note.oninput=update;
+   inspect.onclick=async()=>{
+    inspect.disabled=true;
+    try{
+     const d=(await CAHOSAuth.api("/admin/snapshot/"+item.id)).body;
+     details.textContent=JSON.stringify({
+      periodo:years(d.filter_params?.years),filtros:d.filter_params,
+      fecha_de_extraccion:d.extracted_at,cobertura:d.coverage,
+      cantidad_de_filas:d.rows_count,suma_de_medidas:d.sum_cases,
+      muestra_de_hasta_20_filas:d.preview
+     },null,2);
+     details.classList.remove("hide");inspected=true;check.disabled=false;note.disabled=false;
+     setMessage("Resumen disponible. Contrasta los agregados contra SINAVE y descarga el CSV para revisar todas las filas.");
+    }catch(err){setMessage("No se pudo leer el resumen: "+err.message)}
+    finally{inspect.disabled=false}
+   };
+   exportBtn.onclick=async()=>{
+    exportBtn.disabled=true;
+    try{
+     const d=(await CAHOSAuth.api("/admin/snapshot/"+item.id+"?full=1")).body;
+     if(!Array.isArray(d.rows))throw Error("El servidor no devolvió las filas.");
+     const keys=["years","weeks","sex","age","municipalities","municipalities_id","institutions","cases"];
+     const csv=["\uFEFF"+keys.map(csvVal).join(",")].concat(d.rows.map(r=>keys.map(k=>csvVal(r[k])).join(","))).join("\r\n");
+     const u=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+     const a=document.createElement("a");a.href=u;a.download="CAHOS_revision_"+item.query_kind+"_"+item.id.slice(0,8)+".csv";
+     a.click();setTimeout(()=>URL.revokeObjectURL(u),3000);
+     setMessage("CSV descargado para conciliación. Descargar no aprueba ni publica datos.");
+    }catch(err){setMessage("No se pudo descargar el agregado: "+err.message)}
+    finally{exportBtn.disabled=false}
+   };
+   approve.onclick=async()=>{
+    update();if(approve.disabled)return;
+    if(!confirm("¿Confirmas que validaste este producto con el cubo SINAVE autorizado y deseas publicarlo para las cuentas habilitadas?"))return;
+    approve.disabled=true;
+    try{
+     await CAHOSAuth.api("/admin/approve",{method:"POST",
+      body:{snapshot_id:item.id,verified:true,review_note:note.value.trim()}});
+     setMessage("Aprobación registrada con fecha, responsable y nota de validación. El visor mostrará el dato tras volver a consultar.");
+     await load();
+    }catch(err){setMessage("No se aprobó: "+err.message);update()}
+   };
+   E("list").append(box);
+  }
+ }catch(err){
+  E("count").textContent="Acceso no disponible";
+  setMessage("No se puede consultar la mesa de validación: "+err.message+". Entra por Acceso y cuenta y comprueba tu rol administrador.");
+ }
+}
+E("refresh").onclick=load;load();
+</script></body></html>
