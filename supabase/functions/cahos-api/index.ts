@@ -21,7 +21,7 @@ async function fromSupabase(path:string, token:string):Promise<unknown[]> {
 Deno.serve(async (req: Request)=>{
  try{
   if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors(req)});
-  const path=new URL(req.url).pathname.replace(/^\/cahos-api/,"");
+  const pathname=new URL(req.url).pathname; const marker="/cahos-api"; const at=pathname.indexOf(marker); const path=at>=0?(pathname.slice(at+marker.length)||"/"):pathname;
   if(path==="/health" && req.method==="GET")
     return json(req,{ok:true,service:"CAHOS cloud API",phase:"protected_schema_ready",worker:"not_connected",epidemiological_data_available:false});
   if(!SUPABASE_URL||!PUBLIC_API_KEY)return json(req,{error:"backend_configuration_pending"},503);
