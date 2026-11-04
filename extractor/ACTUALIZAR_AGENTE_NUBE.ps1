@@ -1,4 +1,4 @@
-# CAHOS Cloud | Actualiza SOLO el agente Windows, sin reinstalar ni cambiar token.
+# CAHOS Cloud | Actualiza el agente y el lector OLAP locales, sin reinstalar ni cambiar token.
 # Cerrar tarea antigua, copiar Python corregido y reiniciar la misma tarea.
 $ErrorActionPreference='Stop'
 $taskName='CAHOS-CLOUD-AGENT'
@@ -6,10 +6,14 @@ $task=Get-ScheduledTask -TaskName $taskName -ErrorAction Stop
 $app=Join-Path (Join-Path $env:LOCALAPPDATA 'CAHOS') 'cloud'
 $src=Join-Path $PSScriptRoot 'agente_nube.py'
 $dest=Join-Path $app 'agente_nube.py'
+$serverSource=Join-Path $PSScriptRoot 'servidor.py'
+$serverTarget=Join-Path $app 'servidor.py'
 $token=Join-Path (Split-Path -Parent $app) 'cloud_agent_token.txt'
 $state=Join-Path (Split-Path -Parent $app) 'cloud_agent_status.json'
 if(-not(Test-Path -LiteralPath $src -PathType Leaf)){throw 'Falta agente_nube.py en la carpeta descargada.'}
 if(-not(Test-Path -LiteralPath $dest -PathType Leaf)){throw 'No hay agente instalado en LOCALAPPDATA. No se realizo ningun cambio.'}
+if(-not(Test-Path -LiteralPath $serverSource -PathType Leaf)){throw 'Falta servidor.py en la descarga.'}
+if(-not(Test-Path -LiteralPath $serverTarget -PathType Leaf)){throw 'No hay modulo OLAP instalado.'}
 if(-not(Test-Path -LiteralPath $token -PathType Leaf)){throw 'No existe un token local. No se modifico la configuracion.'}
 $action=@($task.Actions)|Select-Object -First 1
 if(-not([string]$action.Arguments -match 'agente_nube\.py') -or
@@ -27,13 +31,17 @@ if($task.State -eq 'Running'){
  if($task.State -eq 'Running'){throw 'La tarea no se detuvo. No se reemplazo ningun archivo.'}
 }
 $backup=Join-Path $app 'agente_nube.py.previous'
+$serverBackup=Join-Path $app 'servidor.py.previous'
 Copy-Item -LiteralPath $dest -Destination $backup -Force
+Copy-Item -LiteralPath $serverTarget -Destination $serverBackup -Force
 Copy-Item -LiteralPath $src -Destination $dest -Force
+Copy-Item -LiteralPath $serverSource -Destination $serverTarget -Force
 try{
  Start-ScheduledTask -TaskName $taskName -ErrorAction Stop
 } catch {
  Copy-Item -LiteralPath $backup -Destination $dest -Force
- throw 'El reinicio fallo. Se restauró el agente anterior; revise el Programador.'
+ Copy-Item -LiteralPath $serverBackup -Destination $serverTarget -Force
+ throw 'El reinicio fallo. Se restauraron las versiones anteriores; revise el Programador.'
 }
 $ready=$false
 for($i=0;$i -lt 20;$i++){
