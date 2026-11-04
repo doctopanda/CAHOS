@@ -95,7 +95,9 @@ async function getPublished(hash,user){
 }
 function asCube(snapshot){
  return {rows:snapshot.result_rows,axes:snapshot.query_kind==="weekly"?["years","weeks"]:snapshot.query_kind==="annual"?["years"]:[snapshot.query_kind==="municipality"?"municipalities":snapshot.query_kind],
-  extraido_en:snapshot.extracted_at,cache:true,fuente:snapshot.source_system,corte_oficial:snapshot.coverage?.corte_oficial||null,snapshot_id:snapshot.id};
+  extraido_en:snapshot.extracted_at,cache:true,fuente:snapshot.source_system,corte_oficial:snapshot.coverage?.corte_oficial||null,
+  validacion:snapshot.coverage?.status||"unknown",validacion_nota:snapshot.coverage?.review_summary||null,
+  oficial_corte_verificado:snapshot.coverage?.official_cut_verified===true,snapshot_id:snapshot.id};
 }
 async function requestQuery(body,user,req){
  let params;
@@ -134,6 +136,42 @@ async function claimJob(user,req){
  if(updated.length!==1)return send(req,{job:null});
  return send(req,{job:{id:j.id,params:j.request_params,attempts:j.attempts+1}});
 }
+
+function technicalReview(rows,job){
+ const p=job.request_params||{},kind=job.query_kind;
+ const issues=[];
+ const axis=kind==="weekly"?["years","weeks"]:kind==="annual"?["years"]:
+   kind==="municipality"?["municipalities"]:kind==="institution"?["institutions"]:[kind];
+ if(rows.length===0)issues.push("empty_result");
+ const expectedYears=new Set((Array.isArray(p.years)?p.years:[]).map(x=>{
+  const m=String(x).match(/&\[([0-9]{4})\]$/);return m?m[1]:null;
+ }));
+ const seen=new Set();
+ let sum=0,nonzero=0;
+ for(const row of rows){
+  if(!Number.isSafeInteger(row.cases)||row.cases<0){issues.push("invalid_measure");break;}
+  sum+=row.cases;if(row.cases>0)nonzero++;
+  const coords=[];
+  for(const col of axis){
+   if(typeof row[col]!=="string"||!row[col].trim()){issues.push("missing_axis");break;}
+   coords.push(row[col]);
+  }
+  const key=JSON.stringify(coords);
+  if(seen.has(key))issues.push("duplicate_axis");
+  seen.add(key);
+  if((kind==="annual"||kind==="weekly")&&!expectedYears.has(row.years))issues.push("unexpected_year");
+  if(kind==="weekly"&&(!/^\d{1,2}$/.test(row.weeks||"")||
+     Number(row.weeks)<Number(p.week_start??1)||Number(row.weeks)>Number(p.week_end??53)))
+   issues.push("unexpected_week");
+ }
+ if(sum>1e10)issues.push("measure_total_limit");
+ // Municipal and institutional cells require additional privacy review. Never auto-release.
+ const sensitive=kind==="municipality"||kind==="institution";
+ if(sensitive)issues.push("privacy_review_required");
+ return {passed:issues.length===0,issues:[...new Set(issues)],
+  row_count:rows.length,measure_sum:sum,nonzero_rows:nonzero};
+}
+
 function cleanRows(rows){
  if(!Array.isArray(rows)||rows.length>7500)throw new Error("invalid_result_rows");
  const allowedFields=new Set(["years","weeks","sex","age","institutions","municipalities","municipalities_id","cases"]);
@@ -167,12 +205,20 @@ async function commitResult(user,data,req){
  const result=requireObject(data.result);
  const rows=cleanRows(result.rows);
  if(result.axes&&!Array.isArray(result.axes))return send(req,{error:"invalid_result_axes"},400);
- const coverage={status:"unverified",corte_oficial:result.corte_oficial??null};
- const saved=await db("POST","cahos_snapshots?on_conflict=query_hash",[{query_hash:job.query_hash,query_kind:job.query_kind,pathology_id:job.request_params.pathology,entity_code:job.entity_code,filter_params:job.request_params,result_rows:rows,coverage,source_system:"SINAVE_OLAP",extracted_at:dateISO(),publication_status:"pending",approved_by:null,approved_at:null}],"resolution=merge-duplicates,return=representation");
+ const review=technicalReview(rows,job);
+ const reviewDate=dateISO();
+ const coverage={status:review.passed?"technical_consistency_checked":"technical_review_required",
+  corte_oficial:result.corte_oficial??null,official_cut_verified:false,
+  review_method:"server_side_rules_v1",reviewed_at:reviewDate,
+  review_summary:review.passed?"Integridad interna comprobada; corte oficial no certificado.":"Resultado retenido por control técnico o privacidad.",
+  internal_check:review};
+ const publication=review.passed?"approved":"pending";
+ const saved=await db("POST","cahos_snapshots?on_conflict=query_hash",[{query_hash:job.query_hash,query_kind:job.query_kind,pathology_id:job.request_params.pathology,entity_code:job.entity_code,filter_params:job.request_params,result_rows:rows,coverage,source_system:"SINAVE_OLAP",extracted_at:dateISO(),publication_status:publication,approved_by:null,approved_at:review.passed?reviewDate:null}],"resolution=merge-duplicates,return=representation");
  const snapshot=saved[0];
  await db("PATCH","cahos_jobs?id=eq."+job.id+"&agent_id=eq."+user.agentId+"&state=eq.running",{state:"done",result_snapshot_id:snapshot.id,finished_at:dateISO(),lease_until:null});
  await db("POST","cahos_sync_state?on_conflict=worker_name",[{worker_name:"ca-agent-"+user.agentId.slice(0,8),status:"idle",last_success_at:dateISO(),last_attempt_at:dateISO(),updated_at:dateISO()}],"resolution=merge-duplicates,return=representation");
- return send(req,{ok:true,state:"awaiting_review",snapshot_id:snapshot.id});
+ return send(req,{ok:true,state:review.passed?"technical_checked":"restricted_pending_review",
+  review_issues:review.issues,snapshot_id:snapshot.id});
 }
 async function catalogSync(user,data,req){
  const dim=data.dimension;
@@ -292,6 +338,13 @@ async function handler(req){
   if(user.role!=="admin")return send(req,{error:"admin_only"},403);
   const agents=await db("GET","cahos_agents?select=id,label,enabled,created_at,last_seen_at,revoked_at&order=created_at.desc&limit=20");
   return send(req,{agents});
+ }
+ if(path==="/admin/quality-report"&&req.method==="GET"){
+  if(user.role!=="admin")return send(req,{error:"admin_only"},403);
+  const snapshots=await db("GET",
+   "cahos_snapshots?select=id,query_kind,pathology_id,entity_code,filter_params,extracted_at,coverage,publication_status,approved_at&order=extracted_at.desc&limit=150");
+  return send(req,{snapshots,scope:"authenticated_cahos_users_only",
+   warning:"Control técnico interno; no acredita el corte oficial epidemiológico."});
  }
  if(path==="/admin/pending"&&req.method==="GET"){
   if(user.role!=="admin")return send(req,{error:"admin_only"},403);
