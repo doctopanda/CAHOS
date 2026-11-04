@@ -230,17 +230,34 @@ async function query(){
   if(out[0].status!=="fulfilled")throw out[0].reason;
   if(out[1].status!=="fulfilled")throw out[1].reason;
   observaciones=out[1].value;
-  if(['queued','running'].includes(observaciones?.status)){
-   $("#mapStatus").textContent="Extracción municipal "+(observaciones.status==="queued"?"en cola":"en proceso")+
-    ". El mapa se coloreará automáticamente al terminar. Revisión "+(mapPollAttempts+1)+"/12.";
-   if(mapPollAttempts<12){
-    mapPollAttempts++;
-    clearTimeout(refreshTimer);
-    refreshTimer=setTimeout(()=>{if(!requestRunning)query();},7000);
+  // A single POST creates the job; status polling never resubmits to Windows.
+  if(['queued','running'].includes(observaciones?.status)&&observaciones.job_id){
+   const jobId=String(observaciones.job_id);
+   for(let attempt=0;attempt<30;attempt++){
+    $("#mapStatus").textContent="Extracción municipal "+(observaciones.status==="queued"?"en cola":"en proceso")+
+     ". Seguimiento "+(attempt+1)+"/30, sin duplicar trabajos.";
+    await new Promise(resolve=>setTimeout(resolve,5000));
+    const progress=await GET("/api/jobs/"+encodeURIComponent(jobId));
+    if(progress.status==="ready"){observaciones=progress.result;break}
+    if(['failed','awaiting_review','result_unavailable'].includes(progress.status)){
+     observaciones=progress;break
+    }
+    if(!['queued','running'].includes(progress.status)){observaciones=progress;break}
+    observaciones={...progress,job_id:jobId};
    }
+  }
+  if(['queued','running'].includes(observaciones?.status)){
+   $("#mapStatus").textContent="La extracción sigue en proceso. No se volverá a enviar al cubo; consulta más tarde.";
    return;
   }
-  mapPollAttempts=0;
+  if(observaciones?.status==='failed'){
+   population=out[2].status==="fulfilled"?out[2].value:{disponible:false};
+   const code=observaciones.error_code||'extractor_error';
+   observaciones=null;joinState=reconcileMunicipios();
+   render();
+   $("#mapStatus").textContent="La extracción falló ("+code+"). No repetiremos consultas fallidas automáticamente. Puedes visualizar la capa poblacional.";
+   return;
+  }
   if(observaciones?.status==='awaiting_review'){
    $("#mapStatus").textContent="Desglose municipal restringido por privacidad. El Administrador Maestro puede ver el dato preliminar sin publicarlo.";
    observaciones=null;
@@ -270,9 +287,9 @@ document.querySelector('[data-p="mapa"]')?.addEventListener("click",async()=>{
 });
 for(const id of ['#diseaseSelect','#yearSelect','#entitySelect','#sexSelect','#ageSelect']){
  $(id)?.addEventListener('change',()=>{
-  if(!$("#view-mapa")?.classList.contains('hide')){
-   clearTimeout(refreshTimer);refreshTimer=setTimeout(query,900);
-  }
+  clearTimeout(refreshTimer);
+  if(!$("#view-mapa")?.classList.contains('hide'))
+   $("#mapStatus").textContent="Filtros modificados. Pulsa Consultar municipios para una extracción controlada.";
  });
 }
 window.CAHOSMapa={consultar:query};
