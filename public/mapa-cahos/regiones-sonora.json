@@ -1,0 +1,502 @@
+{
+  "schema": "cahos_regionalization_v1",
+  "generated_at": "2026-11-04",
+  "scope": "Sonora / INEGI 26",
+  "territory_count": 72,
+  "description": "Capas independientes por fuente. No inferir región IMSS a partir de sedes.",
+  "sources": {
+    "custom": "Regionalización analítica proporcionada por el usuario, no administrativa; permite solapamientos.",
+    "districts": "Boletín Oficial de Sonora, 10 febrero 2025, tomo CCXV, número 12 sección I, art.29 BIS, p.23. https://boletinoficial.sonora.gob.mx/images/boletines/2025/02/2025CCXV12I.pdf",
+    "coespo": "COESPO Sonora, Indicadores demográficos y socioeconómicos, 10 regiones vigentes en sección Información por Región. https://coespo.sonora.gob.mx/informacion-institucional/indicadores/infografias-indicadores-demograficos-y-socioeconomicos",
+    "imss": "IMSS Bienestar, comunicado 054/2025, 12 julio 2025; 10 sedes de conducción médica, sin padrón municipal completo. https://cdn.imssbienestar.gob.mx/ssib/assets/docs/notas_informativas/sala_prensa/148/20250712_imssbienestarinaugurahospitalcomunitarioviicamswitchquetraeraijusticiasocialensaludalpuebloyaqui.pdf"
+  },
+  "regionalizations": {
+    "custom": {
+      "title": "Zonas operativas CAHOS (usuario)",
+      "type": "overlapping",
+      "coverage": "partial",
+      "regions": [
+        {
+          "id": "sierra",
+          "name": "Sierra (Alta y Baja)",
+          "municipalities": [
+            "26005",
+            "26008",
+            "26010",
+            "26014",
+            "26015",
+            "26023",
+            "26024",
+            "26028",
+            "26031",
+            "26032",
+            "26038",
+            "26040",
+            "26041",
+            "26044",
+            "26052",
+            "26054",
+            "26057",
+            "26061",
+            "26062",
+            "26063",
+            "26067",
+            "26068",
+            "26069",
+            "26049",
+            "26051",
+            "26003",
+            "26037",
+            "26053",
+            "26013"
+          ],
+          "description": ""
+        },
+        {
+          "id": "frontera",
+          "name": "Frontera",
+          "municipalities": [
+            "26002",
+            "26019",
+            "26039",
+            "26043",
+            "26059",
+            "26060",
+            "26065",
+            "26035",
+            "26036",
+            "26058",
+            "26022",
+            "26027"
+          ],
+          "description": ""
+        },
+        {
+          "id": "desierto",
+          "name": "Desierto y Noroeste",
+          "municipalities": [
+            "26055",
+            "26048",
+            "26070",
+            "26017",
+            "26047",
+            "26004",
+            "26046"
+          ],
+          "description": ""
+        },
+        {
+          "id": "valles",
+          "name": "Valles del Sur (Yaqui y Mayo)",
+          "municipalities": [
+            "26018",
+            "26042",
+            "26033",
+            "26026",
+            "26071",
+            "26072",
+            "26012"
+          ],
+          "description": ""
+        },
+        {
+          "id": "rio",
+          "name": "Río de Sonora y Centro-Río",
+          "municipalities": [
+            "26030",
+            "26066",
+            "26012",
+            "26001",
+            "26053",
+            "26014",
+            "26013",
+            "26034",
+            "26056",
+            "26020",
+            "26050",
+            "26045",
+            "26054"
+          ],
+          "description": ""
+        },
+        {
+          "id": "litoral",
+          "name": "Litoral (Costa Sur y Guaymas)",
+          "municipalities": [
+            "26029",
+            "26025",
+            "26072",
+            "26071"
+          ],
+          "description": ""
+        }
+      ],
+      "unassigned": [
+        "26006",
+        "26007",
+        "26009",
+        "26011",
+        "26016",
+        "26021",
+        "26064"
+      ],
+      "overlaps": [
+        "26012",
+        "26013",
+        "26014",
+        "26053",
+        "26054",
+        "26071",
+        "26072"
+      ]
+    },
+    "districts": {
+      "title": "Distritos de Salud (2025)",
+      "type": "partition",
+      "coverage": "complete",
+      "regions": [
+        {
+          "id": "DS01",
+          "name": "DS01 Hermosillo",
+          "municipalities": [
+            "26001",
+            "26005",
+            "26008",
+            "26009",
+            "26013",
+            "26014",
+            "26020",
+            "26021",
+            "26023",
+            "26024",
+            "26028",
+            "26030",
+            "26032",
+            "26034",
+            "26037",
+            "26038",
+            "26040",
+            "26041",
+            "26044",
+            "26045",
+            "26050",
+            "26052",
+            "26053",
+            "26054",
+            "26056",
+            "26057",
+            "26061",
+            "26062",
+            "26063",
+            "26066",
+            "26067",
+            "26068"
+          ],
+          "description": ""
+        },
+        {
+          "id": "DS02",
+          "name": "DS02 Caborca",
+          "municipalities": [
+            "26004",
+            "26007",
+            "26017",
+            "26046",
+            "26047",
+            "26060",
+            "26065"
+          ],
+          "description": ""
+        },
+        {
+          "id": "DS03",
+          "name": "DS03 Santa Ana",
+          "municipalities": [
+            "26002",
+            "26006",
+            "26010",
+            "26011",
+            "26015",
+            "26016",
+            "26019",
+            "26022",
+            "26027",
+            "26031",
+            "26035",
+            "26036",
+            "26039",
+            "26043",
+            "26058",
+            "26059",
+            "26064"
+          ],
+          "description": ""
+        },
+        {
+          "id": "DS04",
+          "name": "DS04 Ciudad Obregón / Cajeme",
+          "municipalities": [
+            "26012",
+            "26018",
+            "26025",
+            "26029",
+            "26049",
+            "26051",
+            "26072",
+            "26069"
+          ],
+          "description": ""
+        },
+        {
+          "id": "DS05",
+          "name": "DS05 Navojoa",
+          "municipalities": [
+            "26003",
+            "26071",
+            "26026",
+            "26033",
+            "26042"
+          ],
+          "description": ""
+        },
+        {
+          "id": "DS06",
+          "name": "DS06 San Luis Río Colorado",
+          "municipalities": [
+            "26055",
+            "26070",
+            "26048"
+          ],
+          "description": ""
+        }
+      ]
+    },
+    "coespo": {
+      "title": "Regiones COESPO (10)",
+      "type": "partition",
+      "coverage": "complete",
+      "regions": [
+        {
+          "id": "capital",
+          "name": "Capital",
+          "municipalities": [
+            "26030"
+          ],
+          "description": ""
+        },
+        {
+          "id": "alto_golfo",
+          "name": "Alto Golfo",
+          "municipalities": [
+            "26048",
+            "26055",
+            "26070"
+          ],
+          "description": ""
+        },
+        {
+          "id": "gran_desierto",
+          "name": "Gran Desierto",
+          "municipalities": [
+            "26004",
+            "26007",
+            "26016",
+            "26017",
+            "26020",
+            "26036",
+            "26046",
+            "26047",
+            "26058",
+            "26060",
+            "26064",
+            "26065"
+          ],
+          "description": ""
+        },
+        {
+          "id": "frontera",
+          "name": "Frontera",
+          "municipalities": [
+            "26022",
+            "26035",
+            "26043",
+            "26059"
+          ],
+          "description": ""
+        },
+        {
+          "id": "puerto",
+          "name": "Puerto",
+          "municipalities": [
+            "26021",
+            "26025",
+            "26029",
+            "26044",
+            "26054",
+            "26062"
+          ],
+          "description": ""
+        },
+        {
+          "id": "rio_yaqui",
+          "name": "Río Yaqui",
+          "municipalities": [
+            "26012",
+            "26018",
+            "26071"
+          ],
+          "description": ""
+        },
+        {
+          "id": "rio_mayo",
+          "name": "Río Mayo",
+          "municipalities": [
+            "26003",
+            "26026",
+            "26033",
+            "26042",
+            "26049",
+            "26051",
+            "26072"
+          ],
+          "description": ""
+        },
+        {
+          "id": "tres_rios",
+          "name": "Tres Ríos",
+          "municipalities": [
+            "26001",
+            "26005",
+            "26009",
+            "26013",
+            "26014",
+            "26034",
+            "26037",
+            "26045",
+            "26050",
+            "26052",
+            "26053",
+            "26056",
+            "26057",
+            "26061",
+            "26066",
+            "26068",
+            "26069"
+          ],
+          "description": ""
+        },
+        {
+          "id": "cuatro_sierras",
+          "name": "Cuatro Sierras",
+          "municipalities": [
+            "26002",
+            "26006",
+            "26011",
+            "26019",
+            "26027",
+            "26039"
+          ],
+          "description": ""
+        },
+        {
+          "id": "sierra_alta",
+          "name": "Sierra Alta",
+          "municipalities": [
+            "26008",
+            "26010",
+            "26015",
+            "26023",
+            "26024",
+            "26028",
+            "26031",
+            "26032",
+            "26038",
+            "26040",
+            "26041",
+            "26063",
+            "26067"
+          ],
+          "description": ""
+        }
+      ]
+    },
+    "imss": {
+      "title": "IMSS Bienestar (10 sedes)",
+      "type": "seat_only",
+      "coverage": "pending_municipal_crosswalk",
+      "regions": [
+        {
+          "id": "RO01",
+          "name": "San Luis Río Colorado",
+          "municipalities": [],
+          "seat_municipality": "26055",
+          "coverage_status": "sede_verificada_pendiente_poligono_municipal"
+        },
+        {
+          "id": "RO02",
+          "name": "Caborca",
+          "municipalities": [],
+          "seat_municipality": "26017",
+          "coverage_status": "sede_verificada_pendiente_poligono_municipal"
+        },
+        {
+          "id": "RO03",
+          "name": "Nogales",
+          "municipalities": [],
+          "seat_municipality": "26043",
+          "coverage_status": "sede_verificada_pendiente_poligono_municipal"
+        },
+        {
+          "id": "RO04",
+          "name": "Moctezuma",
+          "municipalities": [],
+          "seat_municipality": "26038",
+          "coverage_status": "sede_verificada_pendiente_poligono_municipal"
+        },
+        {
+          "id": "RO05",
+          "name": "Ures",
+          "municipalities": [],
+          "seat_municipality": "26066",
+          "coverage_status": "sede_verificada_pendiente_poligono_municipal"
+        },
+        {
+          "id": "RO06",
+          "name": "Hermosillo",
+          "municipalities": [],
+          "seat_municipality": "26030",
+          "coverage_status": "sede_verificada_pendiente_poligono_municipal"
+        },
+        {
+          "id": "RO07",
+          "name": "Guaymas",
+          "municipalities": [],
+          "seat_municipality": "26029",
+          "coverage_status": "sede_verificada_pendiente_poligono_municipal"
+        },
+        {
+          "id": "RO08",
+          "name": "Ciudad Obregón",
+          "municipalities": [],
+          "seat_municipality": "26018",
+          "coverage_status": "sede_verificada_pendiente_poligono_municipal"
+        },
+        {
+          "id": "RO09",
+          "name": "Navojoa",
+          "municipalities": [],
+          "seat_municipality": "26042",
+          "coverage_status": "sede_verificada_pendiente_poligono_municipal"
+        },
+        {
+          "id": "RO10",
+          "name": "Huatabampo",
+          "municipalities": [],
+          "seat_municipality": "26033",
+          "coverage_status": "sede_verificada_pendiente_poligono_municipal"
+        }
+      ],
+      "note": "No colorear áreas regionales ni atribuir municipios sin padrón oficial. Solo ubicar las 10 sedes sobre el mapa."
+    }
+  }
+}
