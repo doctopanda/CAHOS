@@ -30,7 +30,8 @@ function save(){
  pathology_search:$("search").value,pop_municipality:state.selected||"",
  pop_year:String(state.year),
  operational_zones:[...state.selectedZones].join(","),
- selected_municipalities:[...state.selectedMunicipalities].join(",")
+ selected_municipalities:[...state.selectedMunicipalities].join(","),
+  regional_scheme:scheme()
  });
 }
 function selectOption(id,val){
@@ -144,107 +145,127 @@ function rings(geometry){
  return [];
 }
 
+
+const ZONE_COLORS=["#2b8b75","#648cbd","#d2a03e","#976fb2","#b36b61","#759d57",
+ "#467e9a","#d08b70","#a38b43","#428e89"];
+function scheme(){return $("regionScheme")?.value||"custom"}
+function schemeData(){return state.regionalization?.regionalizations?.[scheme()]||null}
+function zoneList(){
+ const data=schemeData(),list=[...(data?.regions||[])];
+ if(scheme()==="custom"&&data?.unassigned?.length)
+  list.push({id:"unassigned",name:"Sin zona asignada",municipalities:data.unassigned});
+ return list;
+}
 function zonesFor(code){
- const row=state.regionalization?.municipalities?.find(x=>x.code===code);
- return row?.zones||[];
+ return state.regionalization?CAHOSRegions.membership(state.regionalization,scheme(),code).map(x=>x.id):[];
 }
 function selectedCodes(){
- const all=state.regionalization?.municipalities||[];
- let codes=all.map(x=>x.code);
- if(state.selectedZones.size){
-  codes=codes.filter(code=>{
-   const memberships=zonesFor(code);
-   return [...state.selectedZones].some(id=>id==="unassigned"?memberships.length===0:memberships.includes(id));
-  });
- }
- if(state.selectedMunicipalities.size)codes=codes.filter(code=>state.selectedMunicipalities.has(code));
- return new Set(codes);
+ const all=new Set(state.features.map(f=>String(f.properties.cvegeo)));
+ if(!state.selectedZones.size&&!state.selectedMunicipalities.size)return all;
+ const special=state.selectedZones.has("unassigned")&&scheme()==="custom"?
+  (schemeData()?.unassigned||[]):[];
+ const chosen=new Set(special);
+ for(const code of CAHOSRegions.selection(state.regionalization,scheme(),
+   [...state.selectedZones].filter(x=>x!=="unassigned"),
+   [...state.selectedMunicipalities]))chosen.add(code);
+ return chosen;
+}
+function saveRegionalScheme(){
+ save();
 }
 function chooseMunicipality(code,additive=false){
  if(additive){
   if(state.selectedMunicipalities.has(code))state.selectedMunicipalities.delete(code);
   else state.selectedMunicipalities.add(code);
  }else{
-  state.selectedMunicipalities.clear();state.selectedMunicipalities.add(code);
+  state.selectedMunicipalities.add(code);
  }
- state.selected=code;save();renderMunicipalitySelection();drawMap();showDetail(code);
+ state.selected=code;saveRegionalScheme();
+ renderMunicipalitySelection();drawMap();showDetail(code);
 }
 function refreshZoneChips(){
  const root=$("zoneChips");root.replaceChildren();
- const zones=(state.regionalization?.zones||[]).concat([{id:"unassigned",label:"Sin asignación",color:"#a3ada8",codes:[]}]);
- for(const zone of zones){
-  const active=state.selectedZones.has(zone.id);
-  const button=document.createElement("button");button.type="button";button.className="zoneChip";
+ const regions=zoneList();
+ for(let i=0;i<regions.length;i++){
+  const zone=regions[i],active=state.selectedZones.has(zone.id);
+  const button=document.createElement("button");
+  button.type="button";button.className="zoneChip";
   button.setAttribute("aria-pressed",String(active));
-  const dot=document.createElement("i");dot.className="dot";dot.style.background=zone.color;
+  const dot=document.createElement("i");dot.className="dot";
+  dot.style.background=ZONE_COLORS[i%ZONE_COLORS.length];
   const label=document.createElement("span");
-  label.textContent=zone.label+" · "+(zone.id==="unassigned"?
-   (state.regionalization?.unassigned||[]).length:zone.codes.length);
+  label.textContent=zone.name+" · "+
+   (scheme()==="imss"?"sede":zone.municipalities.length+" mun.");
   button.append(dot,label);
   button.addEventListener("click",()=>{
    if(state.selectedZones.has(zone.id))state.selectedZones.delete(zone.id);
    else state.selectedZones.add(zone.id);
-   save();refreshZoneChips();drawMap();
+   saveRegionalScheme();refreshZoneChips();drawMap();
   });
   root.append(button);
  }
 }
 function renderMunicipalitySelection(){
  const root=$("selectedMunicipalities");root.replaceChildren();
- for(const code of state.selectedMunicipalities){
-  const record=state.regionalization?.municipalities?.find(x=>x.code===code);
-  const button=document.createElement("button");button.type="button";button.className="zoneChip";
-  button.textContent=(record?.name||code)+" ×";
-  button.setAttribute("aria-label","Quitar "+(record?.name||code));
+ for(const code of [...state.selectedMunicipalities].sort()){
+  const record=state.featureMap.get(code)?.properties;
+  if(!record){state.selectedMunicipalities.delete(code);continue}
+  const button=document.createElement("button");
+  button.type="button";button.className="zoneChip";
+  button.textContent=(record.nombre||code)+" ×";
+  button.title="Quitar municipio de la selección";
   button.addEventListener("click",()=>{
    state.selectedMunicipalities.delete(code);
    if(state.selected===code)state.selected=null;
-   save();renderMunicipalitySelection();drawMap();
+   saveRegionalScheme();renderMunicipalitySelection();drawMap();
   });
   root.append(button);
  }
 }
 function renderTerritorialSummary(){
- const root=$("zoneTotals");if(!state.regionalization){root.textContent="Regionalización pendiente.";return}
- const codes=selectedCodes(),n=codes.size;
- const names=[...state.selectedZones].map(id=>state.regionalization.zones.find(z=>z.id===id)?.label||
-  (id==="unassigned"?"Sin asignación":"")).filter(Boolean);
- const caseCodes=[...codes].filter(x=>state.municipal.has(x));
- const popValues=[...codes].map(code=>populationFor(code)?.population_total);
- const population=n&&popValues.every(Number.isFinite)?popValues.reduce((a,b)=>a+b,0):null;
- const cases=n&&caseCodes.length===n?caseCodes.reduce((a,b)=>a+state.municipal.get(b),0):null;
- const denoms=[...codes].map(rateDenominator);
- const denominator=n&&denoms.every(x=>Number.isFinite(x)&&x>0)?denoms.reduce((a,b)=>a+b,0):null;
- const rate=cases!==null&&denominator?cases/denominator*100000:null;
- const first=document.createElement("div");first.className="regionLabel";
- first.textContent=(names.join(" + ")||"Todo Sonora")+" · "+n+" municipios distintos";
- const detail=document.createElement("div");
- detail.textContent="Población: "+(population===null?"no disponible":fmt(population))+
-  " · Casos: "+(cases===null?"sin cobertura total":fmt(cases))+
-  " · Tasa: "+(rate===null?"no calculable":rate.toLocaleString("es-MX",{maximumFractionDigits:2})+" /100,000")+
-  ". Selecciones superpuestas no duplican casos ni población.";
- const notes=document.createElement("div");notes.className="zoneHelp";
- notes.textContent="Regionalización operativa propuesta, distinta de las oficiales. "+
-  (state.selectedZones.size&&state.selectedMunicipalities.size?"Zonas y municipios se intersectan. ":"")+
-  (caseCodes.length!==n?"Faltan datos de uno o más municipios; ausencia ≠ cero. ":"")+
-  "La tasa exige numerador y denominador compatibles.";
- root.replaceChildren(first,detail,notes);
+ const root=$("zoneTotals");
+ const data=schemeData();if(!data){root.textContent="Regionalización pendiente";return}
+ const codes=selectedCodes(),popByCode=new Map(state.population.map(x=>[x.municipality_code,x]));
+ const stats=CAHOSRegions.aggregate(codes,state.municipal,popByCode,rateDenominator);
+ const selected=zoneList().filter(x=>state.selectedZones.has(x.id)).map(x=>x.name);
+ const label=selected.length?selected.join(" + "):"Todo Sonora";
+ const title=document.createElement("div");title.className="regionLabel";
+ title.textContent=label+" · "+codes.size+" municipios únicos";
+ const text=document.createElement("div");
+ text.textContent="Población: "+(stats.population==null?"no disponible":fmt(stats.population))+
+  " · Casos: "+(stats.cases==null?"información incompleta":fmt(stats.cases))+
+  " · Tasa /100,000: "+(stats.rate==null?"no calculable":stats.rate.toLocaleString("es-MX",{maximumFractionDigits:2}))+
+  ". Se evita duplicar municipios compartidos.";
+ const note=document.createElement("div");note.className="zoneHelp";
+ note.textContent=scheme()==="imss"?
+  "IMSS: solo se conocen los municipios sede. Este subtotal NO representa la población ni los casos de toda la región IMSS. Esperando matriz municipal oficial.":
+  scheme()==="custom"?"Zonas operativas propuestas, no límites oficiales. Hay 7 municipios sin asignar y 7 compartidos entre zonas.":
+  "Límites por agrupación de municipios, derivados de la regionalización de origen.";
+ root.replaceChildren(title,text,note);
+ const labels={custom:"6 zonas · 65/72 municipios · 7 cruces",districts:"6 distritos · 72/72",
+  coespo:"10 regiones · 72/72",imss:"10 sedes · límites pendientes"};
+ $("regionCoverage").textContent=labels[scheme()];
+ $("regionHelp").textContent=scheme()==="custom"?
+  "Agrupación analítica aportada para CAHOS. Las zonas se traslapan y siete municipios siguen sin asignación; selección múltiple sin doble conteo.":
+  scheme()==="districts"?"Boletín Oficial del Estado de Sonora, 10 de febrero de 2025, artículo 29 BIS. Distribución completa de 72 municipios.":
+  scheme()==="coespo"?"Regiones COESPO actuales: 10 agrupaciones de municipios, completas y excluyentes. Independientes de las 12 regiones socioeconómicas históricas.":
+  "Sedes IMSS Bienestar verificadas; aún no hay padrón completo de municipios por conducción médica. Se dibujan marcadores de sedes, NO polígonos regionales.";
 }
 async function loadRegionalization(){
- const response=await fetch("/CAHOS/data/cahos_macrozonas_operativas.json",{cache:"no-store"});
- if(!response.ok)throw Error("No se pudo cargar el catálogo regional de CAHOS");
+ const response=await fetch("/CAHOS/mapa-cahos/regiones-sonora.json",{cache:"no-store"});
+ if(!response.ok)throw Error("No se pudo cargar el catálogo territorial actualizado");
  const data=await response.json();
- if(data.schema!=="cahos_regionalizacion_operativa_v1"||data.municipalities?.length!==72||
-  data.zones?.length!==6||new Set(data.municipalities.map(x=>x.code)).size!==72)
-  throw Error("El catálogo regional no contiene 72 claves válidas");
+ CAHOSRegions.validate(data,state.features.map(f=>String(f.properties.cvegeo)));
  state.regionalization=data;
- const ids=new Set(data.zones.map(x=>x.id).concat("unassigned"));
+ const candidate=shared.regional_scheme;
+ if(["custom","districts","coespo","imss"].includes(candidate))$("regionScheme").value=candidate;
+ const ids=new Set(zoneList().map(x=>x.id));
  state.selectedZones=new Set(String(shared.operational_zones||"").split(",").filter(x=>ids.has(x)));
- const codes=new Set(data.municipalities.map(x=>x.code));
+ const codes=new Set(state.features.map(x=>String(x.properties.cvegeo)));
  state.selectedMunicipalities=new Set(String(shared.selected_municipalities||"").split(",").filter(x=>codes.has(x)));
- const select=$("addMunicipality");select.replaceChildren(new Option("Elegir municipio…",""));
- [...data.municipalities].sort((a,b)=>a.name.localeCompare(b.name,"es")).forEach(x=>
-  select.append(new Option(x.name,x.code)));
+ const selector=$("addMunicipality");selector.replaceChildren(new Option("Elegir municipio…",""));
+ state.features.slice().sort((a,b)=>a.properties.nombre.localeCompare(b.properties.nombre,"es"))
+  .forEach(x=>selector.append(new Option(x.properties.nombre,String(x.properties.cvegeo))));
  refreshZoneChips();renderMunicipalitySelection();renderTerritorialSummary();
 }
 
