@@ -43,7 +43,8 @@ function options(id,members,empty){
 }
 function searchPathology(){
  const term=$("search").value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
- const all=state.catalog.pathologies||[],selected=$("pathology").value;
+ const all=state.catalog.pathologies||[],previous=$("pathology").value;
+ const selected=all.some(x=>x.id===previous)?previous:shared.pathology||"";
  const clean=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
  let result=all.filter(m=>clean(m.nombre).includes(term)).slice(0,80);
  if(selected&&!result.some(x=>x.id===selected)){
