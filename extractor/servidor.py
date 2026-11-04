@@ -247,9 +247,17 @@ def build_mdx(req: dict) -> tuple[str, list[str]]:
 
 
 def normalise_flat_response(result: dict, axes: list[str]):
+    # NON EMPTY legitimately returns zero rows for some catalog members.
+    # Do not require dimension/measure metadata when there are no data rows.
+    # Empty is unknown/no source records, NEVER a confirmed epidemiological zero.
+    rows = result.get('rows', [])
+    if not isinstance(rows, list):
+        raise RuntimeError('El proveedor devolvió una estructura de filas inválida.')
+    if len(rows) == 0:
+        return []
     headers = [str(x) for x in result.get('columns', [])]
     if not headers:
-        return []
+        raise RuntimeError('El proveedor devolvió filas sin metadatos de columnas.')
     h_upper = [s.upper() for s in headers]
     idx = {}
     for axis in axes:
