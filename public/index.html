@@ -11,12 +11,20 @@
 .cahos-map-panel .hint{margin-top:10px}
 #mapStatus{margin:12px 0}
 @media(max-width:900px){.cahos-map-wrap{grid-template-columns:1fr}}
+</style><style>
+.reviewGate{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:-1px 0 15px;padding:15px 18px;border:1px solid #dec895;border-radius:13px;background:#fff8e9;color:#54482b}
+.reviewGate strong{display:block;font-size:14px;color:#58451d}
+.reviewGate span{display:block;font-size:12px;line-height:1.5;margin-top:3px}
+.reviewGate a{display:inline-block;padding:11px 16px;border-radius:9px;background:#176959;color:white;font-size:13px;font-weight:750;text-decoration:none}
 </style><style>.favoriteWrap{display:flex;align-items:center;gap:4px}.favoriteWrap .favorite{flex:1;min-width:0}.favoriteRemove{flex:none;width:27px;height:27px;border:1px solid rgba(255,255,255,.26);border-radius:8px;background:transparent;color:inherit;font-size:18px;cursor:pointer}.favoriteRemove:hover{background:#a33b3b;color:white}</style></head><body><div class="shell">
 <aside class="side"><div class="logo"><div class="mark">⌁</div><div><span class="brand">CAHOS</span><span class="micro">MÓDULO 01 · VISOR SUIVE</span></div></div>
 <nav id="nav"><button class="nav on" data-p="panorama">◫ &nbsp; Panorama</button><button class="nav" data-p="mapa">▣ &nbsp; Mapa Sonora</button><button class="nav" data-p="endemic">⌁ &nbsp; Canal endémico</button><button class="nav" data-p="demography">♙ &nbsp; Edad y sexo</button><button class="nav" data-p="program">⚙ &nbsp; Programación</button><button class="nav" data-p="source">◉ &nbsp; Fuente</button></nav>
 <h3>Patologías activas</h3><div id="favoriteSide"></div><div class="tag">Conexión de lectura · Requiere red y permisos institucionales · No se almacenan contraseñas</div></aside>
 <main class="main"><header class="top"><div><div class="eyebrow">CAHOS · PLATAFORMA DE INTELIGENCIA EPIDEMIOLÓGICA</div><h1>Visor SUIVE</h1><div class="subtitle">Módulo de vigilancia epidemiológica · Consultas personalizadas y tableros de patologías</div></div><div class="pill warn" id="connectionStatus">● Comprobando conexión</div></header>
-<div class="notice warn" id="globalNotice">CAHOS usa un extractor central protegido. Las solicitudes pueden quedar en cola y los resultados se muestran únicamente después de su aprobación.</div><div class="loader hide" id="progress"></div>
+<div class="notice warn" id="globalNotice">CAHOS usa un extractor central protegido. Las solicitudes pueden quedar en cola y los resultados se muestran únicamente después de su aprobación.</div><div class="reviewGate hide" id="reviewGate" role="status" aria-live="polite">
+<div><strong id="reviewGateTitle">Extracciones pendientes de validación</strong><span id="reviewGateDetail">Los resultados deben revisarse antes de mostrar cifras.</span></div>
+<a id="reviewGateLink" href="./acceso.html#revision">Revisar y validar extracciones</a>
+</div><div class="loader hide" id="progress"></div>
 <section class="filters" id="filters">
 <label>Buscar patología del catálogo<input type="search" id="pathologyQuickSearch" placeholder="Dengue, sarampión, sífilis..." autocomplete="off"><span id="pathologyQuickCount" class="hint">Esperando catálogo del cubo</span></label>
 <label>Patología a consultar<select id="diseaseSelect"><option value="">Cargando patologías...</option></select></label>
@@ -53,8 +61,29 @@
 <script src="./configuracion-publica.js"></script><script src="./cahos-auth.js"></script>
 <script>
 const $=s=>document.querySelector(s);const num=x=>Number(x||0).toLocaleString('es-MX',{maximumFractionDigits:1});const COLORS=['#178d79','#7766a5','#c1944e','#bf6862','#2d6f96','#86a445','#b17aaf','#515d78','#56a8a2'];
-const state={catalog:{},favorites:[],status:null,data:{},path:'panorama',running:false};
+const state={catalog:{},favorites:[],status:null,data:{},path:'panorama',running:false,canReview:false,awaitingReview:false};
 function setNotice(text,type='warn'){$('#globalNotice').className='notice '+(type==='err'?'err':type==='ok'?'':'warn');$('#globalNotice').textContent=text;}
+
+function reviewGate(statuses=[]){
+ const waiting=statuses.filter(x=>x&&x.status==='awaiting_review').length;
+ const processing=statuses.filter(x=>x&&['queued','running'].includes(x.status)).length;
+ state.awaitingReview=waiting>0;
+ $('#reviewGate').classList.toggle('hide',waiting===0);
+ if(waiting){
+  $('#reviewGateTitle').textContent=waiting+' de 4 productos pendientes de aprobación';
+  $('#reviewGateDetail').textContent='La extracción finalizó, pero faltan filtros, corte y contraste con SINAVE'+(processing?'; '+processing+' productos aún se están extrayendo.':'.');
+  $('#reviewGateLink').classList.toggle('hide',!state.canReview);
+ }
+}
+function clearPreliminary(){
+ state.data={};$('#exportData').disabled=true;
+ for(const id of ['kCases','kAnnual','kChange','kSync'])$('#'+id).textContent='—';
+ for(const id of ['weeklyChart','yearChart','annualChart','endemicChart','sexChart','ageChart']){
+  const div=document.createElement('div');div.className='placeholder';
+  div.textContent='Pendiente de validación epidemiológica';
+  $('#'+id).replaceChildren(div);
+ }
+}
 function busy(flag){state.running=flag;$('#progress').classList.toggle('hide',!flag);$('#analyze').disabled=flag;}
 function apiUrl(path){const raw=String(window.SUIVE_CONFIG?.apiBaseUrl||'').trim();if(!raw)throw Error('El administrador aún no ha configurado una API institucional segura. GitHub Pages solo aloja la interfaz.');let u;try{u=new URL(raw)}catch{throw Error('URL institucional inválida')}if(u.protocol!=='https:')throw Error('La API institucional debe utilizar HTTPS.');if(!path.startsWith('/api/'))throw Error('Ruta de API no autorizada');return u.href.replace(/\/$/,'')+path;}
 async function GET(path){const t=await window.CAHOSAuth?.accessToken();if(!t){location.assign('./acceso.html');throw Error('Inicia sesión en CAHOS para acceder a resultados autorizados.')}return (await window.CAHOSAuth.api(path)).body;}
@@ -119,7 +148,10 @@ function favoritesUI(){
  renderDiseaseList();
 }
 async function loadCatalog(dim){let ret=await GET('/api/catalog?dim='+encodeURIComponent(dim));state.catalog[dim]=ret.members;return ret.members;}
-async function initializeConnected(){try{state.status=await GET('/api/status');$('#intervalLabel').textContent=`Intervalo: cada ${state.status.intervalo_minutos} minutos mientras el servidor está encendido`;$('#sourceInfo').textContent=`Servidor: ${state.status.servidor}\nCubo: ${state.status.catalogo}\nActualización automática: cada ${state.status.intervalo_minutos} minutos\nÚltima consulta: ${state.status.actividad.ultima_consulta||'sin consulta'}\nÚltima sincronización programada: ${state.status.actividad.ultima_extraccion_automatica||'sin sincronización'}\nÚltimo error: ${state.status.actividad.ultimo_error||'ninguno'}`;state.favorites=[...state.status.favoritos];await Promise.all(['pathologies','years','entities','municipalities','sex','age'].map(loadCatalog));$('#connectionStatus').textContent='● Catálogo del cubo accesible';$('#connectionStatus').className='pill';options($('#yearSelect'),(state.catalog.years||[]).filter(x=>/(?:19|20)\d{2}/.test(x.nombre)).sort((a,b)=>Number(b.nombre.match(/(?:19|20)\d{2}/)[0])-Number(a.nombre.match(/(?:19|20)\d{2}/)[0])));options($('#entitySelect'),state.catalog.entities,'Todas las entidades');filterMunicipalities();options($('#sexSelect'),state.catalog.sex,'Ambos sexos');options($('#ageSelect'),state.catalog.age,'Todas las edades');let sonora=state.catalog.entities.find(x=>x.nombre.trim().toLowerCase().replace(/^26\s+/,'')==='sonora');if(sonora)$('#entitySelect').value=sonora.id;let recent=yearIds()[0];if(recent)$('#yearSelect').value=recent;
+async function initializeConnected(){try{state.status=await GET('/api/status');
+ try{const profile=await window.CAHOSAuth.profile();state.canReview=!!(profile?.enabled&&(profile.role==='admin'||profile.is_master));}
+ catch{state.canReview=false;}
+$('#intervalLabel').textContent=`Intervalo: cada ${state.status.intervalo_minutos} minutos mientras el servidor está encendido`;$('#sourceInfo').textContent=`Servidor: ${state.status.servidor}\nCubo: ${state.status.catalogo}\nActualización automática: cada ${state.status.intervalo_minutos} minutos\nÚltima consulta: ${state.status.actividad.ultima_consulta||'sin consulta'}\nÚltima sincronización programada: ${state.status.actividad.ultima_extraccion_automatica||'sin sincronización'}\nÚltimo error: ${state.status.actividad.ultimo_error||'ninguno'}`;state.favorites=[...state.status.favoritos];await Promise.all(['pathologies','years','entities','municipalities','sex','age'].map(loadCatalog));$('#connectionStatus').textContent='● Catálogo del cubo accesible';$('#connectionStatus').className='pill';options($('#yearSelect'),(state.catalog.years||[]).filter(x=>/(?:19|20)\d{2}/.test(x.nombre)).sort((a,b)=>Number(b.nombre.match(/(?:19|20)\d{2}/)[0])-Number(a.nombre.match(/(?:19|20)\d{2}/)[0])));options($('#entitySelect'),state.catalog.entities,'Todas las entidades');filterMunicipalities();options($('#sexSelect'),state.catalog.sex,'Ambos sexos');options($('#ageSelect'),state.catalog.age,'Todas las edades');let sonora=state.catalog.entities.find(x=>x.nombre.trim().toLowerCase().replace(/^26\s+/,'')==='sonora');if(sonora)$('#entitySelect').value=sonora.id;let recent=yearIds()[0];if(recent)$('#yearSelect').value=recent;
  let seededNow=false;
  if(!state.status.favoritos_inicializados&&!state.favorites.length){
    state.favorites=seedSuiveFavorites();
@@ -143,13 +175,16 @@ POST('/api/query',{kind:'age',pathology:f.pathology,years:[f.year],entity:f.enti
  const queued=[weekly,annual,sex,age].filter(x=>x&&x.status);
  if(queued.length){
   const reviewing=queued.some(x=>x.status==='awaiting_review');
-  const msg=reviewing?'La extracción terminó, pero los resultados esperan revisión epidemiológica.':
-    'La consulta está en cola de extracción. El agente central la procesará en segundo plano.';
+  reviewGate(queued);clearPreliminary();
+  const msg=reviewing?'La extracción terminó y está pendiente de revisión epidemiológica.':
+    'La consulta está en cola. El agente central la procesará.';
   setNotice(msg+' No se presentan números sin validar.','warn');
-  if(!reviewing&&autoQueryRetries<6){autoQueryRetries++;setTimeout(()=>{if(!state.running)queryAll();},30000)}
+  if(queued.some(x=>x.status==='queued'||x.status==='running')&&autoQueryRetries<6){
+   autoQueryRetries++;setTimeout(()=>{if(!state.running)queryAll();},30000);
+  }
   return;
  }
- autoQueryRetries=0;state.data={weekly,annual,sex,age,f};drawAll();setNotice(`Consulta completada: ${catalogLabel('pathologies',f.pathology)} · ${catalogLabel('years',f.year)} · ${weekly.cache?'caché temporal':'extracción nueva'}.`,'ok');}catch(e){setNotice('Error al consultar el cubo: '+e.message,'err');}finally{busy(false);}}
+ autoQueryRetries=0;reviewGate([]);state.data={weekly,annual,sex,age,f};$('#exportData').disabled=false;drawAll();setNotice(`Consulta completada: ${catalogLabel('pathologies',f.pathology)} · ${catalogLabel('years',f.year)} · ${weekly.cache?'caché temporal':'extracción nueva'}.`,'ok');}catch(e){setNotice('Error al consultar el cubo: '+e.message,'err');}finally{busy(false);}}
 function cleanRows(rows){return (rows||[]).filter(r=>r.cases!=null&&Number.isFinite(Number(r.cases))).map(r=>({...r,cases:Number(r.cases)}));}
 function tally(rows,k){let map=new Map();for(let r of cleanRows(rows)){let t=r[k];map.set(t,(map.get(t)||0)+r.cases);}return map;}
 function sum(rows){return cleanRows(rows).reduce((s,r)=>s+r.cases,0);}
@@ -192,6 +227,7 @@ function drawEndemic(matrix,year,f){
  notice.className='notice warn';
  drawLines('#endemicChart',series,weeks);
 }
+window.addEventListener('focus',()=>{if(state.awaitingReview&&!state.running)queryAll();});
 $('#nav').addEventListener('click',e=>{let b=e.target.closest('[data-p]');if(b)switchPage(b.dataset.p);});$('#analyze').onclick=queryAll;$('#diseaseSelect').onchange=()=>{favoritesUI();queryAll();};$('#diseaseSearch').oninput=renderDiseaseList;$('#pathologyQuickSearch').oninput=renderPathologyOptions;$('#municipalitySearch').oninput=filterMunicipalities;$('#saveFavorites').onclick=async()=>{try{await POST('/api/favorites',{favoritos:state.favorites});$('#programFeedback').textContent='Programación guardada. La sincronización automática ha sido iniciada.';setNotice('Configuración guardada. El cubo recibirá consultas automáticas de tus patologías favoritas.','ok');favoritesUI();}catch(e){$('#programFeedback').textContent=e.message;}};$('#exportData').onclick=()=>{let d=state.data;if(!d.weekly){alert('Consulta una patología primero');return;}let heads=['tipo','years','weeks','sex','age','cases','extraido_en'];let output=['\uFEFF'+heads.join(',')];for(let kind of ['weekly','annual','sex','age'])for(let row of d[kind].rows){let x={...row,tipo:kind,extraido_en:d[kind].extraido_en};output.push(heads.map(h=>{let t=String(x[h]??'');if(/^[=+@-]/.test(t))t="'"+t;return '"'+t.replace(/"/g,'""')+'"'}).join(','));}let blob=new Blob([output.join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='suive_consulta_lectura.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);};$('#forceRefresh').onclick=async()=>{try{await POST('/api/refresh',{favoritos:true});$('#programFeedback').textContent='Se solicitó actualización automática; consulta el estado más tarde o abre una patología.';}catch(e){$('#programFeedback').textContent=e.message;}};
 async function initialize(){
   if(!window.SUIVE_CONFIG?.apiBaseUrl){
