@@ -85,12 +85,12 @@ function matchMunicipios(rows){
   if(result.has(code)){duplicate++;continue}
   result.set(code,cases);
  }
- if(result.size!==72||unmatched||duplicate||grand===null)return {
-  ok:false,reason:"72 filas no conciliadas (enlazadas "+result.size+
+ if(result.size===0||unmatched||duplicate||grand===null)return {
+  ok:false,reason:"Filas municipales no conciliadas (enlazadas "+result.size+
    ", sin clave "+unmatched+", duplicadas "+duplicate+", total estatal "+(grand===null?"ausente":"presente")+")"};
  const total=[...result.values()].reduce((a,b)=>a+b,0);
  if(total!==grand)return {ok:false,reason:"Suma municipal "+fmt(total)+" ≠ total estatal "+fmt(grand)};
- return {ok:true,values:result,total};
+ return {ok:true,values:result,total,municipalities:result.size};
 }
 function populationFor(code){
  return state.population.find(x=>x.municipality_code===code)||null;
@@ -184,7 +184,7 @@ function drawMap(){
  svg.setAttribute("viewBox",Object.values(state.viewBox).join(" "));
  const n=state.municipal.size;
  $("mapFoot").textContent="INEGI · 72 municipios · "+(metric==="population"?"Capa demográfica COESPO/CONAPO":
-  n===72?"72 municipios conciliados con total estatal del cubo (consulta protegida).":
+  n>0?n+" municipios conciliados con total estatal del cubo (consulta protegida).":
   "Datos epidemiológicos restringidos o no disponibles · gris ≠ cero casos.")+
   " · "+state.year+" · El mapa no acredita el corte oficial.";
 }
@@ -282,7 +282,7 @@ async function loadCases(){
    if(!check.ok)throw Error("Desglose no conciliado: "+check.reason);
    state.municipal=check.values;state.grandTotal=check.total;state.provisional=result.provisional===true;
    state.caseQuality=result.validacion||"revisión interna";
-   inform("72 municipios conciliados. Total estatal "+fmt(check.total)+" casos. "+
+   inform(check.municipalities+" municipios conciliados. Total estatal "+fmt(check.total)+" casos. "+
     (state.provisional?"VISTA PRELIMINAR RESTRINGIDA A ADMINISTRADOR MAESTRO.":"Consulta habilitada para tu rol."),"ok");
   }else if(result?.status==="awaiting_review"){
    inform("La extracción contiene datos municipales, pero permanece restringida por privacidad. El mapa puede mostrar la capa de población; los casos municipales requieren acceso maestro.");
