@@ -1,0 +1,713 @@
+{
+  "schema": "cahos_regionalizacion_operativa_v1",
+  "version": "2026-11-04",
+  "scope": "Sonora",
+  "status": "propuesta_operativa_no_oficial",
+  "source": "Seis zonas propuestas por el usuario para CAHOS; no equivalen a los Distritos de Salud ni a COESPO ni a las regiones IMSS Bienestar.",
+  "municipality_count": 72,
+  "zone_count": 6,
+  "assigned_unique": 65,
+  "unassigned": [
+    {
+      "municipality_code": "26006",
+      "municipality_name": "Arizpe"
+    },
+    {
+      "municipality_code": "26007",
+      "municipality_name": "Atil"
+    },
+    {
+      "municipality_code": "26009",
+      "municipality_name": "Bacanora"
+    },
+    {
+      "municipality_code": "26011",
+      "municipality_name": "Bacoachi"
+    },
+    {
+      "municipality_code": "26016",
+      "municipality_name": "Benjamín Hill"
+    },
+    {
+      "municipality_code": "26021",
+      "municipality_name": "La Colorada"
+    },
+    {
+      "municipality_code": "26064",
+      "municipality_name": "Trincheras"
+    }
+  ],
+  "overlapping": [
+    {
+      "code": "26012",
+      "name": "Bácum",
+      "zones": [
+        "valles_sur",
+        "rio_centro"
+      ]
+    },
+    {
+      "code": "26013",
+      "name": "Banámichi",
+      "zones": [
+        "sierra",
+        "rio_centro"
+      ]
+    },
+    {
+      "code": "26014",
+      "name": "Baviácora",
+      "zones": [
+        "sierra",
+        "rio_centro"
+      ]
+    },
+    {
+      "code": "26053",
+      "name": "San Felipe de Jesús",
+      "zones": [
+        "sierra",
+        "rio_centro"
+      ]
+    },
+    {
+      "code": "26054",
+      "name": "San Javier",
+      "zones": [
+        "sierra",
+        "rio_centro"
+      ]
+    },
+    {
+      "code": "26071",
+      "name": "Benito Juárez",
+      "zones": [
+        "valles_sur",
+        "litoral"
+      ]
+    },
+    {
+      "code": "26072",
+      "name": "San Ignacio Río Muerto",
+      "zones": [
+        "valles_sur",
+        "litoral"
+      ]
+    }
+  ],
+  "zones": [
+    {
+      "id": "sierra",
+      "label": "Sierra (Alta y Baja)",
+      "color": "#8264ad",
+      "codes": [
+        "26005",
+        "26008",
+        "26010",
+        "26014",
+        "26015",
+        "26023",
+        "26024",
+        "26028",
+        "26031",
+        "26032",
+        "26038",
+        "26040",
+        "26041",
+        "26044",
+        "26052",
+        "26054",
+        "26057",
+        "26061",
+        "26062",
+        "26063",
+        "26067",
+        "26068",
+        "26069",
+        "26049",
+        "26051",
+        "26003",
+        "26037",
+        "26053",
+        "26013"
+      ]
+    },
+    {
+      "id": "frontera",
+      "label": "Frontera",
+      "color": "#db674b",
+      "codes": [
+        "26002",
+        "26019",
+        "26039",
+        "26043",
+        "26059",
+        "26060",
+        "26065",
+        "26035",
+        "26036",
+        "26058",
+        "26022",
+        "26027"
+      ]
+    },
+    {
+      "id": "desierto",
+      "label": "Desierto y Noroeste",
+      "color": "#dfaa53",
+      "codes": [
+        "26055",
+        "26048",
+        "26070",
+        "26017",
+        "26047",
+        "26004",
+        "26046"
+      ]
+    },
+    {
+      "id": "valles_sur",
+      "label": "Valles del Sur (Yaqui y Mayo)",
+      "color": "#5eaa78",
+      "codes": [
+        "26018",
+        "26042",
+        "26033",
+        "26026",
+        "26071",
+        "26072",
+        "26012"
+      ]
+    },
+    {
+      "id": "rio_centro",
+      "label": "Río de Sonora y Centro-Río",
+      "color": "#4d9cc7",
+      "codes": [
+        "26030",
+        "26066",
+        "26012",
+        "26001",
+        "26053",
+        "26014",
+        "26013",
+        "26034",
+        "26056",
+        "26020",
+        "26050",
+        "26045",
+        "26054"
+      ]
+    },
+    {
+      "id": "litoral",
+      "label": "Litoral (Costa Sur y Guaymas)",
+      "color": "#2e9ea1",
+      "codes": [
+        "26029",
+        "26025",
+        "26072",
+        "26071"
+      ]
+    }
+  ],
+  "municipalities": [
+    {
+      "code": "26001",
+      "name": "Aconchi",
+      "zones": [
+        "rio_centro"
+      ]
+    },
+    {
+      "code": "26002",
+      "name": "Agua Prieta",
+      "zones": [
+        "frontera"
+      ]
+    },
+    {
+      "code": "26003",
+      "name": "Alamos",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26004",
+      "name": "Altar",
+      "zones": [
+        "desierto"
+      ]
+    },
+    {
+      "code": "26005",
+      "name": "Arivechi",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26006",
+      "name": "Arizpe",
+      "zones": []
+    },
+    {
+      "code": "26007",
+      "name": "Atil",
+      "zones": []
+    },
+    {
+      "code": "26008",
+      "name": "Bacadéhuachi",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26009",
+      "name": "Bacanora",
+      "zones": []
+    },
+    {
+      "code": "26010",
+      "name": "Bacerac",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26011",
+      "name": "Bacoachi",
+      "zones": []
+    },
+    {
+      "code": "26012",
+      "name": "Bácum",
+      "zones": [
+        "valles_sur",
+        "rio_centro"
+      ]
+    },
+    {
+      "code": "26013",
+      "name": "Banámichi",
+      "zones": [
+        "sierra",
+        "rio_centro"
+      ]
+    },
+    {
+      "code": "26014",
+      "name": "Baviácora",
+      "zones": [
+        "sierra",
+        "rio_centro"
+      ]
+    },
+    {
+      "code": "26015",
+      "name": "Bavispe",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26016",
+      "name": "Benjamín Hill",
+      "zones": []
+    },
+    {
+      "code": "26017",
+      "name": "Caborca",
+      "zones": [
+        "desierto"
+      ]
+    },
+    {
+      "code": "26018",
+      "name": "Cajeme",
+      "zones": [
+        "valles_sur"
+      ]
+    },
+    {
+      "code": "26019",
+      "name": "Cananea",
+      "zones": [
+        "frontera"
+      ]
+    },
+    {
+      "code": "26020",
+      "name": "Carbó",
+      "zones": [
+        "rio_centro"
+      ]
+    },
+    {
+      "code": "26021",
+      "name": "La Colorada",
+      "zones": []
+    },
+    {
+      "code": "26022",
+      "name": "Cucurpe",
+      "zones": [
+        "frontera"
+      ]
+    },
+    {
+      "code": "26023",
+      "name": "Cumpas",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26024",
+      "name": "Divisaderos",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26025",
+      "name": "Empalme",
+      "zones": [
+        "litoral"
+      ]
+    },
+    {
+      "code": "26026",
+      "name": "Etchojoa",
+      "zones": [
+        "valles_sur"
+      ]
+    },
+    {
+      "code": "26027",
+      "name": "Fronteras",
+      "zones": [
+        "frontera"
+      ]
+    },
+    {
+      "code": "26028",
+      "name": "Granados",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26029",
+      "name": "Guaymas",
+      "zones": [
+        "litoral"
+      ]
+    },
+    {
+      "code": "26030",
+      "name": "Hermosillo",
+      "zones": [
+        "rio_centro"
+      ]
+    },
+    {
+      "code": "26031",
+      "name": "Huachinera",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26032",
+      "name": "Huásabas",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26033",
+      "name": "Huatabampo",
+      "zones": [
+        "valles_sur"
+      ]
+    },
+    {
+      "code": "26034",
+      "name": "Huépac",
+      "zones": [
+        "rio_centro"
+      ]
+    },
+    {
+      "code": "26035",
+      "name": "Imuris",
+      "zones": [
+        "frontera"
+      ]
+    },
+    {
+      "code": "26036",
+      "name": "Magdalena",
+      "zones": [
+        "frontera"
+      ]
+    },
+    {
+      "code": "26037",
+      "name": "Mazatán",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26038",
+      "name": "Moctezuma",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26039",
+      "name": "Naco",
+      "zones": [
+        "frontera"
+      ]
+    },
+    {
+      "code": "26040",
+      "name": "Nácori Chico",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26041",
+      "name": "Nacozari de García",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26042",
+      "name": "Navojoa",
+      "zones": [
+        "valles_sur"
+      ]
+    },
+    {
+      "code": "26043",
+      "name": "Nogales",
+      "zones": [
+        "frontera"
+      ]
+    },
+    {
+      "code": "26044",
+      "name": "Onavas",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26045",
+      "name": "Opodepe",
+      "zones": [
+        "rio_centro"
+      ]
+    },
+    {
+      "code": "26046",
+      "name": "Oquitoa",
+      "zones": [
+        "desierto"
+      ]
+    },
+    {
+      "code": "26047",
+      "name": "Pitiquito",
+      "zones": [
+        "desierto"
+      ]
+    },
+    {
+      "code": "26048",
+      "name": "Puerto Peñasco",
+      "zones": [
+        "desierto"
+      ]
+    },
+    {
+      "code": "26049",
+      "name": "Quiriego",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26050",
+      "name": "Rayón",
+      "zones": [
+        "rio_centro"
+      ]
+    },
+    {
+      "code": "26051",
+      "name": "Rosario",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26052",
+      "name": "Sahuaripa",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26053",
+      "name": "San Felipe de Jesús",
+      "zones": [
+        "sierra",
+        "rio_centro"
+      ]
+    },
+    {
+      "code": "26054",
+      "name": "San Javier",
+      "zones": [
+        "sierra",
+        "rio_centro"
+      ]
+    },
+    {
+      "code": "26055",
+      "name": "San Luis Río Colorado",
+      "zones": [
+        "desierto"
+      ]
+    },
+    {
+      "code": "26056",
+      "name": "San Miguel de Horcasitas",
+      "zones": [
+        "rio_centro"
+      ]
+    },
+    {
+      "code": "26057",
+      "name": "San Pedro de la Cueva",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26058",
+      "name": "Santa Ana",
+      "zones": [
+        "frontera"
+      ]
+    },
+    {
+      "code": "26059",
+      "name": "Santa Cruz",
+      "zones": [
+        "frontera"
+      ]
+    },
+    {
+      "code": "26060",
+      "name": "Sáric",
+      "zones": [
+        "frontera"
+      ]
+    },
+    {
+      "code": "26061",
+      "name": "Soyopa",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26062",
+      "name": "Suaqui Grande",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26063",
+      "name": "Tepache",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26064",
+      "name": "Trincheras",
+      "zones": []
+    },
+    {
+      "code": "26065",
+      "name": "Tubutama",
+      "zones": [
+        "frontera"
+      ]
+    },
+    {
+      "code": "26066",
+      "name": "Ures",
+      "zones": [
+        "rio_centro"
+      ]
+    },
+    {
+      "code": "26067",
+      "name": "Villa Hidalgo",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26068",
+      "name": "Villa Pesqueira",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26069",
+      "name": "Yécora",
+      "zones": [
+        "sierra"
+      ]
+    },
+    {
+      "code": "26070",
+      "name": "General Plutarco Elías Calles",
+      "zones": [
+        "desierto"
+      ]
+    },
+    {
+      "code": "26071",
+      "name": "Benito Juárez",
+      "zones": [
+        "valles_sur",
+        "litoral"
+      ]
+    },
+    {
+      "code": "26072",
+      "name": "San Ignacio Río Muerto",
+      "zones": [
+        "valles_sur",
+        "litoral"
+      ]
+    }
+  ]
+}
