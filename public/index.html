@@ -23,7 +23,7 @@
 <main class="main"><header class="top"><div><div class="eyebrow">CAHOS · PLATAFORMA DE INTELIGENCIA EPIDEMIOLÓGICA</div><h1>Visor SUIVE</h1><div class="subtitle">Módulo de vigilancia epidemiológica · Consultas personalizadas y tableros de patologías</div></div><div class="pill warn" id="connectionStatus">● Comprobando conexión</div></header>
 <div class="notice warn" id="globalNotice">CAHOS usa un extractor central protegido. Las solicitudes pueden quedar en cola y los resultados se muestran únicamente después de su aprobación.</div><div class="reviewGate hide" id="reviewGate" role="status" aria-live="polite">
 <div><strong id="reviewGateTitle">Extracciones pendientes de validación</strong><span id="reviewGateDetail">Los resultados deben revisarse antes de mostrar cifras.</span></div>
-<a id="reviewGateLink" href="./acceso.html#revision">Revisar y validar extracciones</a>
+<a id="reviewGateLink" href="./revision.html">Revisar y validar extracciones</a>
 </div><div class="loader hide" id="progress"></div>
 <section class="filters" id="filters">
 <label>Buscar patología del catálogo<input type="search" id="pathologyQuickSearch" placeholder="Dengue, sarampión, sífilis..." autocomplete="off"><span id="pathologyQuickCount" class="hint">Esperando catálogo del cubo</span></label>
@@ -72,7 +72,7 @@ function reviewGate(statuses=[]){
  if(waiting){
   $('#reviewGateTitle').textContent=waiting+' de 4 productos pendientes de aprobación';
   $('#reviewGateDetail').textContent='La extracción finalizó, pero faltan filtros, corte y contraste con SINAVE'+(processing?'; '+processing+' productos aún se están extrayendo.':'.');
-  $('#reviewGateLink').classList.toggle('hide',!state.canReview);
+  $('#reviewGateLink').classList.remove('hide');
  }
 }
 function clearPreliminary(){
