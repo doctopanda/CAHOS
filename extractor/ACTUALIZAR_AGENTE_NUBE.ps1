@@ -1,0 +1,51 @@
+# CAHOS Cloud | Actualiza SOLO el agente Windows, sin reinstalar ni cambiar token.
+# Cerrar tarea antigua, copiar Python corregido y reiniciar la misma tarea.
+$ErrorActionPreference='Stop'
+$taskName='CAHOS-CLOUD-AGENT'
+$task=Get-ScheduledTask -TaskName $taskName -ErrorAction Stop
+$app=Join-Path (Join-Path $env:LOCALAPPDATA 'CAHOS') 'cloud'
+$src=Join-Path $PSScriptRoot 'agente_nube.py'
+$dest=Join-Path $app 'agente_nube.py'
+$token=Join-Path (Split-Path -Parent $app) 'cloud_agent_token.txt'
+$state=Join-Path (Split-Path -Parent $app) 'cloud_agent_status.json'
+if(-not(Test-Path -LiteralPath $src -PathType Leaf)){throw 'Falta agente_nube.py en la carpeta descargada.'}
+if(-not(Test-Path -LiteralPath $dest -PathType Leaf)){throw 'No hay agente instalado en LOCALAPPDATA. No se realizo ningun cambio.'}
+if(-not(Test-Path -LiteralPath $token -PathType Leaf)){throw 'No existe un token local. No se modifico la configuracion.'}
+$action=@($task.Actions)|Select-Object -First 1
+if(-not([string]$action.Arguments -match 'agente_nube\.py') -or
+   -not([string]$action.WorkingDirectory -ieq $app)){
+  throw 'La tarea no coincide con la instalacion esperada. No se modificaran procesos.'
+}
+Write-Host '[CAHOS] Actualizacion segura del agente. Token y Excel intactos.' -ForegroundColor Cyan
+if($task.State -eq 'Running'){
+ Stop-ScheduledTask -TaskName $taskName -ErrorAction Stop
+ for($i=0;$i -lt 25;$i++){
+  Start-Sleep -Milliseconds 250
+  $task=Get-ScheduledTask -TaskName $taskName -ErrorAction Stop
+  if($task.State -ne 'Running'){break}
+ }
+ if($task.State -eq 'Running'){throw 'La tarea no se detuvo. No se reemplazo ningun archivo.'}
+}
+$backup=Join-Path $app 'agente_nube.py.previous'
+Copy-Item -LiteralPath $dest -Destination $backup -Force
+Copy-Item -LiteralPath $src -Destination $dest -Force
+try{
+ Start-ScheduledTask -TaskName $taskName -ErrorAction Stop
+} catch {
+ Copy-Item -LiteralPath $backup -Destination $dest -Force
+ throw 'El reinicio fallo. Se restauró el agente anterior; revise el Programador.'
+}
+$ready=$false
+for($i=0;$i -lt 20;$i++){
+ Start-Sleep -Milliseconds 500
+ if(Test-Path -LiteralPath $state -PathType Leaf){$ready=$true;break}
+}
+if($ready){
+ try{
+  $current=Get-Content -LiteralPath $state -Raw -Encoding UTF8|ConvertFrom-Json
+  Write-Host ('[CAHOS] Estado local: '+[string]$current.status+' / '+[string]$current.detail) -ForegroundColor Green
+ } catch {Write-Host '[CAHOS] Estado creado, pero no se pudo leer.' -ForegroundColor Yellow}
+}else{
+ Write-Host '[CAHOS] La tarea reinició, pero aun no se registra archivo de estado. Use DIAGNOSTICAR_AGENTE_NUBE.bat.' -ForegroundColor Yellow
+}
+Write-Host '[CAHOS] La actualización no tocó claves, archivos Excel ni credenciales.'
