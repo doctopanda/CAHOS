@@ -65,14 +65,52 @@ if($foundStatus){
   }
  }
 }
+
+Write-Host '[PROCESO] Comprobando versiones y ejecutables activos sin mostrar argumentos sensibles...'
+$installedScript=$null
+if($taskWorkingDir){
+  $installedScript=Join-Path $taskWorkingDir 'agente_nube.py'
+  if(Test-Path -LiteralPath $installedScript -PathType Leaf){
+    $content=Get-Content -LiteralPath $installedScript -Raw -Encoding UTF8
+    $newCode=$content.Contains('PRIVATE = APP.parent')
+    Write-Host ('[PROCESO] Version instalada con ruta corregida: '+$(if($newCode){'SI'}else{'NO'}))
+    Write-Host ('[PROCESO] Codigo instalado modificado: '+(Get-Item -LiteralPath $installedScript).LastWriteTime)
+    $latestSource=Join-Path $PSScriptRoot 'agente_nube.py'
+    if(Test-Path -LiteralPath $latestSource -PathType Leaf) {
+      $hashInstalled=(Get-FileHash -LiteralPath $installedScript -Algorithm SHA256).Hash
+      $hashSource=(Get-FileHash -LiteralPath $latestSource -Algorithm SHA256).Hash
+      Write-Host ('[PROCESO] Codigo instalado coincide con descarga: '+$(if($hashInstalled -eq $hashSource){'SI'}else{'NO'}))
+    }
+  } else {
+    Write-Host '[PROCESO] El script no existe en el directorio declarado por la tarea.' -ForegroundColor Yellow
+  }
+}
+try {
+  $running=@(Get-CimInstance Win32_Process -Filter "Name LIKE 'python%'" -ErrorAction Stop |
+      Where-Object { [string]$_.CommandLine -match '(?i)agente_nube\.py' })
+  Write-Host ('[PROCESO] Procesos Python que ejecutan agente_nube.py: '+$running.Count)
+  foreach($p in $running){
+    $exeName=[IO.Path]::GetFileName([string]$p.ExecutablePath)
+    Write-Host ('[PROCESO] PID '+$p.ProcessId+'; ejecutable '+$exeName+'; iniciado '+$p.CreationDate)
+  }
+  if($running.Count -eq 0 -and $task -and $task.State -eq 'Running'){
+    Write-Host '[PROCESO] La tarea Running no corresponde a un agente Python visible. Revisar accion real de Windows.' -ForegroundColor Yellow
+  }
+  if($running.Count -gt 1){
+    Write-Host '[PROCESO] Hay mas de un agente Python. No se detendra ninguno sin verificar su origen.' -ForegroundColor Yellow
+  }
+}catch{
+  Write-Host '[PROCESO] No fue posible enumerar procesos Python (sin modificar nada).' -ForegroundColor Yellow
+}
+
 Write-Host '[NUBE] Consultando solo el estado publico del backend (sin autenticacion)...'
 try {
  $endpoint='https://lywrtuibmzzsylfbybqo.supabase.co/functions/v1/cahos-api/health'
  $response=Invoke-RestMethod -Uri $endpoint -Method Get -TimeoutSec 15 -ErrorAction Stop
  if($response.service -eq 'CAHOS cloud API') {
-  Write-Host ('[NUBE] API disponible; estado del agente: '+[string]$response.worker) -ForegroundColor Green
+  Write-Host ('[NUBE] API disponible; al menos un agente figura: '+[string]$response.worker) -ForegroundColor Green
   if(-not $foundStatus -and [string]$response.worker -eq 'online'){
-   Write-Host '[CONCLUSION] Agente comunicandose con Supabase; solo falta reparar la ruta del estado local.' -ForegroundColor Green
+   Write-Host '[CONCLUSION] Supabase recibe un agente, pero falta confirmar que es esta instancia Windows.' -ForegroundColor Yellow
   }
   Write-Host ('[NUBE] Datos epidemiologicos aprobados: '+[string]$response.epidemiological_data_available)
  }else{Write-Host '[NUBE] Respuesta inesperada, no confirma agente.' -ForegroundColor Yellow}
