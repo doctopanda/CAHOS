@@ -79,7 +79,7 @@ async function validateParams(req,user){
  if(!pathology||years.length<1||years.length>7||new Set(years).size!==years.length||years.some(v=>!id(v)))throw new Error("invalid_query_members");
  const [pathologies,yearMembers,entities]=await Promise.all([lookupCatalog("pathologies"),lookupCatalog("years"),lookupCatalog("entities")]);
  if(!pathologies.some(x=>x.member_id===pathology)||years.some(x=>!yearMembers.some(y=>y.member_id===x)))throw new Error("members_not_in_verified_catalog");
- const sonora=entities.find(x=>x.label.trim().toLowerCase()==="sonora");
+ const sonora=entities.find(x=>x.label.trim().toLowerCase().replace(/^26\s+/,"")==="sonora");
  if(!sonora||data.entity!==sonora.member_id)throw new Error("entity_must_be_sonora");
  const p={kind:data.kind,pathology,years,entity:sonora.member_id,municipality:id(data.municipality),sex:id(data.sex),age:id(data.age),week_start:Number(data.week_start??1),week_end:Number(data.week_end??53)};
  if(!Number.isInteger(p.week_start)||!Number.isInteger(p.week_end)||p.week_start<1||p.week_end>53||p.week_start>p.week_end)throw new Error("invalid_weeks");
@@ -185,7 +185,21 @@ async function handler(req){
  const url=new URL(req.url),s=url.pathname;
  const i=s.indexOf("/cahos-api");
  const path=i>=0?(s.slice(i+10)||"/"):s;
- if(path==="/health"&&req.method==="GET")return send(req,{ok:true,service:"CAHOS cloud API",version:"0.3",phase:"agent_registration_ready",worker:"not_connected",epidemiological_data_available:false});
+ if(path==="/health"&&req.method==="GET"){
+  let worker="not_connected",dataAvailable=false;
+  if(BASE&&SERVICE_KEY){
+   try{
+    const rows=await db("GET","cahos_sync_state?select=last_attempt_at,status&order=last_attempt_at.desc&limit=1");
+    if(rows.length){
+     const age=Date.now()-Date.parse(rows[0].last_attempt_at||"");
+     worker=Number.isFinite(age)&&age>=0&&age<180000?"online":"offline";
+    }
+    const approved=await db("GET","cahos_snapshots?select=id&publication_status=eq.approved&limit=1");
+    dataAvailable=approved.length>0;
+   }catch{worker="unknown"}
+  }
+  return send(req,{ok:true,service:"CAHOS cloud API",version:"0.3",phase:"protected_agent_pipeline",worker,epidemiological_data_available:dataAvailable});
+ }
  if(!BASE||!PUBLIC_KEY||!SERVICE_KEY)return send(req,{error:"backend_configuration_pending"},503);
  const user=await identity(req);
  if(!allowed(user))return send(req,{error:user?"access_not_approved":"authentication_required"},user?403:401);
@@ -223,19 +237,19 @@ async function handler(req){
  }
  if(path==="/api/refresh"&&req.method==="POST")return send(req,{error:"manual_refresh_scheduling_pending"},503);
  if(path==="/worker/catalog"&&req.method==="POST"){
-  if(user.role!=="agent")return send(req,{error:"agent_only"},403);
+  if(user.role!=="agent"||!user.agentId)return send(req,{error:"agent_only"},403);
   return await catalogSync(user,requireObject(await req.json()),req);
  }
  if(path==="/worker/poll"&&req.method==="POST"){
-  if(user.role!=="agent")return send(req,{error:"agent_only"},403);
+  if(user.role!=="agent"||!user.agentId)return send(req,{error:"agent_only"},403);
   return await claimJob(user,req);
  }
  if(path==="/worker/result"&&req.method==="POST"){
-  if(user.role!=="agent")return send(req,{error:"agent_only"},403);
+  if(user.role!=="agent"||!user.agentId)return send(req,{error:"agent_only"},403);
   return await commitResult(user,requireObject(await req.json()),req);
  }
  if(path==="/worker/heartbeat"&&req.method==="POST"){
-  if(user.role!=="agent")return send(req,{error:"agent_only"},403);
+  if(user.role!=="agent"||!user.agentId)return send(req,{error:"agent_only"},403);
   await db("POST","cahos_sync_state?on_conflict=worker_name",[{worker_name:"ca-agent-"+user.agentId.slice(0,8),status:"running",last_attempt_at:dateISO(),updated_at:dateISO()}],"resolution=merge-duplicates,return=minimal");
   return send(req,{ok:true});
  }
