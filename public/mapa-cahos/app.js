@@ -266,8 +266,9 @@ function drawMap(){
  }
  const scale=Math.min(840/(maxX-minX),565/(maxY-minY));
  const xy=p=>[(p[0]*.87-minX)*scale+30,(maxY-p[1])*scale+29];
- const metric=$("metric").value,values=state.features.map(f=>metricValue(f.properties.cvegeo,metric));
+ const metric=$("metric").value,values=state.features.map(f=>metric==="zones"?null:metricValue(f.properties.cvegeo,metric));
  const max=Math.max(1,...values.filter(v=>v!==null&&Number.isFinite(v)));
+ const activeCodes=selectedCodes();
  state.features.forEach((feature,i)=>{
   let d="";
   for(const ring of rings(feature.geometry)){
@@ -277,25 +278,35 @@ function drawMap(){
    d+=sampled.map((p,j)=>{const q=xy(p);return(j?"L":"M")+q[0].toFixed(2)+","+q[1].toFixed(2)}).join(" ")+"Z";
   }
   const code=String(feature.properties.cvegeo),value=values[i];
-  const path=mk("path",{d,fill:fill(value,max),stroke:state.selected===code?"#f3b850":"#fff",
-   "stroke-width":state.selected===code?3:0.85,tabindex:0,role:"button",
-   "aria-label":feature.properties.nombre+" · "+(value===null?"sin dato":fmt(value))});
-  path.append(mk("title",{},feature.properties.nombre+" · "+
-   (value===null?"Sin información asociable":
-    metric==="rate"?value.toFixed(2)+" por 100,000":fmt(value))));
-  const choose=()=>{state.selected=code;save();drawMap();showDetail(code)};
-  path.addEventListener("click",choose);
+  const groupIds=zonesFor(code);
+  const group=state.regionalization?.zones.find(x=>x.id===groupIds[0]);
+  const regionalMode=metric==="zones";
+  const color=regionalMode?(group?.color||"#c9d1ce"):fill(value,max);
+  const selected=state.selectedMunicipalities.has(code);
+  const path=mk("path",{d,fill:color,
+   stroke:selected?"#f3b850":regionalMode&&groupIds.length>1?"#58466d":"#fff",
+   "stroke-width":selected?3.5:regionalMode&&groupIds.length>1?2:0.85,
+   opacity:activeCodes.has(code)?1:0.23,tabindex:0,role:"button",
+   "aria-label":feature.properties.nombre+" · "+groupIds.map(id=>
+     state.regionalization?.zones.find(x=>x.id===id)?.label||id).join(", ")});
+  const names=groupIds.map(id=>state.regionalization?.zones.find(x=>x.id===id)?.label||id);
+  const measure=regionalMode?(names.join(" / ")||"Sin región asignada"):
+   value===null?"Sin dato territorial":
+   metric==="rate"?value.toFixed(2)+" por 100,000":fmt(value);
+  path.append(mk("title",{},feature.properties.nombre+" · "+measure));
+  path.addEventListener("click",event=>chooseMunicipality(code,event.ctrlKey||event.shiftKey||event.metaKey));
   path.addEventListener("keydown",event=>{
-   if(event.key==="Enter"||event.key===" "){event.preventDefault();choose()}
+   if(event.key==="Enter"||event.key===" "){event.preventDefault();chooseMunicipality(code,event.shiftKey)}
   });
   svg.append(path);
  });
  svg.setAttribute("viewBox",Object.values(state.viewBox).join(" "));
  const n=state.municipal.size;
- $("mapFoot").textContent="INEGI · 72 municipios · "+(metric==="population"?"Capa demográfica COESPO/CONAPO":
+ $("mapFoot").textContent="INEGI · 72 municipios · "+(metric==="zones"?"Seis macrozonas operativas propuestas, traslapes visibles por contorno":metric==="population"?"Capa demográfica COESPO/CONAPO":
   n>0?n+" municipios conciliados con total estatal del cubo (consulta protegida).":
   "Datos epidemiológicos restringidos o no disponibles · gris ≠ cero casos.")+
   " · "+state.year+" · El mapa no acredita el corte oficial.";
+ renderTerritorialSummary();
 }
 function pyramid(record){
  const svg=$("pyramid");svg.replaceChildren();
@@ -343,6 +354,10 @@ function showDetail(code){
  const cases=state.municipal.get(code),denom=rateDenominator(code);
  const rate=cases!==undefined&&denom?cases/denom*100000:null;
  $("name").textContent=feature?.properties?.nombre||record?.municipality_name||"Sonora";
+ const labels=zonesFor(code).map(id=>state.regionalization?.zones.find(x=>x.id===id)?.label||id);
+ $("municipalityRegions").textContent=labels.length?
+  labels.join(" + ")+" · Clasificación operativa CAHOS propuesta.":
+  "Sin asignación entre las seis zonas operativas propuestas.";
  $("note").textContent=state.provisional?"Vista preliminar privada · sin corte oficial certificado":
    "Datos territoriales según permisos del usuario y disponibilidad de extracciones.";
  $("cases").textContent=cases===undefined?"—":fmt(cases);
@@ -460,6 +475,7 @@ async function initialize(){
   if(geo.type!=="FeatureCollection"||geo.features?.length!==72)
    throw Error("El mapa INEGI no contiene las 72 geometrías municipales de Sonora");
   state.features=geo.features;state.featureMap=new Map(geo.features.map(f=>[String(f.properties.cvegeo),f]));
+  await loadRegionalization();
   state.year=yrNumber($("year").value)||2026;
   await loadPopulation();drawMap();
   if(state.selected&&state.featureMap.has(state.selected))showDetail(state.selected);
@@ -479,6 +495,18 @@ for(const id of ["pathology","year","sex","age"]){
  });
 }
 $("metric").addEventListener("change",drawMap);
+$("addMunicipalityBtn").addEventListener("click",()=>{
+ const code=$("addMunicipality").value;
+ if(code&&state.featureMap.has(code)){
+  state.selectedMunicipalities.add(code);
+  state.selected=code;save();renderMunicipalitySelection();drawMap();showDetail(code);
+ }
+});
+$("clearTerritory").addEventListener("click",()=>{
+ state.selectedZones.clear();state.selectedMunicipalities.clear();state.selected=null;
+ save();refreshZoneChips();renderMunicipalitySelection();drawMap();
+ $("municipalityRegions").textContent="Sin municipio seleccionado.";
+});
 $("consult").addEventListener("click",loadCases);
 for(const [id,mult] of [["zoomIn",.72],["zoomOut",1.38]]){
  $(id).addEventListener("click",()=>{
