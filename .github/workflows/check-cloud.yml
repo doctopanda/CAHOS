@@ -24,6 +24,7 @@ jobs:
           node --check public/cahos-auth.js
           node --check public/cahos-state.js
           node --check public/mapa-cahos/app.js
+          node --check public/mapa-cahos/region-core.js
           node --check public/mapa_sonora.js
       - name: Validar scripts en HTML
         run: |
