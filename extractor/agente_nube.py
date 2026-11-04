@@ -94,7 +94,17 @@ def extract(action, dimension=None, params=None):
                  capture_output=True, text=True, encoding="utf-8", errors="replace",
                  timeout=160, cwd=str(APP), creationflags=NO_WINDOW)
     if result.returncode:
-        raise RuntimeError("local_olap_error")
+        # The bridge emits a fixed code, never a raw provider exception.
+        allowed={"local_query_validation_error","olap_result_axis_error",
+                 "olap_measure_missing","olap_catalog_member_missing",
+                 "olap_empty_provider_response","olap_query_timeout",
+                 "local_olap_error"}
+        try:
+            failure=json.loads(result.stdout.strip())
+            code=failure.get("code") if isinstance(failure,dict) else None
+        except (ValueError,TypeError):
+            code=None
+        raise RuntimeError(code if code in allowed else "local_olap_error")
     try:
         out = json.loads(result.stdout)
     except (ValueError, TypeError):
@@ -124,12 +134,20 @@ def run_job(job):
         if saved.get("ok") is not True:
             raise RuntimeError("remote_result_rejected")
         state("pending_review", "Extracción entregada para validación epidemiológica")
-    except Exception:
+    except Exception as exc:
+        # Only categorical codes are allowed in Supabase; no exception messages.
+        safe_codes={"local_query_validation_error","olap_result_axis_error",
+                    "olap_measure_missing","olap_catalog_member_missing",
+                    "olap_empty_provider_response","olap_query_timeout",
+                    "local_olap_error"}
+        reason=str(exc)
+        code=reason if reason in safe_codes else "local_olap_error"
+        diagnostic("job_failed_"+code, exc)
         try:
-            call("/worker/result", {"job_id":job_id,"error":"local_olap_error"})
+            call("/worker/result", {"job_id":job_id,"error":code})
         except Exception:
             pass
-        state("failed", "La consulta necesita revisión local; no se publicó")
+        state("failed", "La consulta terminó con código "+code)
 
 def run():
     diagnostic("agent_started")
