@@ -7,8 +7,12 @@ let shapes=null,observaciones=null,population=null,selectedCode=null,detailName=
 let joinState={byCode:new Map(),totalRows:0,withCases:0,linkedRows:0,unlinked:[]};
 let currentQueryKey='',requestRunning=false,refreshTimer=null;
 const codeFrom=v=>{
- const m=String(v||'').match(/(?:^|[^0-9])(26[0-9]{3})(?![0-9])/);
- return m?m[1]:'';
+ const str=String(v||'');
+ const five=str.match(/(?:^|[^0-9])(26[0-9]{3})(?![0-9])/);
+ if(five)return five[1];
+ const three=str.match(/&\[(\d{3})(?:\s|\])/)
+  ||str.match(/^(\d{3})(?:\s|\b)/);
+ return three?'26'+three[1]:'';
 };
 const cleanMunicipalName=v=>{
  const raw=String(v||'');
@@ -26,9 +30,14 @@ function reconcileMunicipios(){
   if(!byName.has(key))byName.set(key,[]);
   byName.get(key).push(code);
  }
- const result={byCode:new Map(),totalRows:(observaciones?.rows||[]).length,withCases:0,linkedRows:0,unlinked:[]};
+ const result={byCode:new Map(),totalRows:(observaciones?.rows||[]).length,withCases:0,linkedRows:0,unlinked:[],stateTotal:null,ignoredTotalRows:0};
  for(const row of (observaciones?.rows||[])){
   const cases=Number(row.cases);
+  if(!String(row.municipalities||'').trim()&&!String(row.municipalities_id||'').trim()){
+   result.stateTotal=Number.isFinite(cases)?cases:null;
+   result.ignoredTotalRows++;
+   continue;
+  }
   if(row.cases==null||!Number.isFinite(cases))continue;
   result.withCases++;
   let code=codeFrom(row.municipalities_id)||codeFrom(row.municipalities);
@@ -44,6 +53,8 @@ function reconcileMunicipios(){
    result.byCode.set(code,(result.byCode.get(code)||0)+cases);
   }else if(result.unlinked.length<5)result.unlinked.push(String(row.municipalities||'(sin nombre)').slice(0,80));
  }
+ result.reconciled=result.linkedRows===72&&result.stateTotal!=null&&
+  [...result.byCode.values()].reduce((a,b)=>a+b,0)===result.stateTotal;
  return result;
 }
 const getF=()=>({
@@ -181,7 +192,9 @@ function render(){
    ?'El cubo devolvió '+joinState.totalRows+' filas, pero ninguna coincide con las claves/nombres de INEGI. '+(joinState.unlinked.length?'Ejemplos de etiquetas sin emparejar: '+joinState.unlinked.join(', ')+'.':'')
    :matchedMunicipios+' de 72 municipios coloreables; '+joinState.totalRows+' filas del cubo ('+joinState.linkedRows+' emparejadas).'+
       (joinState.unlinked.length?' Algunas etiquetas sin emparejar: '+joinState.unlinked.join(', ')+'.':'');
- $("#mapStatus").textContent=diagnostic+' '+(population?.disponible?'Proyecciones poblacionales disponibles.':'Sin denominadores poblacionales.')+
+ $("#mapStatus").textContent=(observaciones?.provisional?'VISTA INTERNA PRELIMINAR. No constituye corte oficial. ':'')+
+   diagnostic+' '+(joinState.reconciled?'Suma de 72 municipios conciliada con el total estatal. ':'')+
+   (population?.disponible?'Proyecciones poblacionales disponibles.':'Sin denominadores poblacionales.')+
   ' Gris significa sin información asociable, no cero casos.';
  if(detailName)drawAgeCurve(detailName,selectedCode);
 }
@@ -226,7 +239,9 @@ async function query(){
   $("#mapTitleDisease").textContent=label("pathologies",f.pathology)+" · "+year;
   selectedCode=null;detailName=null;
   $("#mapInfoTitle").textContent="Selecciona un municipio";
-  $("#mapInfoBody").textContent="Los colores se calculan desde casos registrados en el cubo; se preserva la procedencia de la fuente.";
+  $("#mapInfoBody").textContent=observaciones?.provisional?
+    "Vista preliminar restringida a Administrador Maestro. Suma municipal y total estatal se muestran sin duplicación.":
+    "Los colores se calculan desde casos registrados en el cubo; se preserva la procedencia de la fuente.";
   $("#mapPopulation").textContent="Selecciona un polígono para mostrar la curva demográfica.";
   render();
  }catch(e){$("#mapStatus").textContent="No se pudo elaborar el mapa: "+String(e.message||e).slice(0,220);}
