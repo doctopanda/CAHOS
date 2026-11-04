@@ -299,7 +299,7 @@ async function initialize(){
  try{
   if(!await window.CAHOSAuth.accessToken()){
    inform("Inicia sesión primero en Acceso de CAHOS. Los datos del cubo no son públicos.","error");
-   $("access").innerHTML='<a href="../acceso.html">Iniciar sesión segura en CAHOS</a>';
+   $("access").innerHTML='<a href="/CAHOS/acceso.html">Iniciar sesión segura en CAHOS</a>';
    return;
   }
   const [profile,status,...catalogs]=await Promise.all([
@@ -322,7 +322,7 @@ async function initialize(){
   searchPathology();
   if(shared.pathology)selectOption("pathology",shared.pathology);
   if(!$("pathology").value&&status.favoritos?.length)selectOption("pathology",status.favoritos[0]);
-  const carto=await fetch("../data/sonora_municipios.geojson",{cache:"no-store"});
+  const carto=await fetch("/CAHOS/data/sonora_municipios.geojson",{cache:"no-store"});
   if(!carto.ok)throw Error("Cartografía INEGI no incluida en la última publicación de GitHub Pages");
   const geo=await carto.json();
   if(geo.type!=="FeatureCollection"||geo.features?.length!==72)
