@@ -1,63 +1,247 @@
-// CAHOS API v0.1: authenticated read-only cloud façade.
-// Never expose SINAVE credentials, Excel, local Windows ports, or unpublished aggregates.
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const PUBLIC_API_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-const ORIGINS = new Set(["https://doctopanda.github.io", "http://127.0.0.1:8789", "http://localhost:8789"]);
-const DIMENSIONS = new Set(["pathologies","years","weeks","municipalities","entities","sex","age","institutions"]);
-function cors(req: Request): Headers {
-  const origin = req.headers.get("origin") ?? "";
-  const h = new Headers({"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff","vary":"origin"});
-  if(ORIGINS.has(origin)){h.set("access-control-allow-origin",origin);h.set("access-control-allow-headers","authorization, apikey, content-type");h.set("access-control-allow-methods","GET, POST, OPTIONS");h.set("access-control-max-age","600");}
-  return h;
+// CAHOS Cloud API v0.2. Authenticated people + restricted Windows agent.
+// Every query is assembled from catalog member IDs. Arbitrary MDX is forbidden.
+const BASE=Deno.env.get("SUPABASE_URL")||"";
+const PUBLIC_KEY=Deno.env.get("SUPABASE_ANON_KEY")||
+  (()=>{try{return JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")||"{}").default||""}catch{return""}})();
+const SERVICE_KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||
+  (()=>{try{return JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")||"{}").default||""}catch{return""}})();
+const ORIGINS=new Set(["https://doctopanda.github.io","http://127.0.0.1:8789","http://localhost:8789"]);
+const DIMS=new Set(["pathologies","years","weeks","municipalities","entities","sex","age","institutions"]);
+const KINDS=new Set(["annual","weekly","sex","age","municipality","institution"]);
+function headers(req) {
+ const h=new Headers({"content-type":"application/json;charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff","vary":"origin"});
+ const origin=req.headers.get("origin")||"";
+ if(ORIGINS.has(origin)){h.set("access-control-allow-origin",origin);h.set("access-control-allow-headers","authorization,apikey,content-type");h.set("access-control-allow-methods","GET,POST,OPTIONS");}
+ return h;
 }
-function json(req:Request, payload:unknown, status=200): Response {return new Response(JSON.stringify(payload), {status,headers:cors(req)});}
-async function fromSupabase(path:string, token:string):Promise<unknown[]> {
-  const r=await fetch(SUPABASE_URL+path,{headers:{"apikey":PUBLIC_API_KEY,"authorization":"Bearer "+token,"accept":"application/json"}});
-  if(!r.ok)throw Error("database_request_"+r.status);
-  const data=await r.json();
-  if(!Array.isArray(data))throw Error("unexpected_database_response");
-  return data;
+function send(req,body,status=200){return new Response(JSON.stringify(body),{status,headers:headers(req)})}
+function requireObject(x){if(!x||Array.isArray(x)||typeof x!=="object")throw new Error("invalid_request");return x}
+function id(v){return typeof v==="string"&&v.length>0&&v.length<=320?v:""}
+function uuid(v){return typeof v==="string"&&/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8a-f][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(v)}
+function adminHeaders(extra={}){
+ if(!SERVICE_KEY)throw new Error("backend_service_credential_not_configured");
+ const h={"apikey":SERVICE_KEY,"content-type":"application/json","accept":"application/json",...extra};
+ if(SERVICE_KEY.split(".").length===3)h.authorization="Bearer "+SERVICE_KEY;
+ return h;
 }
-Deno.serve(async (req: Request)=>{
- try{
-  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors(req)});
-  const pathname=new URL(req.url).pathname; const marker="/cahos-api"; const at=pathname.indexOf(marker); const path=at>=0?(pathname.slice(at+marker.length)||"/"):pathname;
-  if(path==="/health" && req.method==="GET")
-    return json(req,{ok:true,service:"CAHOS cloud API",phase:"protected_schema_ready",worker:"not_connected",epidemiological_data_available:false});
-  if(!SUPABASE_URL||!PUBLIC_API_KEY)return json(req,{error:"backend_configuration_pending"},503);
-  const auth=req.headers.get("authorization")??"";
-  if(!/^Bearer\s+[A-Za-z0-9._-]+$/.test(auth))return json(req,{error:"authentication_required"},401);
-  const token=auth.slice(auth.indexOf(" ")+1).trim();
-  const userResponse=await fetch(SUPABASE_URL+"/auth/v1/user",{headers:{"apikey":PUBLIC_API_KEY,"authorization":"Bearer "+token}});
-  if(!userResponse.ok)return json(req,{error:"invalid_session"},401);
-  const user=await userResponse.json();
-  if(!user?.id||!/^[-a-f0-9]{36}$/i.test(user.id))return json(req,{error:"invalid_session"},401);
-  const members=await fromSupabase("/rest/v1/cahos_members?select=role,entity_code,enabled&user_id=eq."+encodeURIComponent(user.id)+"&limit=1",token);
-  const member=members[0] as {role:string;entity_code:string;enabled:boolean}|undefined;
-  if(!member?.enabled)return json(req,{error:"cahos_access_not_approved"},403);
-  if(path==="/api/status"&&req.method==="GET"){
-   const [state,fav]=await Promise.all([
-     fromSupabase("/rest/v1/cahos_sync_state?select=worker_name,last_success_at,status,updated_at&limit=5",token),
-     fromSupabase("/rest/v1/cahos_favorites?select=pathology_id&user_id=eq."+encodeURIComponent(user.id)+"&limit=25",token)
-   ]);
-   const latest=(state as Array<{last_success_at?:string;status?:string}>).find(x=>x.last_success_at) ?? null;
-   return json(req,{version:"cloud-0.1",modo:"supabase_protected",catalogo:"Cubo_2003_Actual",servidor:"SINAVE vía CAHOS Agent",intervalo_minutos:360,
-     favoritos:(fav as Array<{pathology_id:string}>).map(x=>x.pathology_id),favoritos_inicializados:true,
-     actividad:{ultima_consulta:latest?.last_success_at??null,ultima_extraccion_automatica:latest?.last_success_at??null,ultimo_error:null},
-     estado_agente:state.length?state:"sin_agente",epidemiological_data_available:false});
+async function db(method,route,body=null,prefer="return=representation"){
+ const opts={method,headers:adminHeaders({"prefer":prefer})};
+ if(body!==null)opts.body=JSON.stringify(body);
+ const r=await fetch(BASE+"/rest/v1/"+route,opts);
+ if(!r.ok)throw new Error("db_"+r.status);
+ if(r.status===204)return [];
+ const txt=await r.text();return txt?JSON.parse(txt):[];
+}
+async function auth(req){
+ const bearer=req.headers.get("authorization")||"";
+ if(!/^Bearer\s+[A-Za-z0-9._-]+$/.test(bearer))return null;
+ const token=bearer.slice(7).trim();
+ if(token.split(".").length!==3||!PUBLIC_KEY)return null;
+ const response=await fetch(BASE+"/auth/v1/user",{headers:{"apikey":PUBLIC_KEY,"authorization":"Bearer "+token}});
+ if(!response.ok)return null;
+ const user=await response.json();
+ if(!uuid(user?.id))return null;
+ const found=await db("GET","cahos_members?select=role,enabled,entity_code&user_id=eq."+user.id+"&limit=1");
+ const member=found[0];
+ if(!member?.enabled)return {userId:user.id,role:"disabled",entity:""};
+ return {userId:user.id,role:member.role,entity:member.entity_code};
+}
+function allowed(user){return user&&user.role!=="disabled"}
+function checkUser(user,role){return allowed(user)&&(role==="any"||user.role===role||(role==="analyst"&&user.role==="admin"))}
+const eq=(v)=>encodeURIComponent(v);
+const dateISO=()=>new Date().toISOString();
+async function sha256(s){
+ const bytes=new TextEncoder().encode(s);
+ const digest=await crypto.subtle.digest("SHA-256",bytes);
+ return [...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");
+}
+async function lookupCatalog(dim){
+ return await db("GET","cahos_catalog?select=member_id,label&dimension=eq."+dim+"&limit=12000");
+}
+async function validateParams(req,user){
+ const data=requireObject(req);
+ if(!KINDS.has(data.kind))throw new Error("invalid_query_kind");
+ if(!checkUser(user,"analyst"))throw new Error("analyst_permission_required");
+ if(user.entity!=="26")throw new Error("pilot_sonora_only");
+ const pathology=id(data.pathology);
+ const years=Array.isArray(data.years)?data.years:[];
+ if(!pathology||years.length<1||years.length>7||new Set(years).size!==years.length||years.some(v=>!id(v)))throw new Error("invalid_query_members");
+ const [pathologies,yearMembers,entities]=await Promise.all([lookupCatalog("pathologies"),lookupCatalog("years"),lookupCatalog("entities")]);
+ if(!pathologies.some(x=>x.member_id===pathology)||years.some(x=>!yearMembers.some(y=>y.member_id===x)))throw new Error("members_not_in_verified_catalog");
+ const sonora=entities.find(x=>x.label.trim().toLowerCase()==="sonora");
+ if(!sonora||data.entity!==sonora.member_id)throw new Error("entity_must_be_sonora");
+ const p={kind:data.kind,pathology,years,entity:sonora.member_id,municipality:id(data.municipality),sex:id(data.sex),age:id(data.age),week_start:Number(data.week_start??1),week_end:Number(data.week_end??53)};
+ if(!Number.isInteger(p.week_start)||!Number.isInteger(p.week_end)||p.week_start<1||p.week_end>53||p.week_start>p.week_end)throw new Error("invalid_weeks");
+ for(const [dim,value] of [["municipalities",p.municipality],["sex",p.sex],["age",p.age]]){
+  if(value){const members=await lookupCatalog(dim);if(!members.some(m=>m.member_id===value))throw new Error("members_not_in_verified_catalog");}
+ }
+ if(["municipality","sex","age","institution"].includes(p.kind)&&p.years.length!==1)throw new Error("one_year_required");
+ return p;
+}
+async function getPublished(hash,user){
+ const r=await db("GET","cahos_snapshots?select=id,query_hash,query_kind,result_rows,extracted_at,source_system,coverage,publication_status&query_hash=eq."+hash+"&publication_status=eq.approved&entity_code=eq."+eq(user.entity)+"&limit=1");
+ return r[0]||null;
+}
+function asCube(snapshot){
+ return {rows:snapshot.result_rows,axes:snapshot.query_kind==="weekly"?["years","weeks"]:snapshot.query_kind==="annual"?["years"]:[snapshot.query_kind==="municipality"?"municipalities":snapshot.query_kind],
+  extraido_en:snapshot.extracted_at,cache:true,fuente:snapshot.source_system,corte_oficial:snapshot.coverage?.corte_oficial||null,snapshot_id:snapshot.id};
+}
+async function requestQuery(body,user,req){
+ let params;
+ try{params=await validateParams(body,user)}catch(e){return send(req,{error:e.message},400)}
+ const hash=await sha256(JSON.stringify(params));
+ const snapshot=await getPublished(hash,user);
+ if(snapshot)return send(req,asCube(snapshot));
+ const pending=await db("GET","cahos_snapshots?select=id&query_hash=eq."+hash+"&publication_status=eq.pending&limit=1");
+ if(pending.length)return send(req,{status:"awaiting_review",message:"Resultado extraído, pendiente de validación epidemiológica."},202);
+ const active=await db("GET","cahos_jobs?select=id,state&query_hash=eq."+hash+"&state=in.(queued,running)&limit=1");
+ if(active.length)return send(req,{status:active[0].state,job_id:active[0].id},202);
+ let inserted;
+ try{inserted=await db("POST","cahos_jobs",[{query_hash:hash,query_kind:params.kind,entity_code:"26",request_params:params,requester_id:user.userId}]);}
+ catch(_e){
+  const existing=await db("GET","cahos_jobs?select=id,state&query_hash=eq."+hash+"&state=in.(queued,running)&limit=1");
+  if(!existing.length)throw _e;
+  inserted=existing;
+ }
+ return send(req,{status:"queued",job_id:inserted[0].id},202);
+}
+async function claimJob(user,req){
+ const now=dateISO();
+ let rows=await db("GET","cahos_jobs?select=*&state=eq.queued&attempts=lt.3&order=created_at.asc&limit=1");
+ let isExpired=false;
+ if(!rows.length){rows=await db("GET","cahos_jobs?select=*&state=eq.running&lease_until=lt."+eq(now)+"&attempts=lt.3&order=created_at.asc&limit=1");isExpired=true;}
+ if(!rows.length)return send(req,{job:null});
+ const j=rows[0],lease=new Date(Date.now()+6*60*1000).toISOString();
+ const patchRoute="cahos_jobs?id=eq."+j.id+"&state=eq."+(isExpired?"running":"queued")+(isExpired?"&lease_until=lt."+eq(now):"");
+ const updated=await db("PATCH",patchRoute,{state:"running",started_at:now,lease_until:lease,worker_id:user.userId,attempts:j.attempts+1});
+ if(updated.length!==1)return send(req,{job:null});
+ return send(req,{job:{id:j.id,params:j.request_params,attempts:j.attempts+1}});
+}
+function cleanRows(rows){
+ if(!Array.isArray(rows)||rows.length>7500)throw new Error("invalid_result_rows");
+ const allowedFields=new Set(["years","weeks","sex","age","institutions","municipalities","municipalities_id","cases"]);
+ return rows.map(row=>{
+  requireObject(row);
+  const obj={};
+  for(const [key,val] of Object.entries(row)){
+   if(!allowedFields.has(key))continue;
+   if(key==="cases"){
+    if(val===null)obj.cases=null;
+    else if(typeof val==="number"&&Number.isFinite(val)&&val>=0&&val<=1e9)obj.cases=val;
+    else throw new Error("invalid_case_measure");
+   } else {
+    if(typeof val!=="string"||val.length>250)throw new Error("invalid_dimension_label");
+    obj[key]=val;
+   }
   }
-  if(path==="/api/catalog"&&req.method==="GET"){
-   const dim=new URL(req.url).searchParams.get("dim")??"";
-   if(!DIMENSIONS.has(dim))return json(req,{error:"invalid_dimension"},400);
-   const rows=await fromSupabase("/rest/v1/cahos_catalog?dimension=eq."+encodeURIComponent(dim)+"&select=member_id,label&order=label.asc&limit=12000",token);
-   return json(req,{dimension:dim,members:(rows as Array<{member_id:string;label:string}>).map(v=>({id:v.member_id,nombre:v.label}))});
+  if(!Object.hasOwn(obj,"cases"))throw new Error("missing_case_measure");
+  return obj;
+ });
+}
+async function commitResult(user,data,req){
+ if(!uuid(data.job_id))return send(req,{error:"invalid_job_id"},400);
+ const found=await db("GET","cahos_jobs?select=*&id=eq."+data.job_id+"&worker_id=eq."+user.userId+"&state=eq.running&limit=1");
+ const job=found[0];if(!job)return send(req,{error:"job_not_assigned"},409);
+ if(data.error){
+  const errorCode=String(data.error).replace(/[^a-z0-9_-]/gi,"").slice(0,60)||"extractor_error";
+  await db("PATCH","cahos_jobs?id=eq."+job.id+"&state=eq.running",{state:"failed",error_code:errorCode,finished_at:dateISO(),lease_until:null});
+  return send(req,{ok:true,state:"failed"});
+ }
+ const result=requireObject(data.result);
+ const rows=cleanRows(result.rows);
+ if(result.axes&&!Array.isArray(result.axes))return send(req,{error:"invalid_result_axes"},400);
+ const coverage={status:"unverified",corte_oficial:result.corte_oficial??null};
+ const saved=await db("POST","cahos_snapshots?on_conflict=query_hash",[{query_hash:job.query_hash,query_kind:job.query_kind,pathology_id:job.request_params.pathology,entity_code:job.entity_code,filter_params:job.request_params,result_rows:rows,coverage,source_system:"SINAVE_OLAP",extracted_at:dateISO(),publication_status:"pending",approved_by:null,approved_at:null}],"resolution=merge-duplicates,return=representation");
+ const snapshot=saved[0];
+ await db("PATCH","cahos_jobs?id=eq."+job.id+"&worker_id=eq."+user.userId+"&state=eq.running",{state:"done",result_snapshot_id:snapshot.id,finished_at:dateISO(),lease_until:null});
+ await db("POST","cahos_sync_state?on_conflict=worker_name",[{worker_name:"ca-agent-"+user.userId.slice(0,8),status:"idle",last_success_at:dateISO(),last_attempt_at:dateISO(),updated_at:dateISO()}],"resolution=merge-duplicates,return=representation");
+ return send(req,{ok:true,state:"awaiting_review",snapshot_id:snapshot.id});
+}
+async function catalogSync(user,data,req){
+ const dim=data.dimension;
+ if(!DIMS.has(dim)||!Array.isArray(data.members)||data.members.length>4000||data.members.length===0)return send(req,{error:"invalid_catalog_batch"},400);
+ const unique=new Map();
+ for(const m of data.members){
+  if(!m||!id(m.id)||typeof m.nombre!=="string"||m.nombre.length<1||m.nombre.length>250)return send(req,{error:"invalid_catalog_member"},400);
+  unique.set(m.id,{dimension:dim,member_id:m.id,label:m.nombre,refreshed_at:dateISO()});
+ }
+ const rows=[...unique.values()];
+ for(let i=0;i<rows.length;i+=500)await db("POST","cahos_catalog?on_conflict=dimension,member_id",rows.slice(i,i+500),"resolution=merge-duplicates,return=minimal");
+ return send(req,{ok:true,stored:rows.length,dimension:dim});
+}
+async function handler(req){
+ if(req.method==="OPTIONS")return new Response(null,{status:204,headers:headers(req)});
+ const url=new URL(req.url),s=url.pathname;
+ const i=s.indexOf("/cahos-api");
+ const path=i>=0?(s.slice(i+10)||"/"):s;
+ if(path==="/health"&&req.method==="GET")return send(req,{ok:true,service:"CAHOS cloud API",version:"0.2",phase:"agent_registration_pending",worker:"not_connected",epidemiological_data_available:false});
+ if(!BASE||!PUBLIC_KEY||!SERVICE_KEY)return send(req,{error:"backend_configuration_pending"},503);
+ const user=await auth(req);
+ if(!allowed(user))return send(req,{error:user?"access_not_approved":"authentication_required"},user?403:401);
+ if(path==="/api/status"&&req.method==="GET"){
+  if(user.role==="agent")return send(req,{error:"not_a_viewer"},403);
+  const [state,fav]=await Promise.all([db("GET","cahos_sync_state?select=worker_name,last_success_at,last_attempt_at,status&limit=10"),db("GET","cahos_favorites?select=pathology_id&user_id=eq."+user.userId+"&limit=25")]);
+  return send(req,{version:"cloud-0.2",modo:"supabase_protected",servidor:"SINAVE via CAHOS Agent",catalogo:"Cubo_2003_Actual",intervalo_minutos:360,favoritos:fav.map(x=>x.pathology_id),favoritos_inicializados:true,
+    actividad:{ultima_consulta:state[0]?.last_success_at||null,ultima_extraccion_automatica:state[0]?.last_success_at||null,ultimo_error:null},estado_agente:state.length?state:"not_paired"});
+ }
+ if(path==="/api/catalog"&&req.method==="GET"){
+  if(user.role==="agent")return send(req,{error:"not_a_viewer"},403);
+  const dim=url.searchParams.get("dim");if(!DIMS.has(dim))return send(req,{error:"invalid_dimension"},400);
+  const rows=await lookupCatalog(dim);return send(req,{dimension:dim,members:rows.map(x=>({id:x.member_id,nombre:x.label}))});
+ }
+ if(path==="/api/query"&&req.method==="POST")return await requestQuery(await req.json(),user,req);
+ if(path.startsWith("/api/jobs/")&&req.method==="GET"){
+  const jobId=path.split("/").pop();if(!uuid(jobId))return send(req,{error:"invalid_job_id"},400);
+  const j=(await db("GET","cahos_jobs?select=id,state,requester_id,result_snapshot_id,error_code&limit=1&id=eq."+jobId))[0];
+  if(!j||!(j.requester_id===user.userId||user.role==="admin"))return send(req,{error:"job_not_found"},404);
+  if(j.state==="done"&&j.result_snapshot_id){
+   const a=await db("GET","cahos_snapshots?select=*&id=eq."+j.result_snapshot_id+"&publication_status=eq.approved&limit=1");
+   if(a.length)return send(req,{status:"ready",result:asCube(a[0])});
+   return send(req,{status:"awaiting_review",message:"Se completó la extracción; requiere validación de datos."});
   }
-  if(path==="/api/query"&&req.method==="POST")
-   return json(req,{error:"central_extractor_not_paired",message:"CAHOS Agent aún no envía resultados reales. No se generarán cifras ficticias."},503);
-  if(path==="/api/favorites"&&req.method==="POST")
-   return json(req,{error:"favorites_cloud_sync_pending"},503);
-  if(path==="/api/refresh"&&req.method==="POST")
-   return json(req,{error:"central_extractor_not_paired"},503);
-  return json(req,{error:"route_not_available"},404);
- }catch(_e){return json(req,{error:"backend_temporarily_unavailable"},503);}
+  return send(req,{status:j.state,error_code:j.error_code||null});
+ }
+ if(path==="/api/favorites"&&req.method==="POST"){
+  const body=requireObject(await req.json());const fav=body.favoritos;
+  if(!Array.isArray(fav)||fav.length>25||fav.some(x=>!id(x)))return send(req,{error:"invalid_favorites"},400);
+  const valid=new Set((await lookupCatalog("pathologies")).map(x=>x.member_id));
+  if(fav.some(x=>!valid.has(x)))return send(req,{error:"favorites_not_in_catalog"},400);
+  await db("DELETE","cahos_favorites?user_id=eq."+user.userId,null,"return=minimal");
+  if(fav.length)await db("POST","cahos_favorites",[...new Set(fav)].map(x=>({user_id:user.userId,pathology_id:x})));
+  return send(req,{favoritos:[...new Set(fav)]});
+ }
+ if(path==="/api/refresh"&&req.method==="POST")return send(req,{error:"manual_refresh_scheduling_pending"},503);
+ if(path==="/worker/catalog"&&req.method==="POST"){
+  if(user.role!=="agent")return send(req,{error:"agent_only"},403);
+  return await catalogSync(user,requireObject(await req.json()),req);
+ }
+ if(path==="/worker/poll"&&req.method==="POST"){
+  if(user.role!=="agent")return send(req,{error:"agent_only"},403);
+  return await claimJob(user,req);
+ }
+ if(path==="/worker/result"&&req.method==="POST"){
+  if(user.role!=="agent")return send(req,{error:"agent_only"},403);
+  return await commitResult(user,requireObject(await req.json()),req);
+ }
+ if(path==="/worker/heartbeat"&&req.method==="POST"){
+  if(user.role!=="agent")return send(req,{error:"agent_only"},403);
+  await db("POST","cahos_sync_state?on_conflict=worker_name",[{worker_name:"ca-agent-"+user.userId.slice(0,8),status:"running",last_attempt_at:dateISO(),updated_at:dateISO()}],"resolution=merge-duplicates,return=minimal");
+  return send(req,{ok:true});
+ }
+ if(path==="/admin/pending"&&req.method==="GET"){
+  if(user.role!=="admin")return send(req,{error:"admin_only"},403);
+  const snapshots=await db("GET","cahos_snapshots?select=id,query_kind,pathology_id,entity_code,extracted_at,coverage&publication_status=eq.pending&order=extracted_at.desc&limit=30");
+  return send(req,{snapshots});
+ }
+ if(path==="/admin/approve"&&req.method==="POST"){
+  if(user.role!=="admin")return send(req,{error:"admin_only"},403);
+  const body=requireObject(await req.json());if(!uuid(body.snapshot_id))return send(req,{error:"invalid_snapshot"},400);
+  const approved=await db("PATCH","cahos_snapshots?id=eq."+body.snapshot_id+"&publication_status=eq.pending",{publication_status:"approved",approved_by:user.userId,approved_at:dateISO()});
+  if(approved.length!==1)return send(req,{error:"snapshot_not_pending"},409);
+  return send(req,{ok:true,approved_id:body.snapshot_id});
+ }
+ return send(req,{error:"unknown_route"},404);
+}
+Deno.serve(async(req)=>{
+ try{return await handler(req)}catch(e){const m=String(e?.message||e);return send(req,{error:m.startsWith("db_")?"backend_database_error":m.startsWith("invalid_")?m:"backend_unavailable"},503)}
 });
