@@ -49,7 +49,7 @@ $packagesDir=Join-Path $env:LOCALAPPDATA 'Packages'
 if(Test-Path -LiteralPath $packagesDir -PathType Container){
  $pythonPackages=@(Get-ChildItem -LiteralPath $packagesDir -Directory -Filter 'PythonSoftwareFoundation.Python.3.12*' -ErrorAction SilentlyContinue)
  foreach($package in $pythonPackages){
-  $virtualCahos=Join-Path $package.FullName 'LocalCache\\Local\\CAHOS'
+  $virtualCahos=Join-Path $package.FullName 'LocalCache\Local\CAHOS'
   if(Test-Path -LiteralPath $virtualCahos -PathType Container){
    $storeStatusDirectories+= $virtualCahos
    $candidates+=Join-Path $virtualCahos 'cloud_agent_status.json'
