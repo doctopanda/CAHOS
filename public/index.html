@@ -22,7 +22,7 @@
 .populationStrip a{color:#116c59;font-weight:760;text-decoration:none;padding:9px 12px;border:1px solid #bad8ca;border-radius:9px;background:#fff}
 </style><style>.favoriteWrap{display:flex;align-items:center;gap:4px}.favoriteWrap .favorite{flex:1;min-width:0}.favoriteRemove{flex:none;width:27px;height:27px;border:1px solid rgba(255,255,255,.26);border-radius:8px;background:transparent;color:inherit;font-size:18px;cursor:pointer}.favoriteRemove:hover{background:#a33b3b;color:white}</style></head><body><div class="shell">
 <aside class="side"><div class="logo"><div class="mark">⌁</div><div><span class="brand">CAHOS</span><span class="micro">MÓDULO 01 · VISOR SUIVE</span></div></div>
-<nav id="nav"><button class="nav on" data-p="panorama">◫ &nbsp; Panorama</button><button class="nav" data-p="mapa">▣ &nbsp; Mapa Sonora</button><button class="nav" data-p="endemic">⌁ &nbsp; Canal endémico</button><button class="nav" data-p="demography">♙ &nbsp; Edad y sexo</button><a class="nav" href="./poblacion.html">♧ &nbsp; Población y tasas</a><button class="nav" data-p="program">⚙ &nbsp; Programación</button><button class="nav" data-p="source">◉ &nbsp; Fuente</button></nav>
+<nav id="nav"><button class="nav on" data-p="panorama">◫ &nbsp; Panorama</button><button class="nav" data-p="mapa">▣ &nbsp; Mapa Sonora</button><button class="nav" data-p="endemic">⌁ &nbsp; Canal endémico</button><button class="nav" data-p="demography">♙ &nbsp; Edad y sexo</button><a class="nav" href="./poblacion.html">♧ &nbsp; Población y tasas</a><a class="nav" href="./mapa-cahos/">◈ &nbsp; MAPA CAHOS avanzado</a><button class="nav" data-p="program">⚙ &nbsp; Programación</button><button class="nav" data-p="source">◉ &nbsp; Fuente</button></nav>
 <h3>Patologías activas</h3><div id="favoriteSide"></div><div class="tag">Conexión de lectura · Requiere red y permisos institucionales · No se almacenan contraseñas</div></aside>
 <main class="main"><header class="top"><div><div class="eyebrow">CAHOS · PLATAFORMA DE INTELIGENCIA EPIDEMIOLÓGICA</div><h1>Visor SUIVE</h1><div class="subtitle">Módulo de vigilancia epidemiológica · Consultas personalizadas y tableros de patologías</div></div><div class="pill warn" id="connectionStatus">● Comprobando conexión</div></header>
 <div class="notice warn" id="globalNotice">CAHOS obtiene resultados del cubo mediante un agente autorizado. Los agregados superan controles técnicos internos antes de aparecer. La revisión técnica no equivale a corte oficial certificado.</div><div class="reviewGate hide" id="reviewGate" role="status" aria-live="polite">
@@ -52,6 +52,7 @@
 <div class="toolbar" style="margin-top:14px;margin-bottom:-3px"><button class="btn alt" id="exportData">↓ Exportar datos consultados CSV</button><span class="hint">Solo datos recuperados del cubo para esta selección</span></div><div class="gridCharts"><div class="panel"><h2>Serie semanal</h2><div class="sub">Comportamiento del padecimiento en el año elegido</div><div class="chart" id="weeklyChart"></div></div><div class="panel"><h2>Comparativo interanual homogéneo</h2><div class="sub">Mismas semanas, distintas anualidades</div><div class="chart" id="yearChart"></div></div><div class="panel full"><h2>Totales de años completos y parciales</h2><div class="sub">Totales anuales que reporta el cubo; interpretar años en curso por separado</div><div class="chart" style="height:250px" id="annualChart"></div><div class="stamp" id="periodWarning"></div></div></div></section>
 <section id="view-mapa" class="view hide">
  <div class="panel"><h2>Mapa epidemiológico de Sonora</h2>
+<p class="hint">Este es el mapa-resumen del Panorama y se conserva. <a href="./mapa-cahos/" style="color:#116f5d;font-weight:780">Abrir MAPA CAHOS: visor territorial avanzado con capas y fichas →</a></p>
  <div class="sub" id="mapTitleDisease">Selecciona una patología y año en Panorama. Los polígonos vienen de INEGI.</div>
  <div class="toolbar"><label>Colorizar por <select id="mapMetric"><option value="cases">Casos registrados</option><option value="rate">Tasa por 100,000 habitantes</option></select></label>
  <button id="mapQuery" class="btn">↻ Consultar municipios del cubo</button></div>
@@ -87,7 +88,11 @@ function restoreFilters(){
  if(Number.isInteger(w1)&&w1>=1&&w1<=53)$('#weekStart').value=w1;
  if(Number.isInteger(w2)&&w2>=1&&w2<=53)$('#weekEnd').value=w2;
  $('#municipalitySearch').value=remembered.municipality_search||'';
- filterMunicipalities();select('#municipalitySelect',remembered.municipality);
+ filterMunicipalities();
+ if(remembered.municipality&&!select('#municipalitySelect',remembered.municipality)){
+  const found=state.catalog.municipalities?.find(x=>x.id===remembered.municipality);
+  if(found){$('#municipalitySelect').append(new Option(found.nombre,found.id));select('#municipalitySelect',found.id);}
+ }
  $('#pathologyQuickSearch').value=remembered.pathology_search||'';
  renderPathologyOptions();
  if(remembered.pathology){
@@ -98,7 +103,10 @@ function restoreFilters(){
   select('#diseaseSelect',remembered.pathology);
  }
  const page=remembered.panel||'panorama';
- if(['panorama','mapa','endemic','demography','program','source'].includes(page))switchPage(page);
+ if(['panorama','mapa','endemic','demography','program','source'].includes(page)){
+  if(page==='mapa')setTimeout(()=>document.querySelector('[data-p="mapa"]')?.click(),0);
+  else switchPage(page);
+ }
 }
 
 function setNotice(text,type='warn'){$('#globalNotice').className='notice '+(type==='err'?'err':type==='ok'?'':'warn');$('#globalNotice').textContent=text;}
