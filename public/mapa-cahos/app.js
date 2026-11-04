@@ -274,10 +274,15 @@ function blank(svg,text){
   "text-anchor":"middle",fill:"#708b80","font-size":"13"},text));
 }
 
+
 function regionColor(code,metric){
  if(metric!=="zones")return null;
- const first=zonesFor(code)[0];
- return state.regionalization?.zones.find(z=>z.id===first)?.color||"#c9d1ce";
+ if(scheme()==="imss")return "#dce8e4"; // No official regional polygons available.
+ const memberships=zonesFor(code),regions=zoneList();
+ if(!memberships.length)return "#dce8e4";
+ if(memberships.length>1)return "#e1a646"; // Explicit overlapping membership.
+ const index=regions.findIndex(r=>r.id===memberships[0]);
+ return ZONE_COLORS[Math.max(index,0)%ZONE_COLORS.length];
 }
 function polygonMetricMax(metric){
  if(metric==="zones")return 1;
@@ -286,44 +291,70 @@ function polygonMetricMax(metric){
 }
 function polygonStyle(feature){
  const code=String(feature.properties.cvegeo),metric=$("metric").value;
- const selected=state.selectedMunicipalities.has(code);
- const groupIds=zonesFor(code);
- return {color:selected?"#f3b850":metric==="zones"&&groupIds.length>1?"#58466d":"#fff",
-  weight:selected?3.8:metric==="zones"&&groupIds.length>1?2.2:1.0,
-  opacity:1,
-  fillColor:regionColor(code,metric)||fill(metricValue(code,metric),polygonMetricMax(metric)),
-  fillOpacity:selectedCodes().has(code)?0.79:0.17};
+ const selected=state.selectedMunicipalities.has(code),regions=zonesFor(code);
+ return {
+  color:selected?"#edb24a":metric==="zones"&&regions.length>1?"#67466e":"#fff",
+  weight:selected?3.8:metric==="zones"&&regions.length>1?2.1:1,
+  opacity:1,fillColor:regionColor(code,metric)||fill(metricValue(code,metric),polygonMetricMax(metric)),
+  fillOpacity:selectedCodes().has(code)?0.77:0.13
+ };
 }
 function tooltipNode(feature){
  const code=String(feature.properties.cvegeo),metric=$("metric").value;
- const groups=zonesFor(code).map(id=>state.regionalization?.zones.find(z=>z.id===id)?.label||id);
- const value=metricValue(code,metric);
- const text=document.createElement("span");
- const number=metric==="zones"?(groups.join(" / ")||"Sin asignación"):
-  value===null?"Sin dato":
-   metric==="rate"?value.toLocaleString("es-MX",{maximumFractionDigits:2})+" /100,000":fmt(value);
- text.textContent=feature.properties.nombre+" · "+number;
- return text;
+ const names=zoneList().filter(x=>zonesFor(code).includes(x.id)).map(x=>x.name);
+ const value=metricValue(code,metric),span=document.createElement("span");
+ const description=metric==="zones"?(scheme()==="imss"?"Sede regional (sin polígonos IMSS)":
+  names.join(" / ")||"Sin región asignada"):
+  value===null?"Sin información":
+  metric==="rate"?value.toLocaleString("es-MX",{maximumFractionDigits:2})+" /100,000":fmt(value);
+ span.textContent=feature.properties.nombre+" · "+description;
+ return span;
 }
 function updateMapFoot(){
  const metric=$("metric").value,n=state.municipal.size;
- $("mapFoot").textContent="Polígonos INEGI · "+(state.leafletMap?"OpenStreetMap + ":"")+"72 municipios · "+
-  (metric==="zones"?"Zonas operativas CAHOS propuestas, no oficiales":
-   metric==="population"?"Proyecciones municipales COESPO/CONAPO":
+ const schemes={custom:"Zonas operativas CAHOS (no oficiales)",
+  districts:"Distritos de Salud · 2025",coespo:"Regiones COESPO · 10",
+  imss:"IMSS Bienestar · 10 sedes, cobertura municipal pendiente"};
+ $("mapFoot").textContent="Polígonos INEGI · "+(state.leafletMap&&$("mapBase").value==="osm"?
+  "Base OpenStreetMap · © colaboradores de OSM · ":"")+
+  (schemes[scheme()]||"")+" · "+
+  (metric==="zones"?"Color por regionalización":
+   metric==="population"?"Proyección poblacional":
    n>0?n+" municipios conciliados con el cubo (consulta protegida)":
-   "Sin datos epidemiológicos autorizados; gris no equivale a cero casos")+
-  " · "+state.year+" · Los valores no certifican el corte oficial.";
+   "Sin datos epidemiológicos disponibles; gris no es cero casos.")+
+  " · "+state.year+" · Las cifras no certifican corte oficial.";
+}
+function showLeafletSeats(){
+ if(!state.leafletMap)return;
+ if(state.streetSeatLayer){
+  state.leafletMap.removeLayer(state.streetSeatLayer);state.streetSeatLayer=null;
+ }
+ if(scheme()!=="imss"||!state.regionalization)return;
+ const look=new Map();
+ state.leafletLayer.eachLayer(layer=>look.set(String(layer.feature?.properties?.cvegeo),layer));
+ const markers=window.L.layerGroup();
+ for(const region of zoneList()){
+  const layer=look.get(region.seat_municipality);
+  if(!layer)continue;
+  const where=layer.getBounds().getCenter();
+  const marker=window.L.circleMarker(where,{
+   radius:8,weight:2,color:"#5c426e",fillColor:"#e4b75f",fillOpacity:1
+  });
+  marker.bindTooltip("Sede IMSS Bienestar: "+region.name+
+    " · punto aproximado al centro del municipio sede, no la dirección de la oficina.");
+  marker.on("click",()=>chooseMunicipality(region.seat_municipality,true));
+  markers.addLayer(marker);
+ }
+ markers.addTo(state.leafletMap);state.streetSeatLayer=markers;
 }
 function initLeafletMap(geo){
  if(!window.L)return false;
  try{
-  $("leafletMap").classList.remove("hide");$("map").classList.add("hide");
-  const map=window.L.map("leafletMap",{preferCanvas:true,zoomControl:false,minZoom:5,maxZoom:16});
-  const tiles=window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
-   attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> · Límites INEGI',
-   maxZoom:16,maxNativeZoom:16
-  });
-  tiles.addTo(map);
+  const map=window.L.map("streetMap",{preferCanvas:true,zoomControl:true,minZoom:4,maxZoom:17});
+  window.L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{
+   attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a> · INEGI',
+   maxZoom:17,maxNativeZoom:19
+  }).addTo(map);
   const layer=window.L.geoJSON(geo,{style:polygonStyle,onEachFeature:(feature,path)=>{
    const code=String(feature.properties.cvegeo);
    path.bindTooltip(tooltipNode(feature),{sticky:true,direction:"top"});
@@ -337,24 +368,33 @@ function initLeafletMap(geo){
   state.leafletMap=map;state.leafletLayer=layer;
   map.fitBounds(layer.getBounds(),{padding:[12,12],maxZoom:9});
   map.invalidateSize();
+  showLeafletSeats();
   return true;
  }catch{
-  if(state.leafletMap)state.leafletMap.remove();
+  try{state.leafletMap?.remove()}catch{}
   state.leafletMap=null;state.leafletLayer=null;
-  $("leafletMap").classList.add("hide");$("map").classList.remove("hide");
   return false;
  }
 }
 function updateLeaflet(){
- if(!state.leafletLayer)return false;
+ if($("mapBase")?.value!=="osm"||!window.L||!state.features.length){
+  $("streetMap").hidden=true;$("map").hidden=false;
+  return false;
+ }
+ $("streetMap").hidden=false;$("map").hidden=true;
+ if(!state.leafletLayer){
+  const ok=initLeafletMap({type:"FeatureCollection",features:state.features});
+  if(!ok){$("streetMap").hidden=true;$("map").hidden=false;return false}
+ }
  state.leafletLayer.setStyle(polygonStyle);
  state.leafletLayer.eachLayer(layer=>{
   if(layer.feature)layer.setTooltipContent(tooltipNode(layer.feature));
  });
+ showLeafletSeats();
+ setTimeout(()=>state.leafletMap?.invalidateSize(false),40);
  updateMapFoot();renderTerritorialSummary();
  return true;
 }
-
 function drawMap(){
  if(updateLeaflet())return;
  const svg=$("map");svg.replaceChildren();
@@ -362,7 +402,7 @@ function drawMap(){
  const points=[];
  for(const f of state.features)for(const ring of rings(f.geometry))for(const p of ring)
   if(Number.isFinite(p[0])&&Number.isFinite(p[1]))points.push(p);
- if(points.length===0){blank(svg,"Geometrías inválidas");return}
+ if(!points.length){blank(svg,"Geometrías inválidas");return}
  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
  for(const p of points){
   const x=p[0]*.87,y=p[1];
@@ -370,10 +410,8 @@ function drawMap(){
  }
  const scale=Math.min(840/(maxX-minX),565/(maxY-minY));
  const xy=p=>[(p[0]*.87-minX)*scale+30,(maxY-p[1])*scale+29];
- const metric=$("metric").value,values=state.features.map(f=>metric==="zones"?null:metricValue(f.properties.cvegeo,metric));
- const max=Math.max(1,...values.filter(v=>v!==null&&Number.isFinite(v)));
- const activeCodes=selectedCodes();
- state.features.forEach((feature,i)=>{
+ const metric=$("metric").value,max=polygonMetricMax(metric),activeCodes=selectedCodes();
+ state.features.forEach(feature=>{
   let d="";
   for(const ring of rings(feature.geometry)){
    const stride=Math.max(1,Math.floor(ring.length/550));
@@ -381,24 +419,22 @@ function drawMap(){
    if(sampled.length<3)continue;
    d+=sampled.map((p,j)=>{const q=xy(p);return(j?"L":"M")+q[0].toFixed(2)+","+q[1].toFixed(2)}).join(" ")+"Z";
   }
-  const code=String(feature.properties.cvegeo),value=values[i];
-  const groupIds=zonesFor(code);
-  const group=state.regionalization?.zones.find(x=>x.id===groupIds[0]);
-  const regionalMode=metric==="zones";
-  const color=regionalMode?(group?.color||"#c9d1ce"):fill(value,max);
-  const selected=state.selectedMunicipalities.has(code);
-  const path=mk("path",{d,fill:color,
-   stroke:selected?"#f3b850":regionalMode&&groupIds.length>1?"#58466d":"#fff",
-   "stroke-width":selected?3.5:regionalMode&&groupIds.length>1?2:0.85,
-   opacity:activeCodes.has(code)?1:0.23,tabindex:0,role:"button",
-   "aria-label":feature.properties.nombre+" · "+groupIds.map(id=>
-     state.regionalization?.zones.find(x=>x.id===id)?.label||id).join(", ")});
-  const names=groupIds.map(id=>state.regionalization?.zones.find(x=>x.id===id)?.label||id);
-  const measure=regionalMode?(names.join(" / ")||"Sin región asignada"):
-   value===null?"Sin dato territorial":
-   metric==="rate"?value.toFixed(2)+" por 100,000":fmt(value);
-  path.append(mk("title",{},feature.properties.nombre+" · "+measure));
-  path.addEventListener("click",event=>chooseMunicipality(code,event.ctrlKey||event.shiftKey||event.metaKey));
+  const code=String(feature.properties.cvegeo),value=metricValue(code,metric);
+  const regions=zonesFor(code),selected=state.selectedMunicipalities.has(code);
+  const fillColor=regionColor(code,metric)||fill(value,max);
+  const names=zoneList().filter(x=>regions.includes(x.id)).map(x=>x.name);
+  const description=metric==="zones"?
+   scheme()==="imss"?"IMSS: solo sedes, sin polígonos regionales":
+    names.join(" / ")||"Sin región asignada":
+    value===null?"Sin dato territorial":
+    metric==="rate"?value.toFixed(2)+" por 100,000":fmt(value);
+  const path=mk("path",{d,fill:fillColor,
+   stroke:selected?"#f3b850":metric==="zones"&&regions.length>1?"#58466d":"#fff",
+   "stroke-width":selected?3.5:metric==="zones"&&regions.length>1?2:0.85,
+   "fill-opacity":activeCodes.has(code)?.98:.18,tabindex:0,role:"button",
+   "aria-label":feature.properties.nombre+" · "+description});
+  path.append(mk("title",{},feature.properties.nombre+" · "+description));
+  path.addEventListener("click",event=>chooseMunicipality(code,!!(event.ctrlKey||event.shiftKey||event.metaKey)));
   path.addEventListener("keydown",event=>{
    if(event.key==="Enter"||event.key===" "){event.preventDefault();chooseMunicipality(code,event.shiftKey)}
   });
@@ -407,6 +443,7 @@ function drawMap(){
  svg.setAttribute("viewBox",Object.values(state.viewBox).join(" "));
  updateMapFoot();renderTerritorialSummary();
 }
+
 function pyramid(record){
  const svg=$("pyramid");svg.replaceChildren();
  if(!record){blank(svg,"Selecciona municipio");return}
