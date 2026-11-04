@@ -1,0 +1,47 @@
+name: Verificar CAHOS Cloud
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'extractor/**'
+      - 'public/**'
+      - 'supabase/functions/**'
+      - '.github/workflows/check-cloud.yml'
+  workflow_dispatch:
+jobs:
+  comprobar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compilar Python del agente sin conectarse al cubo
+        run: |
+          python -m compileall -q extractor
+      - name: Validar JavaScript del backend sin secrets
+        run: |
+          node --check < supabase/functions/cahos-api/index.ts
+          node --check public/cahos-auth.js
+          node --check public/mapa_sonora.js
+      - name: Validar scripts en HTML
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          import subprocess
+          for path in (Path('public/index.html'), Path('public/acceso.html'), Path('public/conexion.html')):
+              source=path.read_text(encoding='utf-8')
+              scripts=re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>', source)
+              for script in scripts:
+                  if script.strip():
+                      subprocess.run(['node','--check'],input=script,text=True,check=True)
+              print(f'OK: {path} ({len(scripts)} scripts)')
+          PY
+      - name: Verificar que no se hayan subido secretos ni datos nominales
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          forbidden=['.xlsx','.xls','.env','.pem','.p12','.pfx','cloud_agent_token.txt']
+          bad=[str(p) for p in Path('.').rglob('*') if p.is_file() and (p.suffix.lower() in forbidden[:-1] or p.name==forbidden[-1])]
+          if bad:
+              raise SystemExit('Archivos sensibles detectados en el repositorio: '+', '.join(bad))
+          print('Sin credenciales ni archivos Excel subidos')
+          PY
