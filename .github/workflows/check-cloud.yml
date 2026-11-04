@@ -27,7 +27,7 @@ jobs:
           from pathlib import Path
           import re
           import subprocess
-          for path in (Path('public/index.html'), Path('public/acceso.html'), Path('public/conexion.html')):
+          for path in (Path('public/index.html'), Path('public/acceso.html'), Path('public/conexion.html'), Path('public/poblacion.html'), Path('public/revision.html')):
               source=path.read_text(encoding='utf-8')
               scripts=re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>', source)
               for script in scripts:
