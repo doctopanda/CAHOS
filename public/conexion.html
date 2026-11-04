@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CAHOS | Estado de conexión</title>
+<style>
+:root{color-scheme:light;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#163f38;background:#f3f8f5}
+*{box-sizing:border-box}body{margin:0;padding:clamp(16px,4vw,48px);line-height:1.5}
+main{max-width:780px;margin:0 auto}.eyebrow{font-size:12px;letter-spacing:2px;color:#3e8a77;font-weight:800}
+h1{margin:4px 0 8px;font-size:clamp(27px,4vw,38px)}p{color:#56736b}
+.panel{background:white;border:1px solid #d7e6df;border-radius:18px;padding:24px;margin-top:18px;box-shadow:0 12px 28px #163f3810}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.item{border:1px solid #ddeae4;border-radius:12px;padding:14px}
+.label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#668178;font-weight:800}.value{font-weight:750;margin-top:6px;display:block}
+.ok{color:#18705c}.wait{color:#976d30}.fail{color:#a33c3c}
+a{color:#146d59;font-weight:700}button{background:#136b59;color:#fff;border:0;border-radius:10px;padding:11px 16px;cursor:pointer;font-weight:700}button:hover{background:#085542}
+.note{font-size:13px;padding:14px;border-radius:10px;background:#eef6f2;border:1px solid #d5e7df;margin-top:16px}
+@media(max-width:520px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body><main>
+<div class="eyebrow">CAHOS · OBSERVATORIO EPIDEMIOLÓGICO</div>
+<h1>Estado del backend</h1>
+<p>Esta página verifica la API web sin abrir el cubo SINAVE ni revelar datos epidemiológicos.</p>
+<div class="panel">
+<div class="grid">
+<div class="item"><span class="label">Supabase</span><span class="value" id="project">Proyecto configurado</span></div>
+<div class="item"><span class="label">API CAHOS</span><span class="value wait" id="api">Comprobando…</span></div>
+<div class="item"><span class="label">Agente de extracción</span><span class="value wait" id="agent">Pendiente de vinculación</span></div>
+<div class="item"><span class="label">Datos epidemiológicos web</span><span class="value wait" id="data">Sin resultados autorizados</span></div>
+</div>
+<div class="note" id="message">Se está comprobando el servicio web protegido. Los resultados reales todavía dependen de un extractor central autorizado.</div>
+<p><button type="button" id="retry">Comprobar otra vez</button></p>
+<p><a href="./">Regresar al visor CAHOS</a></p>
+</div>
+</main>
+<script src="./configuracion-publica.js"></script>
+<script>
+const node=id=>document.getElementById(id);
+async function check(){
+ const conf=window.SUIVE_CONFIG||{};
+ node('api').textContent='Comprobando…';node('api').className='value wait';
+ try{
+  if(!conf.supabaseUrl||!conf.supabasePublishableKey)throw Error('No se configuró Supabase.');
+  const url=conf.supabaseUrl+conf.healthPath;
+  const response=await fetch(url,{method:'GET',cache:'no-store',headers:{'apikey':conf.supabasePublishableKey,'Accept':'application/json'}});
+  if(!response.ok)throw Error('Respuesta HTTP '+response.status);
+  const result=await response.json();
+  if(result?.service!=='CAHOS cloud API'||result?.ok!==true)throw Error('El servicio no devolvió un estado válido.');
+  node('api').textContent='Activa · Conexión HTTPS correcta';node('api').className='value ok';
+  node('agent').textContent=result.worker==='not_connected'?'Pendiente de vinculación':'Estado disponible';
+  node('agent').className='value '+(result.worker==='not_connected'?'wait':'ok');
+  node('data').textContent=result.epidemiological_data_available?'Consultar permisos':'Aún no disponible';
+  node('message').textContent='La API funciona. Todavía no existe una conexión del agente Windows al backend ni una autorización de datos SUIVE. No se publican cifras simuladas.';
+ }catch(error){
+  node('api').textContent='No verificable';node('api').className='value fail';
+  node('message').textContent='No fue posible verificar la API: '+String(error.message||error).slice(0,200)+'. El visor permanece seguro, sin publicar resultados.';
+ }
+}
+node('retry').addEventListener('click',check);check();
+</script>
+</body></html>
