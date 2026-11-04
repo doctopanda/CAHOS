@@ -256,7 +256,7 @@ async function queryWithSingleJob(payload){
   await new Promise(resolve=>setTimeout(resolve,5000));
   const progress=await GET('/api/jobs/'+encodeURIComponent(jobId));
   if(progress.status==='ready')return progress.result;
-  if(['failed','awaiting_review','result_unavailable'].includes(progress.status))return progress;
+  if(['failed','awaiting_review','result_unavailable','no_data'].includes(progress.status))return progress;
   if(!['queued','running'].includes(progress.status))return progress;
  }
  return {status:'running',job_id:jobId,message:'Sigue en ejecución, sin crear una segunda extracción.'};
@@ -270,9 +270,16 @@ queryWithSingleJob({kind:'age',pathology:f.pathology,years:[f.year],entity:f.ent
  const queued=[weekly,annual,sex,age].filter(x=>x&&x.status);
  if(queued.length){
   const errors=queued.filter(x=>x.status==='failed');
+  const missing=queued.filter(x=>x.status==='no_data');
   const reviewing=queued.some(x=>x.status==='awaiting_review');
   reviewGate(queued);clearPreliminary();
-  const msg=errors.length?
+  const selectedName=catalogLabel('pathologies',f.pathology);
+  const alternative=selectedName==='Conjuntivitis(B30, H10.0)'?
+    ' El catálogo también contiene Conjuntivitis(H10), que es una categoría diferente; puedes seleccionarla explícitamente.':'';
+  const msg=missing.length?
+    'SIN FILAS DEL CUBO: '+missing.length+' de 4 productos no devolvieron registros para '+selectedName+
+    '. No implica cero casos.'+alternative:
+    errors.length?
    'El agente no pudo completar '+errors.length+' productos ('+
    errors.map(x=>x.error_code||'extractor_error').join(', ')+
    '). El sistema no repetirá las solicitudes fallidas automáticamente.':
