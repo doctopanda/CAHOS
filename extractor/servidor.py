@@ -357,10 +357,10 @@ def last_year_ids(limit=7):
 def entity_default_id():
     preferred = get_config().get('entidad_preferida', 'Sonora')
     # SINAVE uses captions such as "26 Sonora", while configuration says "Sonora".
-    target = re.sub(r'^\\d{2}\\s+', '', preferred).casefold().strip()
+    target = re.sub(r'^\d{2}\s+', '', preferred).casefold().strip()
     return next(
         (x['id'] for x in get_catalog('entities')
-         if re.sub(r'^\\d{2}\\s+', '', x['nombre']).casefold().strip() == target),
+         if re.sub(r'^\d{2}\s+', '', x['nombre']).casefold().strip() == target),
         None
     )
 
