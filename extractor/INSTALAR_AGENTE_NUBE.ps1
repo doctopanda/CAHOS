@@ -67,7 +67,9 @@ if($previous){
  try{Stop-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue}catch{}
  Unregister-ScheduledTask -TaskName $name -Confirm:$false
 }
-Register-ScheduledTask -TaskName $name -Action $action -Trigger $trigger -Principal $principal -Description 'CAHOS Cloud: extraccion OLAP local y envio de agregados pendientes de autorizacion' | Out-Null
+# Proceso de larga duracion: no finalizar por limite, bateria, inactividad o cambios de red.
+$settings=New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -DontStopOnIdleEnd
+Register-ScheduledTask -TaskName $name -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'CAHOS Cloud: extraccion OLAP local y envio de agregados pendientes de autorizacion' | Out-Null
 Start-ScheduledTask -TaskName $name
 Write-Host '[CAHOS] Agente cloud instalado y programado al iniciar sesion.' -ForegroundColor Green
 Write-Host '[CAHOS] No requiere abrir el navegador, servicios locales ni Windows PowerShell manualmente.'
