@@ -11,7 +11,8 @@ const fmt=n=>Number.isFinite(Number(n))?SEP.format(Number(n)):"—";
 const bands=["00_04","05_09","10_14","15_19","20_24","25_29","30_34","35_39","40_44","45_49","50_54","55_59","60_64","65_mm"];
 const shared=window.CAHOSSelection?.read()||{};
 const state={features:[],catalog:{},member:{},year:2026,population:[],municipal:new Map(),
- selected:null,grandTotal:null,caseQuality:null,provisional:false,jobStatus:null,queryBusy:false,
+ selected:null,selectedZones:new Set(),selectedMunicipalities:new Set(),regionalization:null,
+ grandTotal:null,caseQuality:null,provisional:false,jobStatus:null,queryBusy:false,
  loading:false,source:null,featureMap:new Map(),viewBox:{x:0,y:0,w:900,h:620},lastDetailRequest:0};
 const inform=(text,cls="")=>{$("status").className="notice "+cls;$("status").textContent=text};
 const api=async(path,method="GET",body=null)=>(await window.CAHOSAuth.api(path,{method,...(body?{body}: {})})).body;
@@ -27,7 +28,9 @@ function save(){
  pathology:$("pathology").value,year:$("year").value,entity:state.member.entity||"",
  sex:$("sex").value,age:$("age").value,
  pathology_search:$("search").value,pop_municipality:state.selected||"",
- pop_year:String(state.year)
+ pop_year:String(state.year),
+ operational_zones:[...state.selectedZones].join(","),
+ selected_municipalities:[...state.selectedMunicipalities].join(",")
  });
 }
 function selectOption(id,val){
@@ -140,6 +143,111 @@ function rings(geometry){
  if(geometry?.type==="MultiPolygon")return geometry.coordinates.flat();
  return [];
 }
+
+function zonesFor(code){
+ const row=state.regionalization?.municipalities?.find(x=>x.code===code);
+ return row?.zones||[];
+}
+function selectedCodes(){
+ const all=state.regionalization?.municipalities||[];
+ let codes=all.map(x=>x.code);
+ if(state.selectedZones.size){
+  codes=codes.filter(code=>{
+   const memberships=zonesFor(code);
+   return [...state.selectedZones].some(id=>id==="unassigned"?memberships.length===0:memberships.includes(id));
+  });
+ }
+ if(state.selectedMunicipalities.size)codes=codes.filter(code=>state.selectedMunicipalities.has(code));
+ return new Set(codes);
+}
+function chooseMunicipality(code,additive=false){
+ if(additive){
+  if(state.selectedMunicipalities.has(code))state.selectedMunicipalities.delete(code);
+  else state.selectedMunicipalities.add(code);
+ }else{
+  state.selectedMunicipalities.clear();state.selectedMunicipalities.add(code);
+ }
+ state.selected=code;save();renderMunicipalitySelection();drawMap();showDetail(code);
+}
+function refreshZoneChips(){
+ const root=$("zoneChips");root.replaceChildren();
+ const zones=(state.regionalization?.zones||[]).concat([{id:"unassigned",label:"Sin asignación",color:"#a3ada8",codes:[]}]);
+ for(const zone of zones){
+  const active=state.selectedZones.has(zone.id);
+  const button=document.createElement("button");button.type="button";button.className="zoneChip";
+  button.setAttribute("aria-pressed",String(active));
+  const dot=document.createElement("i");dot.className="dot";dot.style.background=zone.color;
+  const label=document.createElement("span");
+  label.textContent=zone.label+" · "+(zone.id==="unassigned"?
+   (state.regionalization?.unassigned||[]).length:zone.codes.length);
+  button.append(dot,label);
+  button.addEventListener("click",()=>{
+   if(state.selectedZones.has(zone.id))state.selectedZones.delete(zone.id);
+   else state.selectedZones.add(zone.id);
+   save();refreshZoneChips();drawMap();
+  });
+  root.append(button);
+ }
+}
+function renderMunicipalitySelection(){
+ const root=$("selectedMunicipalities");root.replaceChildren();
+ for(const code of state.selectedMunicipalities){
+  const record=state.regionalization?.municipalities?.find(x=>x.code===code);
+  const button=document.createElement("button");button.type="button";button.className="zoneChip";
+  button.textContent=(record?.name||code)+" ×";
+  button.setAttribute("aria-label","Quitar "+(record?.name||code));
+  button.addEventListener("click",()=>{
+   state.selectedMunicipalities.delete(code);
+   if(state.selected===code)state.selected=null;
+   save();renderMunicipalitySelection();drawMap();
+  });
+  root.append(button);
+ }
+}
+function renderTerritorialSummary(){
+ const root=$("zoneTotals");if(!state.regionalization){root.textContent="Regionalización pendiente.";return}
+ const codes=selectedCodes(),n=codes.size;
+ const names=[...state.selectedZones].map(id=>state.regionalization.zones.find(z=>z.id===id)?.label||
+  (id==="unassigned"?"Sin asignación":"")).filter(Boolean);
+ const caseCodes=[...codes].filter(x=>state.municipal.has(x));
+ const popValues=[...codes].map(code=>populationFor(code)?.population_total);
+ const population=n&&popValues.every(Number.isFinite)?popValues.reduce((a,b)=>a+b,0):null;
+ const cases=n&&caseCodes.length===n?caseCodes.reduce((a,b)=>a+state.municipal.get(b),0):null;
+ const denoms=[...codes].map(rateDenominator);
+ const denominator=n&&denoms.every(x=>Number.isFinite(x)&&x>0)?denoms.reduce((a,b)=>a+b,0):null;
+ const rate=cases!==null&&denominator?cases/denominator*100000:null;
+ const first=document.createElement("div");first.className="regionLabel";
+ first.textContent=(names.join(" + ")||"Todo Sonora")+" · "+n+" municipios distintos";
+ const detail=document.createElement("div");
+ detail.textContent="Población: "+(population===null?"no disponible":fmt(population))+
+  " · Casos: "+(cases===null?"sin cobertura total":fmt(cases))+
+  " · Tasa: "+(rate===null?"no calculable":rate.toLocaleString("es-MX",{maximumFractionDigits:2})+" /100,000")+
+  ". Selecciones superpuestas no duplican casos ni población.";
+ const notes=document.createElement("div");notes.className="zoneHelp";
+ notes.textContent="Regionalización operativa propuesta, distinta de las oficiales. "+
+  (state.selectedZones.size&&state.selectedMunicipalities.size?"Zonas y municipios se intersectan. ":"")+
+  (caseCodes.length!==n?"Faltan datos de uno o más municipios; ausencia ≠ cero. ":"")+
+  "La tasa exige numerador y denominador compatibles.";
+ root.replaceChildren(first,detail,notes);
+}
+async function loadRegionalization(){
+ const response=await fetch("/CAHOS/data/cahos_macrozonas_operativas.json",{cache:"no-store"});
+ if(!response.ok)throw Error("No se pudo cargar el catálogo regional de CAHOS");
+ const data=await response.json();
+ if(data.schema!=="cahos_regionalizacion_operativa_v1"||data.municipalities?.length!==72||
+  data.zones?.length!==6||new Set(data.municipalities.map(x=>x.code)).size!==72)
+  throw Error("El catálogo regional no contiene 72 claves válidas");
+ state.regionalization=data;
+ const ids=new Set(data.zones.map(x=>x.id).concat("unassigned"));
+ state.selectedZones=new Set(String(shared.operational_zones||"").split(",").filter(x=>ids.has(x)));
+ const codes=new Set(data.municipalities.map(x=>x.code));
+ state.selectedMunicipalities=new Set(String(shared.selected_municipalities||"").split(",").filter(x=>codes.has(x)));
+ const select=$("addMunicipality");select.replaceChildren(new Option("Elegir municipio…",""));
+ [...data.municipalities].sort((a,b)=>a.name.localeCompare(b.name,"es")).forEach(x=>
+  select.append(new Option(x.name,x.code)));
+ refreshZoneChips();renderMunicipalitySelection();renderTerritorialSummary();
+}
+
 function blank(svg,text){
  svg.replaceChildren();svg.append(mk("text",{x:svg.id==="map"?450:160,y:svg.id==="map"?300:90,
   "text-anchor":"middle",fill:"#708b80","font-size":"13"},text));
