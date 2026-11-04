@@ -1,6 +1,6 @@
 """Diagnóstico local y limitado de un único padecimiento del cubo SINAVE.
 
-Ejecuta hasta dos SELECT MDX de ANUAL 2026 directamente en el equipo autorizado.
+Ejecuta hasta tres SELECT MDX de ANUAL 2026 directamente en el equipo autorizado.
 No conecta con Supabase, no expone contraseñas, no imprime MDX, no muestra casos.
 La consola recibe solo códigos de estado, no mensajes brutos del proveedor.
 """
@@ -55,16 +55,29 @@ def main() -> None:
         return
 
     tests = [
+        ("CONTROL_IRA", "Infecciones respiratorias agudas(J00-J06, J20, J21 EXCEPTO J02.0 Y J03.0)"),
         ("CONJUNTIVITIS_COMBINADA", "Conjuntivitis(B30, H10.0)"),
         ("CONJUNTIVITIS_H10", "Conjuntivitis(H10)"),
     ]
-    print("CAHOS: prueba MDX local, maximo DOS consultas SELECT de solo lectura.", flush=True)
-    print("No se muestran casos, nombres de servidores, contrasenas ni cadenas MDX.", flush=True)
+    print("CAHOS: prueba MDX local, hasta TRES SELECT de solo lectura.", flush=True)
+    print("Primero se comprueba IRA con una consulta nueva. Si IRA falla, se detiene la prueba.", flush=True)
+    print("Si la combinada funciona, no es necesario consultar la variante H10.", flush=True)
+    print("No se muestran casos, servidores, contrasenas ni cadenas MDX.", flush=True)
 
+    control_ok = False
+    combined_ok = False
     for label, name in tests:
         member = next((m["id"] for m in pathologies if m["nombre"] == name), None)
+        if label == "CONJUNTIVITIS_COMBINADA" and not control_ok:
+            status(label, "OMITIDA_POR_FALLO_CONTROL_IRA")
+            break
+        if label == "CONJUNTIVITIS_H10" and combined_ok:
+            status(label, "OMITIDA_POR_EXITO_COMBINADA")
+            break
         if not member:
             status(label, "NO_EXISTE_EN_CATALOGO_LOCAL")
+            if label == "CONTROL_IRA":
+                break
             continue
         request = {
             "kind": "annual",
@@ -117,12 +130,22 @@ def main() -> None:
                 status(label, "CONSULTA_OK_SIN_FILAS")
             else:
                 status(label, "CONSULTA_OK_CON_FILAS")
+                if label == "CONTROL_IRA":
+                    control_ok = True
+                if label == "CONJUNTIVITIS_COMBINADA":
+                    combined_ok = True
         except subprocess.TimeoutExpired:
             status(label, "TIEMPO_LIMITE_110_SEGUNDOS")
         except Exception as exc:
             status(label, "ERROR_PROCESO_" + type(exc).__name__)
 
     print("FIN: ninguna consulta se envio a Supabase ni modifico el cubo.", flush=True)
+    if not control_ok:
+        print("INTERPRETACION: no se descarta un problema general de conexion, sesion o MSOLAP.", flush=True)
+    elif combined_ok:
+        print("INTERPRETACION: la combinada funciona; el error previo fue transitorio o dependia de los filtros.", flush=True)
+    else:
+        print("INTERPRETACION: el control IRA funciona, pero la combinada no; inspeccionar miembro MDX y filtros.", flush=True)
 
 if __name__ == "__main__":
     main()
