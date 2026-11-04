@@ -70,7 +70,7 @@ function reviewGate(statuses=[]){
  state.awaitingReview=waiting>0;
  $('#reviewGate').classList.toggle('hide',waiting===0);
  if(waiting){
-  $('#reviewGateTitle').textContent=waiting+' de 4 productos pendientes de aprobación';
+  $('#reviewGateTitle').textContent=waiting+' de 4 productos retenidos por control de calidad';
   $('#reviewGateDetail').textContent='El resultado no superó la liberación técnica automática o requiere controles de privacidad'+(processing?'; '+processing+' productos aún se están extrayendo.':'.');
   $('#reviewGateLink').classList.remove('hide');
  }
@@ -80,7 +80,7 @@ function clearPreliminary(){
  for(const id of ['kCases','kAnnual','kChange','kSync'])$('#'+id).textContent='—';
  for(const id of ['weeklyChart','yearChart','annualChart','endemicChart','sexChart','ageChart']){
   const div=document.createElement('div');div.className='placeholder';
-  div.textContent='Pendiente de validación epidemiológica';
+  div.textContent='Retenido para control automático de calidad o privacidad';
   $('#'+id).replaceChildren(div);
  }
 }
@@ -178,7 +178,7 @@ POST('/api/query',{kind:'age',pathology:f.pathology,years:[f.year],entity:f.enti
   reviewGate(queued);clearPreliminary();
   const msg=reviewing?'El resultado quedó retenido por control de calidad o privacidad.':
     'La consulta está en cola. El agente central la procesará.';
-  setNotice(msg+' No se presentan números sin validar.','warn');
+  setNotice(msg+' Los resultados retenidos permanecen fuera de las cifras publicadas.','warn');
   if(queued.some(x=>x.status==='queued'||x.status==='running')&&autoQueryRetries<6){
    autoQueryRetries++;setTimeout(()=>{if(!state.running)queryAll();},30000);
   }
@@ -191,8 +191,8 @@ POST('/api/query',{kind:'age',pathology:f.pathology,years:[f.year],entity:f.enti
  $('#exportData').disabled=false;drawAll();
  if(preliminary.length){
   $('#reviewGateTitle').textContent='VISTA PRELIMINAR PRIVADA · '+preliminary.length+' de 4 productos sin validar';
-  $('#reviewGateDetail').textContent='Solo visible para Administrador Maestro. Las cifras son agregados provisionales del cubo y NO están aprobadas para publicación ni uso oficial.';
-  setNotice('VISTA PRELIMINAR. Se muestran datos SIN VALIDAR para tu revisión como Administrador Maestro. Revisa y aprueba cada producto antes de publicarlo.','warn');
+  $('#reviewGateDetail').textContent='Solo visible para Administrador Maestro. Los agregados retenidos no se distribuyen a otros perfiles ni se presentan como cifras oficiales.';
+  setNotice('VISTA PRELIMINAR. Solo para Administrador Maestro. Este producto permanece retenido por criterios técnicos o de privacidad; no se solicita aprobación manual.','warn');
  }else{
   const official=[weekly,annual,sex,age].every(x=>x.oficial_corte_verificado===true);
   setNotice(`Datos disponibles: ${catalogLabel('pathologies',f.pathology)} · ${catalogLabel('years',f.year)}. ${official?'Corte oficial identificado.':'Revisión técnica interna; corte oficial no certificado. No sustituye el panorama epidemiológico oficial.'}`,official?'ok':'warn');
