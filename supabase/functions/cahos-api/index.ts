@@ -107,6 +107,9 @@ async function requestQuery(body,user,req){
  if(snapshot)return send(req,asCube(snapshot));
  const pending=await db("GET","cahos_snapshots?select=id,query_hash,query_kind,result_rows,extracted_at,source_system,coverage,publication_status&query_hash=eq."+hash+"&publication_status=eq.pending&limit=1");
  if(pending.length){
+  if(Array.isArray(pending[0].result_rows)&&pending[0].result_rows.length===0)
+    return send(req,{status:"no_data",reason:"no_rows_returned_by_cube",source:"SINAVE_OLAP",
+      message:"El cubo no devolvió filas para este miembro y filtros. Esto NO significa cero casos. Prueba otra categoría seleccionándola explícitamente."});
   if(user.isMaster===true){
    return send(req,{...asCube(pending[0]),provisional:true,publication_status:"pending",
      warning:"VISTA PRELIMINAR PARA ADMINISTRADOR MAESTRO. Datos SIN validar ni autorizados para publicación."});
@@ -219,10 +222,12 @@ async function commitResult(user,data,req){
  if(result.axes&&!Array.isArray(result.axes))return send(req,{error:"invalid_result_axes"},400);
  const review=technicalReview(rows,job);
  const reviewDate=dateISO();
- const coverage={status:review.passed?"technical_consistency_checked":"technical_review_required",
+ const coverage={status:rows.length===0?"source_no_rows":
+     review.passed?"technical_consistency_checked":"technical_review_required",
   corte_oficial:result.corte_oficial??null,official_cut_verified:false,
   review_method:"server_side_rules_v1",reviewed_at:reviewDate,
-  review_summary:review.passed?"Integridad interna comprobada; corte oficial no certificado.":"Resultado retenido por control técnico o privacidad.",
+  review_summary:rows.length===0?"Consulta ejecutada sin filas del cubo; NO equivale a cero casos.":
+    review.passed?"Integridad interna comprobada; corte oficial no certificado.":"Resultado retenido por control técnico o privacidad.",
   internal_check:review};
  const publication=review.passed?"approved":"pending";
  const saved=await db("POST","cahos_snapshots?on_conflict=query_hash",[{query_hash:job.query_hash,query_kind:job.query_kind,pathology_id:job.request_params.pathology,entity_code:job.entity_code,filter_params:job.request_params,result_rows:rows,coverage,source_system:"SINAVE_OLAP",extracted_at:dateISO(),publication_status:publication,approved_by:null,approved_at:review.passed?reviewDate:null}],"resolution=merge-duplicates,return=representation");
@@ -320,6 +325,9 @@ async function handler(req){
   if(j.state==="done"&&j.result_snapshot_id){
    const a=await db("GET","cahos_snapshots?select=*&id=eq."+j.result_snapshot_id+"&limit=1");
    if(!a.length)return send(req,{status:"result_unavailable",message:"La extracción terminó pero no tiene snapshot."});
+   if(Array.isArray(a[0].result_rows)&&a[0].result_rows.length===0)
+     return send(req,{status:"no_data",reason:"no_rows_returned_by_cube",source:"SINAVE_OLAP",
+       message:"La extracción finalizó sin filas. No equivale a cero casos ni a una categoría epidemiológica sustituta."});
    if(a[0].publication_status==="approved")return send(req,{status:"ready",result:asCube(a[0])});
    if(user.isMaster===true)return send(req,{status:"ready",result:{
      ...asCube(a[0]),provisional:true,publication_status:"pending",
