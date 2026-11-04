@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CAHOS | Mesa de validación epidemiológica</title>
+<title>CAHOS | Control de calidad de extracciones</title>
 <style>
 :root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#153b35;background:#f1f7f5}
 *{box-sizing:border-box}body{margin:0;padding:clamp(16px,3vw,38px)}main{max-width:1050px;margin:auto}
@@ -22,126 +22,107 @@ pre{font-size:12px;line-height:1.45;white-space:pre-wrap;overflow:auto;word-brea
 .hide{display:none!important}#notice{margin:12px 0}
 </style></head><body><main>
 <div class="eyebrow">CAHOS · MESA DE CONTROL EPIDEMIOLÓGICO</div>
-<h1>Validación de extracciones SINAVE</h1>
-<p class="lead">Esta mesa es exclusiva para administradores habilitados. Los resultados extraídos no se publican automáticamente: requieren revisión del corte, de los filtros y de su consistencia con el cubo original.</p>
+<h1>Control de calidad de extracciones SINAVE</h1>
+<p class="lead">Informe exclusivo para administradores habilitados. Los agregados superan controles de calidad internos y se liberan automáticamente para usuarios autorizados, sin solicitar tu aprobación. El corte oficial no se presume verificado.</p>
 <div class="nav"><a href="./">Volver al visor SUIVE</a><a href="./acceso.html">Acceso y cuenta</a><a href="./conexion.html">Estado de conexión</a></div>
-<div class="notice" id="notice" role="status">Comprobando sesión y extracciones pendientes...</div>
-<section class="panel"><div class="controls"><button type="button" id="refresh">Actualizar pendientes</button><span id="count" class="pill">Comprobando</span></div>
-<p class="muted">Cada serie semanal, anual, sexo o edad es un producto independiente. Aprueba solo tras comparar contra SINAVE. Los CSV contienen únicamente agregados recuperados del cubo, sin información nominal.</p>
+<div class="notice" id="notice" role="status">Comprobando sesión y resultados registrados...</div>
+<section class="panel"><div class="controls"><button type="button" id="refresh">Actualizar informe</button><span id="count" class="pill">Comprobando</span></div>
+<p class="muted">Cada producto conserva su origen, filtro, fecha y resultado del control de integridad. Los CSV contienen agregados del cubo, sin información nominal. No hay aprobaciones manuales en esta pantalla.</p>
 <div id="list"></div></section>
 </main>
 <script src="./configuracion-publica.js"></script><script src="./cahos-auth.js"></script>
 <script>
 const E=id=>document.getElementById(id);
-const setMessage=msg=>{E("notice").textContent=msg};
+const inform=msg=>{E("notice").textContent=msg};
 const types={weekly:"Serie semanal",annual:"Serie anual",sex:"Distribución por sexo",age:"Distribución por edad",municipality:"Distribución municipal",institution:"Distribución institucional"};
-function memberLabel(x){
- const s=String(x??""),a=s.lastIndexOf("&[");
- return a>=0&&s.endsWith("]")?s.slice(a+2,-1):s;
+function member(x){
+ const s=String(x??""),i=s.lastIndexOf("&[");
+ return i>=0&&s.endsWith("]")?s.slice(i+2,-1):s;
 }
-function years(arr){return (Array.isArray(arr)?arr:[]).map(memberLabel).join(", ")}
-function csvVal(value){
- let t=String(value??"");
- if(/^[=+@-]/.test(t))t="'"+t;
+function years(arr){return(Array.isArray(arr)?arr:[]).map(member).join(", ")}
+function csvField(x){
+ let t=String(x??"");if(/^[=+@-]/.test(t))t="'"+t;
  return '"'+t.replace(/"/g,'""')+'"';
 }
-function makeButton(label,alt=false){
- const button=document.createElement("button");
- button.type="button";button.textContent=label;if(alt)button.className="alt";return button;
+function element(tag,content,klass){
+ const n=document.createElement(tag);
+ n.textContent=content;if(klass)n.className=klass;return n;
 }
-function put(container,tag,value,klass){
- const node=document.createElement(tag);node.textContent=value;if(klass)node.className=klass;
- container.append(node);return node;
+function makeButton(label){
+ const b=element("button",label);b.type="button";b.className="alt";return b;
 }
 async function load(){
- E("list").replaceChildren();
- E("count").textContent="Cargando";
+ E("list").replaceChildren();E("count").textContent="Consultando";
  try{
   if(!await CAHOSAuth.accessToken()){
-   E("count").textContent="Sesión requerida";
-   setMessage("Necesitas iniciar sesión en Acceso y cuenta. Regresa a esta mesa después de ingresar como administrador.");
+   E("count").textContent="Inicia sesión";
+   inform("Inicia sesión desde Acceso y cuenta para consultar el informe de control de calidad.");
    return;
   }
-  const result=(await CAHOSAuth.api("/admin/pending")).body;
+  const result=(await CAHOSAuth.api("/admin/quality-report")).body;
   const rows=Array.isArray(result.snapshots)?result.snapshots:[];
-  E("count").textContent=rows.length+" pendientes";
-  if(rows.length===0){
-   setMessage("No hay extracciones pendientes. Puedes regresar al visor para consultar datos aprobados o solicitar nuevas consultas.");
-   return;
-  }
-  setMessage("Hay "+rows.length+" extracciones terminadas, pendientes de conciliación y autorización manual.");
+  const technicallyReviewed=rows.filter(x=>x.publication_status==="approved").length;
+  E("count").textContent=technicallyReviewed+" liberadas · "+(rows.length-technicallyReviewed)+" retenidas";
+  inform(rows.length+" extracciones registradas. Revisión técnica interna; el corte oficial no está certificado.");
+  if(!rows.length){E("list").append(element("p","Todavía no hay extracciones registradas."));return;}
   for(const item of rows){
-   const f=item.filter_params||{};
-   const box=document.createElement("section");box.className="card";
-   const title=put(box,"h3",(types[item.query_kind]||item.query_kind)+" · "+memberLabel(item.pathology_id));
-   const m=put(box,"p","Años: "+(years(f.years)||"no identificados")+
-    (item.query_kind==="weekly"?" · Semanas: "+(f.week_start??1)+" a "+(f.week_end??53):"")+
-    " · Entidad: "+memberLabel(f.entity||item.entity_code)+
-    " · Extraído: "+new Date(item.extracted_at).toLocaleString("es-MX"),"dataLine");
-   const actions=document.createElement("div");actions.className="controls";
-   const inspect=makeButton("1. Revisar resumen",true);
-   const exportBtn=makeButton("Descargar CSV completo",true);
-   actions.append(inspect,exportBtn);box.append(actions);
-   const details=document.createElement("pre");details.className="hide";box.append(details);
-   const ack=document.createElement("label");ack.className="ack";
-   const check=document.createElement("input");check.type="checkbox";check.disabled=true;
-   const ackText=document.createElement("span");
-   ackText.textContent="Verifiqué contra SINAVE los filtros, la definición del padecimiento, los totales, la cobertura y el corte; autorizo este producto exclusivamente para usuarios habilitados.";
-   ack.append(check,ackText);box.append(ack);
-   const label=put(box,"label","Nota de validación epidemiológica (obligatoria, mínimo 10 caracteres)","note");
-   const note=document.createElement("textarea");note.maxLength=350;note.disabled=true;
-   note.placeholder="Ejemplo: Conciliado contra cubo SINAVE, SE 40/2026, 26 Sonora, totales y grupos verificados.";
-   label.append(note);
-   const approve=makeButton("2. Aprobar producto");approve.disabled=true;box.append(approve);
-   let inspected=false;
-   const update=()=>{approve.disabled=!(inspected&&check.checked&&note.value.trim().length>=10)};
-   check.onchange=update;note.oninput=update;
-   inspect.onclick=async()=>{
-    inspect.disabled=true;
+   const filters=item.filter_params||{},quality=item.coverage||{};
+   const published=item.publication_status==="approved";
+   const card=element("article","", "card");
+   card.append(element("h3",(types[item.query_kind]||item.query_kind)+" · "+member(item.pathology_id)));
+   card.append(element("p","Años: "+(years(filters.years)||"no especificados")+
+    (item.query_kind==="weekly"?" · Semanas: "+(filters.week_start??1)+" a "+(filters.week_end??53):"")+
+    " · Entidad: "+member(filters.entity||item.entity_code)+
+    " · Extraído: "+new Date(item.extracted_at).toLocaleString("es-MX"),"dataLine"));
+   const status=element("p",published?"CONSISTENCIA TÉCNICA · disponible para usuarios autorizados":
+      "RETENIDA · control de calidad o privacidad pendiente","pill");
+   status.style.background=published?"#e4f2eb":"#fff0d9";
+   status.style.color=published?"#176959":"#8b5d21";card.append(status);
+   card.append(element("p","Método: "+(quality.review_method||"pendiente")+
+     " · Corte oficial: "+(quality.official_cut_verified===true?"verificado":"no certificado"),"muted"));
+   if(quality.review_summary)card.append(element("p",quality.review_summary,"muted"));
+   const actions=element("div","","controls");
+   const detail=makeButton("Ver controles y muestra");
+   const csv=makeButton("Descargar CSV agregado");
+   actions.append(detail,csv);card.append(actions);
+   const pre=element("pre","");pre.className="hide";card.append(pre);
+   detail.onclick=async()=>{
+    detail.disabled=true;
     try{
-     const d=(await CAHOSAuth.api("/admin/snapshot/"+item.id)).body;
-     details.textContent=JSON.stringify({
-      periodo:years(d.filter_params?.years),filtros:d.filter_params,
-      fecha_de_extraccion:d.extracted_at,cobertura:d.coverage,
-      cantidad_de_filas:d.rows_count,suma_de_medidas:d.sum_cases,
-      muestra_de_hasta_20_filas:d.preview
+     const r=(await CAHOSAuth.api("/admin/snapshot/"+item.id)).body;
+     pre.textContent=JSON.stringify({
+      tipo:r.query_kind,filtros:r.filter_params,fecha:r.extracted_at,
+      estado:r.publication_status,controles:r.coverage,
+      filas:r.rows_count,suma_de_casos:r.sum_cases,muestra:r.preview
      },null,2);
-     details.classList.remove("hide");inspected=true;check.disabled=false;note.disabled=false;
-     setMessage("Resumen disponible. Contrasta los agregados contra SINAVE y descarga el CSV para revisar todas las filas.");
-    }catch(err){setMessage("No se pudo leer el resumen: "+err.message)}
-    finally{inspect.disabled=false}
+     pre.classList.remove("hide");
+     inform("Detalle abierto. Estos controles no certifican la oportunidad ni el corte oficial.");
+    }catch(e){inform("Error al mostrar los controles: "+e.message)}
+    finally{detail.disabled=false}
    };
-   exportBtn.onclick=async()=>{
-    exportBtn.disabled=true;
+   csv.onclick=async()=>{
+    csv.disabled=true;
     try{
-     const d=(await CAHOSAuth.api("/admin/snapshot/"+item.id+"?full=1")).body;
-     if(!Array.isArray(d.rows))throw Error("El servidor no devolvió las filas.");
+     const r=(await CAHOSAuth.api("/admin/snapshot/"+item.id+"?full=1")).body;
+     if(!Array.isArray(r.rows))throw Error("El servidor no devolvió filas");
      const keys=["years","weeks","sex","age","municipalities","municipalities_id","institutions","cases"];
-     const csv=["\uFEFF"+keys.map(csvVal).join(",")].concat(d.rows.map(r=>keys.map(k=>csvVal(r[k])).join(","))).join("\r\n");
-     const u=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
-     const a=document.createElement("a");a.href=u;a.download="CAHOS_revision_"+item.query_kind+"_"+item.id.slice(0,8)+".csv";
-     a.click();setTimeout(()=>URL.revokeObjectURL(u),3000);
-     setMessage("CSV descargado para conciliación. Descargar no aprueba ni publica datos.");
-    }catch(err){setMessage("No se pudo descargar el agregado: "+err.message)}
-    finally{exportBtn.disabled=false}
+     const lines=["\uFEFF"+keys.map(csvField).join(",")];
+     for(const row of r.rows)lines.push(keys.map(key=>csvField(row[key])).join(","));
+     const blob=new Blob([lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
+     const url=URL.createObjectURL(blob),link=document.createElement("a");
+     link.href=url;link.download="CAHOS_AGREGADOS_"+item.query_kind+"_"+item.id.slice(0,8)+".csv";
+     link.click();setTimeout(()=>URL.revokeObjectURL(url),3000);
+     inform("CSV agregado descargado. La descarga no cambia ni publica ningún resultado.");
+    }catch(e){inform("Error al descargar: "+e.message)}
+    finally{csv.disabled=false}
    };
-   approve.onclick=async()=>{
-    update();if(approve.disabled)return;
-    if(!confirm("¿Confirmas que validaste este producto con el cubo SINAVE autorizado y deseas publicarlo para las cuentas habilitadas?"))return;
-    approve.disabled=true;
-    try{
-     await CAHOSAuth.api("/admin/approve",{method:"POST",
-      body:{snapshot_id:item.id,verified:true,review_note:note.value.trim()}});
-     setMessage("Aprobación registrada con fecha, responsable y nota de validación. El visor mostrará el dato tras volver a consultar.");
-     await load();
-    }catch(err){setMessage("No se aprobó: "+err.message);update()}
-   };
-   E("list").append(box);
+   E("list").append(card);
   }
- }catch(err){
-  E("count").textContent="Acceso no disponible";
-  setMessage("No se puede consultar la mesa de validación: "+err.message+". Entra por Acceso y cuenta y comprueba tu rol administrador.");
+ }catch(e){
+  E("count").textContent="No disponible";
+  inform("No fue posible consultar el informe: "+e.message+". Comprueba tu sesión de Administrador Maestro.");
  }
 }
-E("refresh").onclick=load;load();
+E("refresh").onclick=load;
+load();
 </script></body></html>
