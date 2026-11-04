@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MAPA CAHOS | Observatorio Epidemiológico Territorial</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoTQ2GdLtY+Vo=" crossorigin="">
 <style>
 :root{--bg:#eaf2f0;--dark:#112f2c;--forest:#174941;--green:#1b796a;--mint:#1c9e8c;--line:#d4e6e0;--ink:#183b35;--muted:#67837b;--panel:#fff;--amber:#ca8c34}
 *{box-sizing:border-box}body{margin:0;font:14px/1.48 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg)}
@@ -44,6 +45,15 @@ button.secondary{background:#e3f3ec;color:#146552;border:1px solid #c2e0d3;paddi
 .regionLabel{font-weight:750;color:#24594d;margin-top:3px}
 .mapArea{background:white;border:1px solid var(--line);border-radius:17px;padding:18px;position:relative;box-shadow:0 8px 24px #194f4010;min-height:560px}
 .mapArea svg{display:block;width:100%;max-height:670px;min-height:440px;touch-action:pan-y}
+#streetMap{height:min(66vh,675px);min-height:455px;z-index:1;border-radius:12px;border:1px solid #dce8e3}
+#streetMap[hidden],#map[hidden]{display:none!important}
+.territoryBar{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:8px 0 12px}
+.territoryBar label{display:grid;gap:5px;font-size:11px;color:#58796d;font-weight:790}
+.territoryBar select{max-width:440px;min-width:230px;background:#fff;border:1px solid #bfd9cc;padding:10px;border-radius:9px}
+.leaflet-container{font:12px/1.5 system-ui,Segoe UI,sans-serif}
+.territoryNote{color:#68847b;font-size:11px;margin-top:8px}
+.municipalityRegions{line-height:1.65;color:#315e50}
+@media(max-width:750px){#streetMap{height:52vh;min-height:380px}}
 .mapArea svg path{outline:none;transition:fill .2s,stroke-width .2s;cursor:pointer}
 .mapArea svg path:focus{stroke:#ffbb53!important;stroke-width:3!important}
 .mapTools{display:flex;position:absolute;right:20px;top:20px;gap:5px;z-index:2}
@@ -80,12 +90,19 @@ button.secondary{background:#e3f3ec;color:#146552;border:1px solid #c2e0d3;paddi
 <label>Grupo de edad<select id="age"><option value="">Todas las edades</option></select></label>
 </div>
 <div class="actions"><button class="primary" id="consult" type="button">↻ Consultar territorio</button>
-<label class="dim">Capa territorial <select id="metric"><option value="cases">Casos registrados</option><option value="rate">Tasa por 100,000</option><option value="population">Población proyectada</option><option value="zones">Macrorregiones operativas</option></select></label>
+<label class="dim">Colorizar por <select id="metric"><option value="cases">Casos registrados</option><option value="rate">Tasa por 100,000</option><option value="population">Población proyectada</option><option value="zones">Regionalización territorial</option></select></label>
+<label class="dim">Base cartográfica <select id="mapBase"><option value="osm">OpenStreetMap</option><option value="polygons">Solo polígonos INEGI</option></select></label>
 <span class="legend"><i class="swatch" style="background:#dce8e4"></i>Sin dato / retenido <i class="swatch" style="background:#b9e4d2"></i>Menor valor <i class="swatch" style="background:#13735e"></i>Mayor valor</span>
 </div>
 <div class="zonePanel" aria-label="Regionalización operativa">
- <h2>Regionalización CAHOS · 6 zonas propuestas</h2>
- <div class="zoneHelp">Capas de trabajo personalizadas, distintas de Distritos de Salud, regiones oficiales COESPO y conducción médica IMSS Bienestar. Algunas zonas se traslapan; los totales se calculan con municipios únicos.</div>
+ <h2>Regionalización territorial · capas independientes</h2>
+  <div class="territoryBar"><label>Esquema territorial<select id="regionScheme">
+    <option value="custom">6 zonas operativas CAHOS</option>
+    <option value="districts">6 Distritos de Salud</option>
+    <option value="coespo">10 regiones COESPO</option>
+    <option value="imss">10 sedes IMSS Bienestar</option>
+   </select></label><span class="pill" id="regionCoverage">Cargando delimitaciones…</span></div>
+ <div class="zoneHelp" id="regionHelp">Las capas conservan su procedencia. Zonas CAHOS admiten solapamientos, Distritos y COESPO son divisiones completas; IMSS muestra sedes verificadas sin inventar fronteras.</div>
  <div id="zoneChips" class="zoneChips" role="group" aria-label="Seleccionar una o varias regiones">
   <span class="dim">Cargando zonas…</span>
  </div>
@@ -101,10 +118,11 @@ button.secondary{background:#e3f3ec;color:#146552;border:1px solid #c2e0d3;paddi
 </section>
 <div class="mapArea">
 <div class="mapTools"><button id="zoomIn" title="Acercar">+</button><button id="zoomOut" title="Alejar">−</button><button id="resetZoom" title="Restablecer vista">⌂</button></div>
-<svg id="map" viewBox="0 0 900 620" aria-label="Mapa interactivo de los 72 municipios de Sonora" role="img">
+<div id="streetMap" aria-label="OpenStreetMap con polígonos municipales INEGI" role="application"></div>
+<svg id="map" viewBox="0 0 900 620" aria-label="Mapa interactivo de los 72 municipios de Sonora" role="img" hidden>
 <text x="450" y="310" text-anchor="middle" fill="#648078" font-size="18">Esperando cartografía de INEGI…</text>
 </svg>
-<div class="mapFoot" id="mapFoot">Fuente cartográfica: INEGI · El gris indica ausencia de dato, no cero casos. Los datos epidemiológicos se consultan a través de la API autenticada.</div>
+<div class="mapFoot" id="mapFoot">Polígonos: INEGI · Fondo: © colaboradores de OpenStreetMap · Gris indica sin información, no cero casos. Datos protegidos vía API autenticada.</div>
 </div>
 </main>
 <aside class="right"><section class="box"><div class="caption">Ficha territorial</div><h2 id="name">Sonora</h2><p class="mini" id="note">Selecciona un polígono para analizar un municipio.</p><div class="kpis">
@@ -122,4 +140,5 @@ button.secondary{background:#e3f3ec;color:#146552;border:1px solid #c2e0d3;paddi
 <script src="/CAHOS/configuracion-publica.js"></script>
 <script src="/CAHOS/cahos-auth.js"></script>
 <script src="/CAHOS/cahos-state.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="./app.js"></script></body></html>
