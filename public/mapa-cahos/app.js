@@ -13,7 +13,7 @@ const shared=window.CAHOSSelection?.read()||{};
 const state={features:[],catalog:{},member:{},year:2026,population:[],municipal:new Map(),
  selected:null,selectedZones:new Set(),selectedMunicipalities:new Set(),regionalization:null,
  grandTotal:null,caseQuality:null,provisional:false,jobStatus:null,queryBusy:false,
- loading:false,source:null,featureMap:new Map(),viewBox:{x:0,y:0,w:900,h:620},lastDetailRequest:0};
+ loading:false,source:null,featureMap:new Map(),leafletMap:null,leafletLayer:null,viewBox:{x:0,y:0,w:900,h:620},lastDetailRequest:0};
 const inform=(text,cls="")=>{$("status").className="notice "+cls;$("status").textContent=text};
 const api=async(path,method="GET",body=null)=>(await window.CAHOSAuth.api(path,{method,...(body?{body}: {})})).body;
 const label=(dim,id)=>state.catalog[dim]?.find(x=>x.id===id)?.nombre||"";
@@ -252,7 +252,90 @@ function blank(svg,text){
  svg.replaceChildren();svg.append(mk("text",{x:svg.id==="map"?450:160,y:svg.id==="map"?300:90,
   "text-anchor":"middle",fill:"#708b80","font-size":"13"},text));
 }
+
+function regionColor(code,metric){
+ if(metric!=="zones")return null;
+ const first=zonesFor(code)[0];
+ return state.regionalization?.zones.find(z=>z.id===first)?.color||"#c9d1ce";
+}
+function polygonMetricMax(metric){
+ if(metric==="zones")return 1;
+ return Math.max(1,...state.features.map(f=>metricValue(String(f.properties.cvegeo),metric))
+  .filter(v=>v!==null&&Number.isFinite(v)));
+}
+function polygonStyle(feature){
+ const code=String(feature.properties.cvegeo),metric=$("metric").value;
+ const selected=state.selectedMunicipalities.has(code);
+ const groupIds=zonesFor(code);
+ return {color:selected?"#f3b850":metric==="zones"&&groupIds.length>1?"#58466d":"#fff",
+  weight:selected?3.8:metric==="zones"&&groupIds.length>1?2.2:1.0,
+  opacity:1,
+  fillColor:regionColor(code,metric)||fill(metricValue(code,metric),polygonMetricMax(metric)),
+  fillOpacity:selectedCodes().has(code)?0.79:0.17};
+}
+function tooltipNode(feature){
+ const code=String(feature.properties.cvegeo),metric=$("metric").value;
+ const groups=zonesFor(code).map(id=>state.regionalization?.zones.find(z=>z.id===id)?.label||id);
+ const value=metricValue(code,metric);
+ const text=document.createElement("span");
+ const number=metric==="zones"?(groups.join(" / ")||"Sin asignación"):
+  value===null?"Sin dato":
+   metric==="rate"?value.toLocaleString("es-MX",{maximumFractionDigits:2})+" /100,000":fmt(value);
+ text.textContent=feature.properties.nombre+" · "+number;
+ return text;
+}
+function updateMapFoot(){
+ const metric=$("metric").value,n=state.municipal.size;
+ $("mapFoot").textContent="Polígonos INEGI · "+(state.leafletMap?"OpenStreetMap + ":"")+"72 municipios · "+
+  (metric==="zones"?"Zonas operativas CAHOS propuestas, no oficiales":
+   metric==="population"?"Proyecciones municipales COESPO/CONAPO":
+   n>0?n+" municipios conciliados con el cubo (consulta protegida)":
+   "Sin datos epidemiológicos autorizados; gris no equivale a cero casos")+
+  " · "+state.year+" · Los valores no certifican el corte oficial.";
+}
+function initLeafletMap(geo){
+ if(!window.L)return false;
+ try{
+  $("leafletMap").classList.remove("hide");$("map").classList.add("hide");
+  const map=window.L.map("leafletMap",{preferCanvas:true,zoomControl:false,minZoom:5,maxZoom:16});
+  const tiles=window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+   attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> · Límites INEGI',
+   maxZoom:16,maxNativeZoom:16
+  });
+  tiles.addTo(map);
+  const layer=window.L.geoJSON(geo,{style:polygonStyle,onEachFeature:(feature,path)=>{
+   const code=String(feature.properties.cvegeo);
+   path.bindTooltip(tooltipNode(feature),{sticky:true,direction:"top"});
+   path.on("mouseover",()=>{path.setTooltipContent(tooltipNode(feature));path.setStyle({weight:3})});
+   path.on("mouseout",()=>{if(state.leafletLayer)state.leafletLayer.resetStyle(path)});
+   path.on("click",event=>{
+    const original=event.originalEvent||{};
+    chooseMunicipality(code,!!(original.ctrlKey||original.shiftKey||original.metaKey));
+   });
+  }}).addTo(map);
+  state.leafletMap=map;state.leafletLayer=layer;
+  map.fitBounds(layer.getBounds(),{padding:[12,12],maxZoom:9});
+  map.invalidateSize();
+  return true;
+ }catch{
+  if(state.leafletMap)state.leafletMap.remove();
+  state.leafletMap=null;state.leafletLayer=null;
+  $("leafletMap").classList.add("hide");$("map").classList.remove("hide");
+  return false;
+ }
+}
+function updateLeaflet(){
+ if(!state.leafletLayer)return false;
+ state.leafletLayer.setStyle(polygonStyle);
+ state.leafletLayer.eachLayer(layer=>{
+  if(layer.feature)layer.setTooltipContent(tooltipNode(layer.feature));
+ });
+ updateMapFoot();renderTerritorialSummary();
+ return true;
+}
+
 function drawMap(){
+ if(updateLeaflet())return;
  const svg=$("map");svg.replaceChildren();
  if(!state.features.length){blank(svg,"Cartografía no disponible");return}
  const points=[];
@@ -301,12 +384,7 @@ function drawMap(){
   svg.append(path);
  });
  svg.setAttribute("viewBox",Object.values(state.viewBox).join(" "));
- const n=state.municipal.size;
- $("mapFoot").textContent="INEGI · 72 municipios · "+(metric==="zones"?"Seis macrozonas operativas propuestas, traslapes visibles por contorno":metric==="population"?"Capa demográfica COESPO/CONAPO":
-  n>0?n+" municipios conciliados con total estatal del cubo (consulta protegida).":
-  "Datos epidemiológicos restringidos o no disponibles · gris ≠ cero casos.")+
-  " · "+state.year+" · El mapa no acredita el corte oficial.";
- renderTerritorialSummary();
+ updateMapFoot();renderTerritorialSummary();
 }
 function pyramid(record){
  const svg=$("pyramid");svg.replaceChildren();
@@ -477,7 +555,9 @@ async function initialize(){
   state.features=geo.features;state.featureMap=new Map(geo.features.map(f=>[String(f.properties.cvegeo),f]));
   await loadRegionalization();
   state.year=yrNumber($("year").value)||2026;
-  await loadPopulation();drawMap();
+  await loadPopulation();
+  initLeafletMap(geo);
+  drawMap();
   if(state.selected&&state.featureMap.has(state.selected))showDetail(state.selected);
   else if(state.features.length){state.selected=null;blank($("pyramid"),"Selecciona un municipio");blank($("trend"),"Selecciona un municipio")}
   inform("Cartografía y población disponibles. "+(profile.is_master?
@@ -510,6 +590,10 @@ $("clearTerritory").addEventListener("click",()=>{
 $("consult").addEventListener("click",loadCases);
 for(const [id,mult] of [["zoomIn",.72],["zoomOut",1.38]]){
  $(id).addEventListener("click",()=>{
+  if(state.leafletMap){
+   if(mult<1)state.leafletMap.zoomIn();else state.leafletMap.zoomOut();
+   return;
+  }
   const v=state.viewBox,oldW=v.w,oldH=v.h;
   v.w=Math.max(250,Math.min(900,oldW*mult));v.h=v.w*620/900;
   v.x+= (oldW-v.w)/2;v.y+=(oldH-v.h)/2;
@@ -517,6 +601,10 @@ for(const [id,mult] of [["zoomIn",.72],["zoomOut",1.38]]){
  });
 }
 $("resetZoom").addEventListener("click",()=>{
+ if(state.leafletMap&&state.leafletLayer){
+  state.leafletMap.fitBounds(state.leafletLayer.getBounds(),{padding:[12,12],maxZoom:9});
+  return;
+ }
  state.viewBox={x:0,y:0,w:900,h:620};$("map").setAttribute("viewBox","0 0 900 620");
 });
 window.addEventListener("pagehide",save);
