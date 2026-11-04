@@ -5,7 +5,7 @@ const $=s=>document.querySelector(s);
 const norm=v=>String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("es").replace(/\b(municipio|de|sonora)\b/g,"").replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
 let shapes=null,observaciones=null,population=null,selectedCode=null,detailName=null;
 let joinState={byCode:new Map(),totalRows:0,withCases:0,linkedRows:0,unlinked:[]};
-let currentQueryKey='',requestRunning=false,refreshTimer=null;
+let currentQueryKey='',requestRunning=false,refreshTimer=null,mapPollAttempts=0;
 const codeFrom=v=>{
  const str=String(v||'');
  const five=str.match(/(?:^|[^0-9])(26[0-9]{3})(?![0-9])/);
@@ -233,6 +233,21 @@ async function query(){
   if(out[0].status!=="fulfilled")throw out[0].reason;
   if(out[1].status!=="fulfilled")throw out[1].reason;
   observaciones=out[1].value;
+  if(['queued','running'].includes(observaciones?.status)){
+   $("#mapStatus").textContent="Extracción municipal "+(observaciones.status==="queued"?"en cola":"en proceso")+
+    ". El mapa se coloreará automáticamente al terminar. Revisión "+(mapPollAttempts+1)+"/12.";
+   if(mapPollAttempts<12){
+    mapPollAttempts++;
+    clearTimeout(refreshTimer);
+    refreshTimer=setTimeout(()=>{if(!requestRunning)query();},7000);
+   }
+   return;
+  }
+  mapPollAttempts=0;
+  if(observaciones?.status==='awaiting_review'){
+   $("#mapStatus").textContent="Desglose municipal restringido por privacidad. El Administrador Maestro puede ver el dato preliminar sin publicarlo.";
+   observaciones=null;
+  }
   population=out[2].status==="fulfilled"?out[2].value:{disponible:false};
   joinState=reconcileMunicipios();
   currentQueryKey=JSON.stringify(f);
