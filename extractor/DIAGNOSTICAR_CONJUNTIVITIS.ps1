@@ -19,7 +19,7 @@ if(-not (Test-Path -LiteralPath $python -PathType Leaf)){
  throw 'El Python de la tarea no esta disponible.'
 }
 Write-Host ('[AGENTE] Tarea: '+$task.State) -ForegroundColor Yellow
-Write-Host '[PLAN] Dos SELECT MDX de solo lectura; sin solicitudes a Supabase.'
+Write-Host '[PLAN] Hasta tres SELECT MDX de solo lectura; sin solicitudes a Supabase.'
 Write-Host '[PRIVACIDAD] No se imprimen cifras, rutas de origen, MDX ni credenciales.'
 Write-Host ''
 & $python -B $script $app
