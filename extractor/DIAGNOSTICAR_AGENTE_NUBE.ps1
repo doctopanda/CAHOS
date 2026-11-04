@@ -42,6 +42,23 @@ if($taskWorkingDir -and (Split-Path -Leaf $taskWorkingDir) -eq 'cloud'){
  $candidates+=Join-Path (Split-Path -Parent $taskWorkingDir) 'cloud_agent_status.json'
 }
 $candidates+=Join-Path (Join-Path $HOME 'CAHOS') 'cloud_agent_status.json'
+# Python installed from Microsoft Store virtualizes writes below AppData.
+# Look only in trusted Microsoft Store Python cache directories, never recurse disks.
+$storeStatusDirectories=@()
+$packagesDir=Join-Path $env:LOCALAPPDATA 'Packages'
+if(Test-Path -LiteralPath $packagesDir -PathType Container){
+ $pythonPackages=@(Get-ChildItem -LiteralPath $packagesDir -Directory -Filter 'PythonSoftwareFoundation.Python.3.12*' -ErrorAction SilentlyContinue)
+ foreach($package in $pythonPackages){
+  $virtualCahos=Join-Path $package.FullName 'LocalCache\\Local\\CAHOS'
+  if(Test-Path -LiteralPath $virtualCahos -PathType Container){
+   $storeStatusDirectories+= $virtualCahos
+   $candidates+=Join-Path $virtualCahos 'cloud_agent_status.json'
+  }
+ }
+}
+if($storeStatusDirectories.Count -gt 0){
+ Write-Host ('[PYTHON STORE] Directorios CAHOS virtualizados encontrados: '+$storeStatusDirectories.Count) -ForegroundColor Cyan
+}
 $foundStatus=$null
 foreach($candidate in ($candidates | Select-Object -Unique)){
  if(Test-Path -LiteralPath $candidate -PathType Leaf){$foundStatus=$candidate;break}
@@ -50,7 +67,10 @@ if($foundStatus){
  try {
   $obj=Get-Content -LiteralPath $foundStatus -Raw -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop
   Write-Host ('[ESTADO LOCAL] '+[string]$obj.status+'; '+[string]$obj.detail)
-  if($foundStatus -ne $statusPath){Write-Host '[ESTADO LOCAL] Ubicado en la ruta alternativa del agente.' -ForegroundColor Yellow}
+  if($foundStatus -ne $statusPath){
+   Write-Host '[ESTADO LOCAL] Detectado en directorio virtualizado de Python Microsoft Store.' -ForegroundColor Green
+   Write-Host ('[ESTADO LOCAL] Ruta fisica: '+$foundStatus)
+  }
   Write-Host ('[ACTUALIZADO] '+[string]$obj.at)
  }catch{Write-Host '[ESTADO LOCAL] Archivo presente pero no valido.' -ForegroundColor Yellow}
 }else{
@@ -63,6 +83,20 @@ if($foundStatus){
    Write-Host '[PISTA] Es la misma cuenta de Windows (con o sin prefijo del equipo).' -ForegroundColor Green
    Write-Host '[PISTA] Sin archivo local no significa desconexion: verificar estado remoto.' -ForegroundColor Yellow
   }
+ }
+}
+
+# This log contains only event names / exception types from the CAHOS agent.
+$diagnosticCandidates=@(Join-Path $base 'cloud_agent_diagnostic.log')
+foreach($dir in $storeStatusDirectories){
+ $diagnosticCandidates+=Join-Path $dir 'cloud_agent_diagnostic.log'
+}
+foreach($logPath in ($diagnosticCandidates | Select-Object -Unique)){
+ if(Test-Path -LiteralPath $logPath -PathType Leaf){
+  Write-Host '[LOG AGENTE] Ultimos eventos locales (sin credenciales):'
+  Get-Content -LiteralPath $logPath -Tail 4 -ErrorAction SilentlyContinue |
+    ForEach-Object { Write-Host ('  '+$_) }
+  break
  }
 }
 
