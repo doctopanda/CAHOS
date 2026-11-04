@@ -250,6 +250,16 @@ async function query(){
    $("#mapStatus").textContent="La extracción sigue en proceso. No se volverá a enviar al cubo; consulta más tarde.";
    return;
   }
+  if(observaciones?.status==='no_data'){
+   population=out[2].status==="fulfilled"?out[2].value:{disponible:false};
+   observaciones=null;joinState=reconcileMunicipios();render();
+   const pathName=label("pathologies",f.pathology);
+   $("#mapStatus").textContent="SIN FILAS DEL CUBO: esta patología no devolvió desglose municipal. "+
+      "Sin información ≠ cero casos."+
+      (pathName==="Conjuntivitis(B30, H10.0)"?
+       " Puedes seleccionar Conjuntivitis(H10) como categoría diferente para consultar su distribución.":"");
+   return;
+  }
   if(observaciones?.status==='failed'){
    population=out[2].status==="fulfilled"?out[2].value:{disponible:false};
    const code=observaciones.error_code||'extractor_error';
