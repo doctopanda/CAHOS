@@ -37,9 +37,9 @@ small,.hint{font-size:12px;color:#6d827b}#alert{min-height:46px;padding:12px;bor
 <div class="actions"><button id="createAgent" type="button">Generar token de agente</button><a href="https://github.com/doctopanda/CAHOS/tree/main/extractor">Instalador Windows</a></div>
 <p id="agentToken" class="hide"></p>
 <button id="copyAgent" type="button" class="secondary hide">Copiar token</button>
-<hr><h2>Extracciones pendientes de revisión</h2>
-<p class="hint">No apruebes cifras hasta contrastar el corte, la cobertura y los totales contra SINAVE.</p>
-<div class="actions"><a href="./revision.html">Abrir mesa de validación y descarga de agregados</a></div><div id="pendingList" class="hide"></div><button id="pending" type="button" class="secondary hide">Consultar pendientes</button>
+<hr><h2>Control de calidad de extracciones</h2>
+<p class="hint">La integridad y consistencia técnica de cada extracción se revisa sin solicitar aprobaciones manuales. El corte oficial debe interpretarse por separado.</p>
+<div class="actions"><a href="./revision.html">Ver informe técnico y descargar agregados</a></div>
 </div>
 <div id="alert" role="status">Ingresa con una cuenta Supabase para continuar. Si es tu primer ingreso, solicita la habilitación del administrador.</div>
 <p><a href="./">Regresar al visor</a> · <a href="./conexion.html">Estado de la infraestructura</a></p>
@@ -58,7 +58,7 @@ async function render(){
    el("summary").textContent="Rol: "+titulo+" · Acceso "+(profile?.enabled?"habilitado":"pendiente")+
      " · Fuente: "+r.body.servidor+".";
    message(profile?.is_master?"Acceso Maestro habilitado para las funciones administrativas actuales de CAHOS.":"Sesión y permisos confirmados.");
-   for(const buttonId of ["createAgent","pending"])el(buttonId).disabled=!["admin","admin_master"].includes(profile?.role);
+   el("createAgent").disabled=!(profile?.enabled&&(profile?.role==="admin"||profile?.is_master===true));
   }
   catch(e){el("summary").textContent="Cuenta autenticada. Falta aprobación del administrador o conexión del backend.";message(e.message)}
  }
@@ -88,43 +88,5 @@ el("copyAgent").onclick=async()=>{
  try{await navigator.clipboard.writeText(el("agentToken").textContent);message("Token copiado. Guárdalo solo en la computadora que ejecutará el agente.");}
  catch{message("Selecciona el token mostrado y cópialo manualmente.")}
 };
-async function showPending(){
- const root=el("pendingList");root.replaceChildren();
- try{
-  const data=(await CAHOSAuth.api("/admin/pending")).body.snapshots||[];
-  if(!data.length){root.textContent="Sin extracciones pendientes.";return;}
-  for(const item of data){
-   const wrap=document.createElement("div");
-   wrap.style.cssText="border:1px solid #dbe7e1;border-radius:10px;padding:12px;margin-top:10px";
-   const title=document.createElement("p");
-   title.textContent=item.query_kind+" · "+item.pathology_id+" · "+item.extracted_at;
-   const preview=document.createElement("button");
-   preview.className="secondary";preview.type="button";preview.textContent="Revisar resumen";
-   const approve=document.createElement("button");
-   approve.type="button";approve.textContent="Aprobar tras validación";
-   approve.style.marginLeft="8px";
-   const details=document.createElement("pre");
-   details.style.cssText="white-space:pre-wrap;word-break:break-word;font-size:11px";
-   preview.onclick=async()=>{
-    try{
-     const r=await CAHOSAuth.api("/admin/snapshot/"+item.id);
-     const d=r.body;
-     details.textContent=JSON.stringify({fecha:d.extracted_at,tipo:d.query_kind,filtros:d.filter_params,
-      filas:d.rows_count,total_casos:d.sum_cases,cobertura:d.coverage,muestra:d.preview},null,2);
-     message("Contrasta este resumen con el cubo SINAVE antes de autorizarlo.");
-    }catch(e){message(e.message)}
-   };
-   approve.onclick=async()=>{
-    const ok=confirm("¿Verificaste el total, la cobertura epidemiológica, los filtros y los permisos de publicación contra SINAVE?");
-    if(!ok)return;
-    try{await CAHOSAuth.api("/admin/approve",{method:"POST",body:{snapshot_id:item.id}});message("Resultado autorizado para cuentas habilitadas. Queda registrada tu revisión.");await showPending();}
-    catch(e){message(e.message)}
-   };
-   wrap.append(title,preview,approve,details);root.append(wrap);
-  }
-  message("Solo los resultados que apruebes estarán disponibles para usuarios autorizados.");
- }catch(err){message(err.message)}
-}
-el("pending").onclick=()=>location.assign("./revision.html");
 render();
 </script></body></html>
