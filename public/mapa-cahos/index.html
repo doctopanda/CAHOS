@@ -2,7 +2,6 @@
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MAPA CAHOS | Observatorio Epidemiológico Territorial</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <style>
 :root{--bg:#eaf2f0;--dark:#112f2c;--forest:#174941;--green:#1b796a;--mint:#1c9e8c;--line:#d4e6e0;--ink:#183b35;--muted:#67837b;--panel:#fff;--amber:#ca8c34}
 *{box-sizing:border-box}body{margin:0;font:14px/1.48 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg)}
@@ -71,28 +70,129 @@ button.secondary{background:#e3f3ec;color:#146552;border:1px solid #c2e0d3;paddi
 .foot{font-size:11px;color:#648078;margin-top:15px}.dim{color:#6b867b}.alert{color:#a4661c;font-weight:720}
 @media(max-width:1170px){.app{grid-template-columns:220px minmax(0,1fr)}.right{grid-column:2;border:0;padding:0 20px 20px;display:grid;grid-template-columns:1fr 1fr;gap:12px}.right .box{margin:0}.filters{grid-template-columns:2fr 1fr 1fr}}
 @media(max-width:750px){.app{grid-template-columns:1fr}.sidebar{padding:14px;flex-direction:row;align-items:center;flex-wrap:wrap}.sidebar .sideNote{display:none}.sidebar .brand{padding:0}.sidebar .jump{padding:8px!important}.sideStatus{flex:1}main{padding:12px}.filters{grid-template-columns:1fr 1fr}.filters label:first-child{grid-column:1/-1}.right{grid-column:1;padding:0 12px 14px;grid-template-columns:1fr}.mapArea{min-height:410px}.mapArea svg{min-height:320px}.legend{margin-left:0}}
+</style><style>
+
+/* CAHOS 1.0 · interfaz territorial estilo BALAM: composición, no datos simulados */
+:root{--bg:#eaf4ef;--dark:#0e514b;--forest:#0e514b;--green:#117b69;--mint:#159b8b;--line:#d0e6dc;--ink:#123b35;--muted:#607a74}
+html,body{height:100%;overflow:hidden}
+body{background:#e8f3ee}
+.app{display:grid;grid-template-columns:396px minmax(0,1fr);grid-template-rows:72px minmax(0,1fr);height:100dvh;min-height:0;overflow:hidden}
+.topbar{grid-column:1/-1;grid-row:1;display:flex;align-items:center;gap:16px;min-height:72px;margin:0;padding:0 24px;background:linear-gradient(110deg,#0c5550,#108d82);color:white;box-shadow:0 3px 12px #003c301e;z-index:1100;flex-wrap:nowrap}
+.topbar .brand{padding:0;gap:10px;white-space:nowrap}
+.topbar .brand-mark{width:44px;height:44px;background:linear-gradient(145deg,#28c8af,#137c72);font-size:24px}
+.topbar .brand strong{font-size:27px;color:white}
+.topbar .brand small{font-size:10px;color:#def8ee}
+.topbar .subtitle{font-size:13px;font-weight:720;padding-left:18px;border-left:1px solid #bfe8db8c;white-space:nowrap}
+.topbar nav{margin-left:auto;display:flex;align-items:center;gap:11px;font-size:12px;font-weight:650;white-space:nowrap}
+.topbar nav a{padding:8px 10px;border-radius:9px;color:#e9fff7}
+.topbar nav a:hover,.topbar nav a:focus-visible{background:#ffffff26}
+.topbar .openVisor{border:1px solid #b9e5d8;border-radius:12px;padding:9px 16px;background:#ffffff18;font-weight:850}
+.sidebar{grid-column:1;grid-row:2;background:#f9fcfa;color:var(--ink);border-right:1px solid #cbded4;padding:16px 14px 20px;display:block;overflow:auto;scrollbar-width:thin;min-height:0}
+.panelHeading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 13px;padding:0 4px}
+.panelHeading h2{font-size:15px;color:#115547;margin:0;letter-spacing:-.2px}
+.panelHeading .panelTools{display:flex;gap:5px}
+.panelHeading button{border-radius:11px;border:1px solid #c4e1d5;background:#eaf6f0;color:#165f4d;font-size:11px;font-weight:750;padding:8px 10px}
+.introCard,.filterPanel{border:1px solid var(--line);border-radius:16px;background:#fff;box-shadow:0 5px 17px #154e3d0a}
+.introCard{padding:14px;margin:0 0 12px}
+.cardTop{display:flex;justify-content:space-between;align-items:center;gap:7px;font-size:12px;font-weight:850;color:#0d594d}
+.version{font-size:10px;letter-spacing:1px;font-weight:850;color:#159585;margin:13px 0 0}
+.introCard h3{font-size:23px;line-height:1.1;color:#0b5046;margin:4px 0 7px}
+.introCard p{font-size:12px;color:#5a776e;margin:0 0 13px}
+.quickActions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.quickActions button{border:1px solid #c1dfd2;background:#e4f3ed;color:#115b4e;border-radius:11px;padding:11px 6px;font-size:12px;font-weight:800}
+.quickActions button:first-child{color:white;background:linear-gradient(125deg,#188d7d,#117465);border-color:#168171}
+.filterPanel{padding:0;display:block;margin:0 0 12px;overflow:hidden}
+.controlLabel{font-size:12px;font-weight:850;color:#124f45;background:#edf7f2;padding:12px 14px;border-bottom:1px solid #e4f0e9}
+.filters{padding:12px 13px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.filters label:first-child{grid-column:1/-1}
+.filters label{font-size:11px;min-width:0;display:grid;gap:4px}
+.filters input,.filters select{height:37px;min-width:0;width:100%;padding:7px 9px}
+.actions{padding:12px 13px;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:9px;align-items:end}
+.actions button#consult{grid-column:1/-1;order:3}
+.actions label{font-size:11px;min-width:0;display:grid;gap:4px;font-weight:800;color:#52776b}
+.actions label select{min-width:0;width:100%;height:37px;padding:6px;border-radius:8px;border:1px solid #c6dcd2;background:#fff;color:#114e43}
+.actions .legend{display:none}
+button.primary,button.secondary{border-radius:10px}
+.zonePanel{padding:0;margin:0;background:#fff;border:0;border-top:1px solid #e2eee7;border-radius:0}
+.zonePanel h2{font-size:12px;color:#124f45;background:#edf7f2;margin:0;padding:12px 14px}
+.territoryBar{margin:0;padding:12px 14px 6px;display:grid;grid-template-columns:1fr;gap:8px}
+.territoryBar label{min-width:0}
+.territoryBar select{min-width:0;width:100%;max-width:none;height:38px;padding:8px}
+#regionCoverage{justify-self:start}
+.zoneHelp{margin:0;padding:4px 14px 10px;font-size:11px}
+.zoneChips{padding:0 13px 10px;gap:6px}
+.zoneChip{font-size:11px;padding:7px 9px}
+.muniActions{margin:0;padding:8px 13px;display:grid;grid-template-columns:1fr 1fr}
+.muniActions>label,.muniActions>select{grid-column:1/-1}
+.muniActions select{min-width:0;width:100%;max-width:none}
+.muniActions button{font-size:11px;padding:8px}
+.zoneTotals{margin:8px 12px 13px}
+.accessCard{background:#e8f5ed;color:#22584e;border:1px solid #c5e4d3;border-radius:12px;padding:11px 13px;font-size:12px;margin:0 0 12px;overflow-wrap:anywhere}
+.accessCard a{font-weight:800;text-decoration:underline}
+.accessCard b{display:block}
+.sidebarLinks{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}
+.sidebarLinks a{font-size:11px;font-weight:730;padding:8px 11px;border:1px solid #d2e4d9;border-radius:9px;background:#fff;color:#236153}
+.mapWorkspace{grid-column:2;grid-row:2;position:relative;min-width:0;min-height:0;height:100%;padding:0;background:#d8e8e3;overflow:hidden}
+.mapWorkspace .mapArea{position:absolute;inset:0;border:0;border-radius:0;box-shadow:none;padding:0;background:#e4efe8;min-height:0;overflow:hidden}
+#streetMap{width:100%;height:100%;min-height:0;border:0;border-radius:0}
+#map{height:100%;width:100%;min-height:0;max-height:none;background:#e3f0e9}
+.mapArea svg{width:100%;height:100%;min-height:0;max-height:none}
+.mapTools{right:auto;left:13px;top:15px;z-index:850;display:flex;flex-direction:column}
+.mapTools button{width:38px;height:38px;color:#114f42;border:1px solid #bcd8ca;background:#fff;box-shadow:0 2px 7px #143e3a1a;font-size:20px}
+.leaflet-control-zoom{display:none!important}
+.mapFoot{position:absolute;z-index:660;bottom:8px;left:15px;right:315px;padding:7px 9px;max-width:950px;border-radius:8px;border:1px solid #cfe3d6;background:#fffffff0;color:#4d6d62;font-size:10px;pointer-events:none}
+.notice{position:absolute;z-index:880;left:66px;top:14px;max-width:min(490px,calc(100% - 450px));padding:10px 12px;margin:0;background:#fffdf3ec;box-shadow:0 2px 10px #0a3c3216;font-size:11px;max-height:90px;overflow:auto}
+.notice.error{background:#fff3f3f2}.notice.ok{background:#effbf3f2}
+.mapLegend{position:absolute;bottom:46px;left:16px;max-width:calc(100% - 338px);z-index:840;display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#ffffffed;border:1px solid #d2e5dc;border-radius:12px;box-shadow:0 5px 15px #234f3f19;padding:10px 13px;color:#245f52;font-size:11px}
+.mapLegend strong{color:#114d42}.mapLegend span{white-space:nowrap}.mapLegend .swatch{display:inline-block;vertical-align:middle;margin-right:3px}
+.right{position:absolute;z-index:830;top:16px;right:16px;bottom:80px;max-height:none;width:292px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;background:transparent;border:0;padding:0;display:block}
+.right .box{background:#fffffff2;border:1px solid #cadeD4;box-shadow:0 4px 16px #1c45351b;border-radius:15px;padding:14px;margin:0 0 12px}
+.right .box h2{font-size:15px;color:#134d40;margin:0 0 6px}
+.right .box .mini{font-size:11px}
+.right .caption{color:#219580;margin-bottom:5px}
+.right .kpis{grid-template-columns:1fr 1fr;gap:7px}
+.right .kpis div{padding:10px 8px}
+.right .kpis span{font-size:9px}
+.right .kpis b{font-size:18px}
+.panoramaCard .panoramaGrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:11px}
+.panoramaCard .panoramaGrid div{background:#e9f7ef;border-radius:10px;padding:9px}
+.panoramaCard .panoramaGrid b{display:block;font-size:20px;color:#146956}
+.panoramaCard .panoramaGrid span{font-size:10px;color:#4a7165}
+.right .analyticDetails{border-top:1px solid #e1eee5;margin-top:7px;padding-top:7px}
+.right .analyticDetails>summary{color:#126b59;cursor:pointer;font-weight:800;font-size:12px}
+.right .analyticDetails .box{margin-top:9px;box-shadow:none;padding:9px}
+.right #pyramid,.right #trend{width:100%;height:auto}
+.controls-compact .app{grid-template-columns:81px minmax(0,1fr)}
+.controls-compact .sidebar .introCard,.controls-compact .sidebar .filterPanel,.controls-compact .sidebar .accessCard,.controls-compact .sidebar .sidebarLinks{display:none}
+.controls-compact .sidebar{padding:13px 4px}
+.controls-compact .panelHeading{display:grid;justify-items:center}
+.controls-compact .panelHeading h2{font-size:11px;text-align:center}
+.controls-compact .panelTools{display:grid}
+.controls-compact #panelExpand{display:block}
+#panelExpand{display:none}
+@media(max-width:1250px){.app{grid-template-columns:350px minmax(0,1fr)}.topbar .subtitle{font-size:11px}.topbar nav a:not(.openVisor){display:none}.mapLegend{max-width:calc(100% - 320px)}}
+@media(max-width:950px){html,body{height:auto;overflow:auto}.app,.controls-compact .app{height:auto;min-height:100dvh;display:block;overflow:visible}.topbar{height:auto;min-height:68px;position:sticky;top:0;padding:10px 15px;gap:8px;flex-wrap:wrap}.topbar .subtitle{display:none}.topbar nav{margin-left:auto}.sidebar{max-height:none;overflow:visible;padding:10px 13px}.panelHeading{margin:4px 0 8px}.introCard{margin-bottom:8px}.filterPanel .zoneChips{max-height:130px;overflow:auto}.mapWorkspace{height:72vh;min-height:510px;overflow:visible}.mapArea{position:absolute!important;inset:0}.right{position:relative;top:auto;right:auto;bottom:auto;width:auto;max-height:none;overflow:visible;background:#f6fcf8;padding:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.right .box{margin:0}.right .analyticDetails{grid-column:1/-1}.mapFoot{right:10px;bottom:5px;left:10px}.mapLegend{max-width:calc(100% - 28px);left:14px;bottom:56px}.notice{left:61px;max-width:calc(100% - 75px)}.controls-compact .sidebar .introCard,.controls-compact .sidebar .filterPanel,.controls-compact .sidebar .accessCard,.controls-compact .sidebar .sidebarLinks{display:block}.controls-compact .panelTools{display:flex}}
+@media(max-width:540px){.topbar .brand strong{font-size:21px}.topbar .brand small{font-size:8px}.topbar nav{gap:0}.topbar nav .openVisor{font-size:11px;padding:7px 9px}.mapWorkspace{height:67vh;min-height:430px}.right{grid-template-columns:1fr}.mapLegend{font-size:9px;padding:8px}.mapFoot{font-size:8px}.notice{top:60px;left:12px;max-width:calc(100% - 24px)}}
+
 </style></head>
 <body><div class="app">
-<aside class="sidebar"><div class="brand"><div class="brand-mark">⌁</div><div><strong>CAHOS</strong><small>MAPA · MOTOR TERRITORIAL</small></div></div>
-<div class="caption">Productos conectados</div>
-<a class="jump" href="/CAHOS/">◫ &nbsp; Panorama epidemiológico</a>
-<a class="jump" href="/CAHOS/poblacion.html">♙ &nbsp; Población y pirámides</a>
-<a class="jump" href="/CAHOS/revision.html">▣ &nbsp; Control de calidad</a>
-<div class="sideNote">Mapa avanzado territorial. Capas de casos, tasas y población, filtros epidemiológicos y fichas municipales. Usa el mismo acceso protegido de CAHOS.</div>
-<div class="sideStatus" id="access">Cuenta y permisos<b>Comprobando…</b></div>
-</aside>
-<main>
-<header><div><div class="eyebrow">PRODUCTO 02 · OBSERVATORIO TERRITORIAL EPIDEMIOLÓGICO</div><h1>MAPA CAHOS</h1><div class="sub">Sonora · 72 municipios · capas epidemiológicas y demográficas</div></div><span class="pill">VISOR TERRITORIAL · PILOTO SONORA</span></header>
-<div class="notice" id="status" role="status">Conectando a los catálogos y la cartografía municipal…</div>
-<section class="filterPanel">
-<div class="filters">
+<header class="topbar">
+ <div class="brand"><div class="brand-mark">⌁</div><div><strong>CAHOS</strong><small>MAPA · MOTOR TERRITORIAL</small></div></div>
+ <div class="subtitle">Observatorio Territorial Epidemiológico de Sonora</div>
+ <nav aria-label="Productos conectados"><a href="/CAHOS/">Panorama</a><a href="/CAHOS/poblacion.html">Población</a><a href="/CAHOS/revision.html">Calidad</a><a class="openVisor" href="/CAHOS/">▥ Visor</a></nav>
+</header>
+<aside class="sidebar" id="controlPanel" aria-label="Centro de capas de CAHOS">
+ <div class="panelHeading"><h2>◈ Panel territorial</h2><div class="panelTools"><button id="panelCompress" type="button">Comprimir</button><button id="panelExpand" type="button">Expandir</button></div></div>
+ <section class="introCard"><div class="cardTop"><span>Herramientas del mapa</span><span>⌄</span></div><div class="version">MAPA CAHOS · v2.0</div><h3>Centro de Capas</h3><p>Explora y combina información epidemiológica, demográfica y territorial sobre los polígonos oficiales de Sonora.</p><div class="quickActions"><button id="mapFocus" type="button">⌖ Enfocar selección</button><button id="mapRestore" type="button">↶ Restaurar mapa</button></div></section>
+ <section class="filterPanel">
+<div class="controlLabel">Filtros epidemiológicos</div><div class="filters">
 <label>Buscar patología<input id="search" type="search" placeholder="Ej. dengue o infecciones intestinales"></label>
 <label>Patología<select id="pathology"><option>Cargando…</option></select></label>
 <label>Año<select id="year"><option>2026</option></select></label>
 <label>Sexo<select id="sex"><option value="">Ambos sexos</option></select></label>
 <label>Grupo de edad<select id="age"><option value="">Todas las edades</option></select></label>
 </div>
-<div class="actions"><button class="primary" id="consult" type="button">↻ Consultar territorio</button>
+<div class="controlLabel">Capas y consulta</div><div class="actions"><button class="primary" id="consult" type="button">↻ Consultar territorio</button>
 <label class="dim">Colorizar por <select id="metric"><option value="cases">Casos registrados</option><option value="rate">Tasa por 100,000</option><option value="population">Población proyectada</option><option value="zones" selected>Regionalización territorial</option></select></label>
 <label class="dim">Base cartográfica <select id="mapBase"><option value="osm">OpenStreetMap</option><option value="polygons">Solo polígonos INEGI</option></select></label>
 <span class="legend"><i class="swatch" style="background:#dce8e4"></i>Sin dato / retenido <i class="swatch" style="background:#b9e4d2"></i>Menor valor <i class="swatch" style="background:#13735e"></i>Mayor valor</span>
@@ -119,7 +219,11 @@ button.secondary{background:#e3f3ec;color:#146552;border:1px solid #c2e0d3;paddi
  <div class="zoneTotals" id="zoneTotals" aria-live="polite">Selecciona una o varias zonas para consultar sus municipios, población y casos.</div>
 </div>
 </section>
-<div class="mapArea">
+ <div id="access" class="accessCard" aria-live="polite">Verificando permisos institucionales…</div>
+ <div class="sidebarLinks" aria-label="Otros productos CAHOS"><a href="/CAHOS/">◫ Panorama epidemiológico</a><a href="/CAHOS/poblacion.html">♙ Población y pirámides</a><a href="/CAHOS/revision.html">▣ Control de calidad</a></div>
+</aside>
+<main class="mapWorkspace" aria-label="Mapa territorial de Sonora">
+ <div class="mapArea">
 <div id="leafletMap" class="hide" role="application" aria-label="Mapa OpenStreetMap de Sonora con polígonos INEGI"></div>
 <div class="mapTools"><button id="zoomIn" title="Acercar">+</button><button id="zoomOut" title="Alejar">−</button><button id="resetZoom" title="Restablecer vista">⌂</button></div>
 <div id="streetMap" aria-label="OpenStreetMap con polígonos municipales INEGI" role="application"></div>
@@ -128,23 +232,24 @@ button.secondary{background:#e3f3ec;color:#146552;border:1px solid #c2e0d3;paddi
 </svg>
 <div class="mapFoot" id="mapFoot">Polígonos: INEGI · Fondo: © colaboradores de OpenStreetMap · Gris indica sin información, no cero casos. Datos protegidos vía API autenticada.</div>
 </div>
-</main>
-<aside class="right"><section class="box"><div class="caption">Ficha territorial</div><h2 id="name">Sonora</h2><p class="mini" id="note">Selecciona un polígono para analizar un municipio.</p><div class="kpis">
+ <div class="notice" id="status" role="status">Cargando cartografía pública de los 72 municipios de Sonora…</div>
+ <aside class="right" aria-label="Análisis territorial">
+<section class="box panoramaCard"><h2>▥ Panorama</h2><div class="mini" id="panoramaContext">Sonora · cartografía pública; indicadores según permisos</div><div class="panoramaGrid"><div><b id="overviewMunicipalities">72</b><span>Municipios del territorio</span></div><div><b id="overviewRegions">6</b><span>Regiones del esquema activo</span></div></div></section><section class="box"><div class="caption">Ficha territorial</div><h2 id="name">Sonora</h2><p class="mini" id="note">Selecciona un polígono para analizar un municipio.</p><div class="kpis">
 <div><span>Casos del cubo</span><b id="cases">—</b></div>
 <div><span>Tasa /100,000</span><b id="rate">—</b></div>
 <div><span>Población</span><b id="population">—</b></div>
 <div><span>Contribución estatal</span><b id="share">—</b></div>
 </div></section>
 <section class="box"><h2>Regionalización del municipio</h2><div class="mini" id="municipalityRegions">Sin municipio seleccionado.</div></section>
-<section class="box"><h2>Pirámide poblacional</h2><div class="mini">Hombres izquierda · Mujeres derecha · Proyección seleccionada</div><svg id="pyramid" viewBox="0 0 320 405"></svg></section>
+<details class="analyticDetails"><summary>Ver análisis demográfico</summary><section class="box"><h2>Pirámide poblacional</h2><div class="mini">Hombres izquierda · Mujeres derecha · Proyección seleccionada</div><svg id="pyramid" viewBox="0 0 320 405"></svg></section>
 <section class="box"><h2>Tendencia demográfica</h2><div class="mini">2015–2030, población proyectada del municipio seleccionado</div><svg id="trend" viewBox="0 0 320 150"></svg></section>
-<section class="box"><h2>Lectura epidemiológica</h2><p class="mini" id="context">No se publican automáticamente conteos municipales sensibles. La visibilidad depende del rol y de la validación de los datos.</p><p class="foot">Las tasas utilizan población anual del mismo municipio, año, sexo y grupo de edad compatible. No equivalen a incidencia oficial certificada.</p></section>
+<section class="box"><h2>Lectura epidemiológica</h2><p class="mini" id="context">No se publican automáticamente conteos municipales sensibles. La visibilidad depende del rol y de la validación de los datos.</p><p class="foot">Las tasas utilizan población anual del mismo municipio, año, sexo y grupo de edad compatible. No equivalen a incidencia oficial certificada.</p></section></details>
 </aside>
-</div>
+ <div class="mapLegend" aria-live="polite"><strong id="layerLegend">Regionalización territorial</strong><span><i class="swatch" style="background:#dce8e4"></i>Sin dato / sin asignación</span><span><i class="swatch" style="background:#bddfcb"></i>Menor valor</span><span><i class="swatch" style="background:#13735e"></i>Mayor valor</span><span id="layerLegendYear">2026</span></div>
+</main></div>
 <script src="/CAHOS/configuracion-publica.js"></script>
 <script src="/CAHOS/cahos-auth.js"></script>
 <script src="/CAHOS/cahos-state.js"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="./region-core.js"></script>
 <script src="./app.js"></script></body></html>
