@@ -203,3 +203,18 @@ body.cahos-unified .cahos-global-side{background:linear-gradient(180deg,#FFF9F5,
 .cahos-content-area .chartHint{color:#684154!important}
 .cahos-content-area .sourceStrip{border-color:#EAC7D9}
 .cahos-content-area .chart svg text{font-weight:500}
+
+/* Enlace transparente entre las fuentes SUIVE y LESP, sin mezclar los numeradores */
+.cahos-content-area .cahos-lesp-link{display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+ background:linear-gradient(110deg,#FFF4F7,#F5E9FB);border:1px solid #E9BCD4;
+ border-radius:14px;padding:13px 15px;margin:12px 0;color:#653047}
+.cahos-lesp-link>img{width:41px;height:41px;border-radius:50%;flex:none}
+.cahos-lesp-link>div{flex:1 1 310px}
+.cahos-lesp-link strong{display:block;font-size:13px;font-weight:850;color:#7B1B50}
+.cahos-lesp-link p{font-size:12px;line-height:1.5;color:#683D56;margin:3px 0}
+.cahos-content-area .cahos-lesp-link>a{display:inline-flex;text-decoration:none;
+ border-radius:10px;background:#8A1F5B;color:#FFF!important;padding:11px 13px;
+ font-size:12px;font-weight:800;border:1px solid #8A1F5B;white-space:nowrap}
+.cahos-content-area .cahos-lesp-link>a:hover{background:#A82D73}
+.cahos-content-area .cahos-lesp-link>a:focus-visible{outline:3px solid #A32F71;outline-offset:3px}
+@media(max-width:700px){.cahos-content-area .cahos-lesp-link>a{width:100%;justify-content:center}}
