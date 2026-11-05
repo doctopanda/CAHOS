@@ -87,12 +87,24 @@
    content.append(main);
    if(root!==main)root.remove();
   }
-  // El enlace administrativo solo existe en la navegación del Maestro.
-  if(page!=="admin"&&window.CAHOSAuth?.accessToken&&window.CAHOSAuth?.profile){
-   window.CAHOSAuth.accessToken().then(token=>token?window.CAHOSAuth.profile():null).then(profile=>{
+  // Si la sesión está activa, reemplazar "Ingresar" por una salida real;
+  // "Acceso" redirige a Panorama y no debe impedir cambiar de usuario.
+  if(window.CAHOSAuth?.accessToken){
+   window.CAHOSAuth.accessToken().then(token=>{
+    if(!token)return;
+    document.querySelectorAll('.cahos-global-links a[href="/CAHOS/acceso.html"], .cahos-module-nav a[href="/CAHOS/acceso.html"]').forEach(link=>link.remove());
+    const logout=document.createElement("button");logout.type="button";
+    logout.className="cahos-global-logout";logout.textContent="Salir";
+    logout.setAttribute("aria-label","Cerrar sesión CAHOS");
+    logout.addEventListener("click",()=>{
+     window.CAHOSAuth.logout();location.assign("/CAHOS/acceso.html");
+    });
+    nav.append(logout);
+    return window.CAHOSAuth.profile?.();
+   }).then(profile=>{
     if(profile?.enabled&&profile?.is_master===true){
      const master=entries.find(e=>e.id==="admin");
-     nav.append(link(master));
+     nav.insertBefore(link(master),nav.querySelector(".cahos-global-logout"));
      document.querySelector(".cahos-module-nav")?.append(link(master,true));
     }
    }).catch(()=>{});
