@@ -319,8 +319,8 @@ function drawAll(){
  const curr=matrix.get(y)||new Map(),prev=matrix.get(y-1)||new Map();
  const weeks=Array.from({length:f.week_end-f.week_start+1},(_,i)=>f.week_start+i);
  const weeklyRows=cleanRows(weekly.rows);
- const quality=weeklyRows.filter(r=>Number((String(r.years).match(/(?:19|20)\\d{2}/)||[])[0])===y);
- const explicitMissing=new Set(quality.filter(r=>r.case_imputed).map(r=>Number((String(r.weeks).match(/\\d{1,2}/)||[])[0])));
+ const quality=weeklyRows.filter(r=>Number((String(r.years).match(/(?:19|20)\d{2}/)||[])[0])===y);
+ const explicitMissing=new Set(quality.filter(r=>r.case_imputed).map(r=>Number((String(r.weeks).match(/\d{1,2}/)||[])[0])));
  const absent=weeks.map(w=>!curr.has(w)||explicitMissing.has(w));
  const missingCount=absent.filter(Boolean).length,total=[...curr.values()].reduce((a,b)=>a+b,0);
  const previous=[...prev.values()].reduce((a,b)=>a+b,0);
@@ -340,7 +340,7 @@ function drawAll(){
  drawBars('#annualChart',annualBars);
  const yearBars=[...matrix].sort((a,b)=>a[0]-b[0]).map(([year,mm])=>({
   name:String(year),value:[...mm.values()].reduce((a,b)=>a+b,0),
-  imputed:weeklyRows.some(r=>r.case_imputed&&Number((String(r.years).match(/(?:19|20)\\d{2}/)||[])[0])===year)
+  imputed:weeklyRows.some(r=>r.case_imputed&&Number((String(r.years).match(/(?:19|20)\d{2}/)||[])[0])===year)
  }));
  drawBars('#yearChart',yearBars);
  $('#periodWarning').textContent='Cero naranja: ausencia contabilizada como 0. Cero negro: valor 0 presente en la fuente. Comparar años con cobertura equivalente.';
