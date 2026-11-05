@@ -66,3 +66,25 @@ body{background:#FFF8F5!important;color:#54283E!important}
 @media(max-width:1190px){.topbar .subtitle{display:none}.topbar nav{gap:4px}.topbar nav a{font-size:10px;padding:7px}}
 @media(max-width:950px){.cahos-map-banner{padding-right:106px}.cahos-map-banner svg{width:112px}}
 @media(max-width:520px){.topbar .brand strong{font-size:21px}.topbar .brand-mark{width:39px;height:39px}.topbar nav{overflow:auto;max-width:100%}}
+
+/* Fuente LESP: falta de archivo distinguible de ausencia de positivos */
+.cahos-lesp-guide{background:#FFF0F6;border:1px solid #E7B8CE;border-radius:12px;
+ padding:10px 12px;color:#652340;margin:8px 0}
+.cahos-lesp-guide strong{font-size:12px;color:#852155}
+.cahos-lesp-guide p{font-size:11px;line-height:1.5;margin:4px 0 0;color:#654057}
+.lespPanel label.cahos-lesp-upload{display:grid;gap:8px;font-weight:850;color:#6A2146!important}
+.cahos-lesp-upload input[type="file"]{background:#FFF!important;border:2px dashed #C55C94!important;
+ padding:12px 10px;cursor:pointer;border-radius:10px;min-height:60px}
+.cahos-lesp-upload input[type="file"]:focus-visible{outline:3px solid #9B2265;outline-offset:2px}
+.cahos-lesp-overview{margin:10px 0 0;padding:9px;border:1px solid #E9B8D0;
+ background:#FFF3F7;border-radius:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.cahos-lesp-overview[hidden]{display:none!important}
+.cahos-lesp-overview>div{background:#FFFDFC;border:1px solid #EFD0DE;border-radius:9px;
+ padding:10px;display:grid;gap:5px}
+.cahos-lesp-overview>div span{font-size:10px;line-height:1.35;color:#67364D;font-weight:750}
+.cahos-lesp-overview>div strong{color:#802153;font-size:22px;line-height:1.12;
+ font-weight:850;font-variant-numeric:tabular-nums}
+.cahos-lesp-overview>div:nth-child(3){grid-column:1/-1}
+.cahos-lesp-overview>p{grid-column:1/-1;margin:1px 4px 3px;font-size:11px;line-height:1.5;color:#70475B}
+.lespPanel .lespStatus{font-weight:650;color:#713553!important;background:#FFF7FA!important;
+ border-color:#E9C8D8!important}
