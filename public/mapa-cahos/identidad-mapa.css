@@ -88,3 +88,14 @@ body{background:#FFF8F5!important;color:#54283E!important}
 .cahos-lesp-overview>p{grid-column:1/-1;margin:1px 4px 3px;font-size:11px;line-height:1.5;color:#70475B}
 .lespPanel .lespStatus{font-weight:650;color:#713553!important;background:#FFF7FA!important;
  border-color:#E9C8D8!important}
+
+/* Guardado LESP mediante reemplazo de versiones protegidas */
+.cahos-lesp-save{display:flex;flex-direction:column;gap:8px;
+ border:1px solid #E8B5D0;border-radius:12px;background:#FFF7FA;padding:12px;margin-top:10px}
+.cahos-lesp-save button{border-radius:9px;padding:10px 12px;font-size:12px;font-weight:850;
+ border:1px solid #A52B72;background:#8A1F5B;color:#FFF;min-height:43px}
+.cahos-lesp-save button#lespReload{background:#FFF;border-color:#DCAAC7;color:#7D2052}
+.cahos-lesp-save button:disabled{opacity:.62;cursor:default;background:#F1E5EB;color:#65445A;border-color:#E7CAD8}
+.cahos-lesp-save p[role="status"]{color:#672D4E;font-weight:750;font-size:11px;line-height:1.55;
+ border-radius:9px;background:#FFF;border:1px solid #EED0DE;padding:9px;margin:0}
+.cahos-lesp-save .explain{margin:0;font-size:11px;line-height:1.45;color:#74435B}
