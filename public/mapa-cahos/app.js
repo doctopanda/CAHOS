@@ -561,6 +561,88 @@ async function trend(code,requestId){
   svg.append(mk("text",{x:302,y:135,fill:"#714B61","font-size":11,"text-anchor":"end"},"2030"));
  }catch{if(requestId===state.lastDetailRequest)blank(svg,"Sin tendencia disponible")}
 }
+const LESP_API=(window.SUIVE_CONFIG?.supabaseUrl||"").replace(/\/$/,"")+"/functions/v1/cahos-lesp";
+let lespMaster=false,lespBusy=false;
+async function lespRequest(route,method="GET",payload=null){
+ const token=await window.CAHOSAuth.accessToken();
+ if(!token)throw Error("Sesión CAHOS no disponible. Inicia sesión de nuevo.");
+ const res=await fetch(LESP_API+route,{
+  method,cache:"no-store",
+  headers:{"Content-Type":"application/json",
+   "apikey":window.SUIVE_CONFIG?.supabasePublishableKey||"",
+   "Authorization":"Bearer "+token},
+  ...(payload?{body:JSON.stringify(payload)}:{})
+ });
+ let result;
+ try{result=await res.json()}catch{throw Error("Respuesta inválida del repositorio LESP");}
+ if(!res.ok){
+  const error=String(result.error||"unknown");
+  const explanations={
+   older_partial_snapshot_would_erase_newer_weeks:"La nueva versión termina antes que la activa; podría borrar semanas posteriores. Importación rechazada.",
+   complete_year_snapshot_confirmation_required:"Debes confirmar que el archivo es un corte acumulado completo.",
+   duplicate_aggregate_cell:"El archivo contiene agrupaciones duplicadas por año, SE, municipio y patología.",
+   previously_imported_version:"La versión ya fue registrada previamente; no se reactivan archivos antiguos.",
+   master_admin_only:"Solo el Administrador Maestro puede gestionar LESP.",
+   authentication_required:"Tu sesión ha expirado. Inicia sesión de nuevo.",
+   protected_db_unavailable:"No se pudo consultar la base protegida. Vuelve a intentarlo sin borrar la versión actual.",
+   staging_validation_failed:"La versión nueva no pasó la conciliación y la base anterior sigue activa."
+  };
+  throw Error(explanations[error]||("LESP seguro: "+error));
+ }
+ return result;
+}
+async function loadProtectedLESP(){
+ if(!lespMaster||lespBusy||temporal.pendingPayload())return;
+ const label=$("lespServerStatus");label.textContent="Consultando la versión LESP protegida…";
+ try{
+  const year=temporal.current().year;
+  const payload=await lespRequest("/snapshot?year="+encodeURIComponent(year));
+  if(payload.status!=="ready"){
+   label.textContent="No hay una base LESP activa para "+year+". Importa el agregado del corte completo y publícalo una sola vez.";
+   return;
+  }
+  temporal.loadRemoteSnapshot(payload);
+  const meta=payload.metadata||{};
+  $("lespPublish").disabled=true;
+  label.textContent="Supabase protegido · "+year+" · "+(meta.row_count||payload.rows.length)+
+   " agrupaciones · "+Number(meta.positive_total||0).toLocaleString("es-MX")+
+   " resultados positivos candidatos · versión vigente. Última SE con positivos: "+(meta.observed_last_positive_week||"—")+".";
+ }catch(error){
+  label.textContent="No se pudo recuperar LESP protegido: "+error.message+
+   ". La versión previa no se borra ni se publica un archivo nuevo.";
+ }
+}
+async function publishProtectedLESP(){
+ if(!lespMaster||lespBusy)return;
+ const payload=temporal.pendingPayload();
+ if(!payload){$("lespServerStatus").textContent="Primero importa un archivo JSON agregado nuevo, revisa la vista previa y confirma la publicación.";return;}
+ const year=payload.rows[0].year,
+  total=payload.rows.reduce((sum,r)=>sum+Number(r.positive_lab_results),0);
+ const confirmed=window.confirm(
+  "CAHOS · ACTUALIZAR BASE LESP PROTEGIDA\n\n"+
+  "Año: "+year+"\nAgrupaciones: "+payload.rows.length+"\nResultados positivos candidatos: "+total+
+  "\n\nConfirma que se trata de una extracción anual ACUMULADA Y COMPLETA hasta su corte."+
+  "\nLa actualización sustituirá los conteos operativos del año, conservando una bitácora compacta."+
+  "\nNo se guardará el Excel nominal.\n\n¿Publicar esta versión?");
+ if(!confirmed)return;
+ lespBusy=true;$("lespPublish").disabled=true;$("lespReload").disabled=true;
+ $("lespServerStatus").textContent="Validando la versión y actualizando Supabase protegido. No cierres esta pestaña durante esta operación.";
+ try{
+  const result=await lespRequest("/import","POST",payload);
+  $("lespServerStatus").textContent=result.status==="unchanged"?
+   "Versión idéntica a la actual. No se duplicaron registros.":
+   "Versión LESP publicada: "+result.row_count+" agrupaciones; "+result.positive_total+
+   " resultados positivos candidatos. "+(result.cleanup_pending?
+    "Advertencia: pendiente de limpieza de una versión anterior.":"No se conservan copias operativas anteriores.");
+  if(result.status==="published"||result.status==="unchanged"){
+   lespBusy=false;await loadProtectedLESP();
+  }
+ }catch(error){
+  $("lespServerStatus").textContent="No se publicó el archivo: "+error.message+
+   " La información previa sigue disponible si la activación no se completó.";
+  $("lespPublish").disabled=false;
+ }finally{lespBusy=false;$("lespReload").disabled=false;}
+}
 function renderLabOverview(){
  const box=$("labOverview");if(!box)return;
  const loaded=temporal.hasLab();
@@ -578,7 +660,7 @@ function renderLabOverview(){
  }
  $("labTotal").textContent=fmt(summary.total);
  $("labMunCount").textContent=fmt(summary.municipalities);
- $("labOverviewNote").textContent="Fuente LESP local · "+temporal.label()+
+ $("labOverviewNote").textContent="Fuente LESP "+(temporal.origin()==="protected"?"Supabase protegida":"en vista previa local")+" · "+temporal.label()+
   ". Resultados positivos candidatos, pendientes de validación y deduplicación. Los municipios sin registro en este extracto se muestran sin dato.";
 }
 function renderLabDetail(code){
@@ -836,6 +918,7 @@ async function initialize(){
   $("mapLogin").hidden=true;$("mapLogout").hidden=false;
   $("mapAdmin").hidden=profile.is_master!==true;
   temporal.setMaster(profile.is_master===true);
+  lespMaster=profile.is_master===true;
   renderLabOverview();
   if(location.hash==="#lespImportPanel"&&profile.is_master===true)
    setTimeout(()=>$("lespImportPanel")?.scrollIntoView({block:"center",behavior:"smooth"}),100);
@@ -858,6 +941,7 @@ async function initialize(){
   temporal.syncWeekOptions();
   await loadPopulation();
   drawMap();
+  if(lespMaster)loadProtectedLESP();
   if(state.selected&&state.featureMap.has(state.selected))showDetail(state.selected);
   else if(state.features.length){state.selected=null;blank($("pyramid"),"Selecciona un municipio");blank($("trend"),"Selecciona un municipio")}
   inform("Cartografía y población disponibles. "+(profile.is_master?
@@ -871,13 +955,13 @@ for(const id of ["pathology","year","sex","age"]){
  $(id).addEventListener("change",()=>{state.municipal=new Map();state.grandTotal=null;
   state.year=yrNumber($("year").value)||2026;save();clearMapDetail();
   if(id==="year")temporal.syncWeekOptions();
-  if(id==="year")loadPopulation().then(drawMap).catch(e=>inform(e.message,"error"));
+  if(id==="year")loadPopulation().then(()=>{drawMap();if(lespMaster)loadProtectedLESP()}).catch(e=>inform(e.message,"error"));
   else drawMap();
  });
 }
 $("metric").addEventListener("change",()=>{drawMap();if(state.selected)showDetail(state.selected)});
 temporal.bind();
-temporal.onImport(({year,rows})=>{
+temporal.onImport(({year,rows,origin})=>{
  const yearSelect=$("year");
  // El archivo local siempre gobierna el año de la capa LESP; no mezclar cortes.
  if(temporal.current().year!==year){
@@ -886,9 +970,12 @@ temporal.onImport(({year,rows})=>{
   if(option){yearSelect.value=option.value;yearSelect.dispatchEvent(new Event("change"));}
  }
  $("metric").value="lab_cases";
+ $("lespPublish").disabled=origin!=="local";
+ if(origin==="local")$("lespServerStatus").textContent=
+  "Vista previa de "+rows+" agrupaciones preparada. Revisa los indicadores y pulsa Publicar versión protegida.";
  renderLabOverview();
- inform("LESP importado: "+rows+" celdas agregadas del año "+year+
-  ". Activamos la capa LESP. Selecciona un municipio para ver sus patologías y semanas. No son casos confirmados.","ok");
+ inform((origin==="protected"?"Supabase protegido: ":"Vista previa LESP: ")+rows+" agrupaciones del año "+year+
+  ". Capa LESP activada. Selecciona un municipio para consultar los positivos de laboratorio; no son casos confirmados.","ok");
 });
 temporal.onChange(()=>{
  temporal.labStatus();renderLabOverview();
@@ -898,6 +985,11 @@ temporal.onChange(()=>{
   $("statePeriodQuality").textContent="Nuevo periodo seleccionado. Pulsa Consultar territorio para recuperar la serie estatal SUIVE.";
  }
  drawMap();if(state.selected)showDetail(state.selected);save();
+});
+$("lespPublish").addEventListener("click",publishProtectedLESP);
+$("lespReload").addEventListener("click",()=>{
+ if(temporal.pendingPayload()&&!window.confirm("La vista previa local todavía no está publicada. ¿Descartarla y recuperar la versión activa?"))return;
+ loadProtectedLESP();
 });
 $("mapBase").addEventListener("change",()=>{drawMap();save();});
 $("regionScheme").addEventListener("change",()=>{
