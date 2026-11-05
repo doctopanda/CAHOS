@@ -3,9 +3,12 @@
    Ausencia de extracción, error, privacidad o retención son estados distintos. */
 (function(root){
  "use strict";
- const isMissing=value=>value===null||value===undefined||value==="";
+ const isMissing=value=>value===null||value===undefined||
+  (typeof value==="string"&&value.trim()==="");
  function normalize(value){
   if(isMissing(value))return {value:0,imputed:true,status:"SIN_REGISTRO_IMPUTADO_0"};
+  if(typeof value!=="number"&&typeof value!=="string")
+   throw new Error("Medida SUIVE inválida: tipo no numérico");
   const number=Number(value);
   if(!Number.isFinite(number)||number<0||!Number.isSafeInteger(number))
    throw new Error("Medida SUIVE inválida: no se permite convertir errores de dato en cero");
