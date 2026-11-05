@@ -108,3 +108,6 @@ body.cahos-unified.cahos-page-visor .cahos-content-area>.main{width:100%;max-wid
 body.cahos-side-collapsed.cahos-page-visor .cahos-standard-layout,
 body.cahos-side-collapsed.cahos-page-population .cahos-standard-layout{grid-template-columns:minmax(0,1fr)}
 @media(max-width:950px){body.cahos-unified.cahos-page-visor .cahos-standard-layout,body.cahos-unified.cahos-page-population .cahos-standard-layout{display:block}body.cahos-unified.cahos-page-visor .cahos-global-side,body.cahos-unified.cahos-page-population .cahos-global-side{position:static;max-height:none}body.cahos-unified.cahos-page-visor .cahos-content-area{padding:10px 13px}}
+
+.cahos-global-links .cahos-global-logout{padding:8px 11px;border:1px solid #b2dfd29c;border-radius:9px;background:#ffffff19;color:#fff;font:750 11px system-ui,Segoe UI,sans-serif;cursor:pointer;white-space:nowrap}
+.cahos-global-links .cahos-global-logout:hover{background:#ffffff31}
