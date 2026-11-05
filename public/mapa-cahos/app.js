@@ -770,6 +770,9 @@ document.addEventListener("keydown",event=>{
  if(event.key!=="Escape"||target?.matches?.("input,select,textarea,[contenteditable=true]"))return;
  if(state.selected&&state.selectedMunicipalities.has(state.selected))removeMunicipality(state.selected);
 });
+$("mapLogout").addEventListener("click",()=>{
+ window.CAHOSAuth.logout();location.assign("/CAHOS/acceso.html");
+});
 window.addEventListener("pagehide",save);
 initialize();
 })();
