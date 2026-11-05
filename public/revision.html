@@ -82,9 +82,10 @@ async function load(){
    card.append(element("p","Método: "+(quality.review_method||"pendiente")+
      " · Corte oficial: "+(quality.official_cut_verified===true?"verificado":"no certificado"),"muted"));
    if(quality.review_summary)card.append(element("p",quality.review_summary,"muted"));
-   if(quality.missing_measures_imputed_zero>0){
+   const countZero=quality.missing_measures_imputed_zero??quality.internal_check?.missing_measures_imputed_zero??0;
+   if(countZero>0){
     card.append(element("p","Celdas ausentes contabilizadas como 0: "+
-      quality.missing_measures_imputed_zero+" (imputación naranja, no cero registrado).","muted"));
+      countZero+" (imputación naranja, no cero registrado).","muted"));
    }
    const actions=element("div","","controls");
    const detail=makeButton("Ver controles y muestra");
