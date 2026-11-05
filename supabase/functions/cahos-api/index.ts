@@ -230,7 +230,8 @@ async function commitResult(user,data,req){
  const coverage={status:rows.length===0?"source_no_rows":
      review.passed?"technical_consistency_checked":"technical_review_required",
   corte_oficial:result.corte_oficial??null,official_cut_verified:false,
-  review_method:"server_side_rules_v1",reviewed_at:reviewDate,
+  review_method:"server_side_rules_v2_null_zero_provenance",reviewed_at:reviewDate,
+  missing_measures_imputed_zero:review.missing_measures_imputed_zero,
   review_summary:rows.length===0?"Consulta ejecutada sin filas del cubo; NO equivale a cero casos.":
     review.passed?"Integridad interna comprobada; corte oficial no certificado.":"Resultado retenido por control técnico o privacidad.",
   internal_check:review};
