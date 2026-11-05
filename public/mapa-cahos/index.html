@@ -182,16 +182,19 @@ button.primary,button.secondary{border-radius:10px}
 .right .territoryActions button:disabled{opacity:.45;cursor:default}
 .right .territoryActions button:focus-visible{outline:3px solid #e8b253;outline-offset:2px}
 .topbar nav .mapLogout{border:1px solid #bae3d6;border-radius:9px;padding:8px 10px;background:#ffffff1a;color:#fff;font-size:11px;font-weight:750;cursor:pointer}
-</style><link rel="stylesheet" href="./rosa.css"></head>
+</style><link rel="stylesheet" href="./rosa.css"><link rel="stylesheet" href="./identidad-mapa.css"><link rel="icon" type="image/svg+xml" href="/CAHOS/assets/cahos-emblema.svg"></head>
 <body><div class="app">
 <header class="topbar">
- <div class="brand"><div class="brand-mark" id="sonoraBrand" title="Silueta construida con los polígonos INEGI de Sonora">◈</div><div><strong>CAHOS</strong><small>MAPA · MOTOR TERRITORIAL</small></div></div>
+ <div class="brand"><div class="brand-mark" id="sonoraBrand" title="CAHOS · emblema y silueta única de Sonora"><img src="/CAHOS/assets/cahos-emblema.svg" alt="Logo de CAHOS" width="45" height="45"></div><div><strong>CAHOS</strong><small>MAPA · MOTOR TERRITORIAL</small></div></div>
  <div class="subtitle">Observatorio Territorial Epidemiológico de Sonora</div>
- <nav aria-label="Productos conectados"><a href="/CAHOS/">Panorama</a><a href="/CAHOS/poblacion.html">Población</a><a href="/CAHOS/revision.html">Calidad</a><a href="/CAHOS/conexion.html">Infraestructura</a><a href="/CAHOS/acceso.html">Acceso</a><button id="mapLogout" type="button" class="mapLogout">Salir</button><a class="openVisor" href="/CAHOS/">▥ Visor</a></nav>
+ <nav aria-label="Módulos CAHOS"><a href="/CAHOS/">Panorama</a><a href="/CAHOS/mapa-cahos/" aria-current="page">Mapa</a><a href="/CAHOS/poblacion.html">Población</a><a href="/CAHOS/revision.html">Calidad</a><a href="/CAHOS/conexion.html">Infraestructura</a><a id="mapAdmin" href="/CAHOS/admin.html" hidden>Administración</a><a id="mapLogin" href="/CAHOS/acceso.html">Ingresar</a><button id="mapLogout" type="button" class="mapLogout" hidden>Salir</button></nav>
 </header>
 <aside class="sidebar" id="controlPanel" aria-label="Centro de capas de CAHOS">
  <div class="panelHeading"><h2>◈ Panel territorial</h2><div class="panelTools"><button id="panelCompress" type="button">Comprimir</button><button id="panelExpand" type="button">Expandir</button></div></div>
- <section class="introCard"><div class="cardTop"><span>Herramientas del mapa</span><span>⌄</span></div><div class="version">MAPA CAHOS · v3.0</div><h3>Centro de Capas</h3><p>Explora y combina información epidemiológica, demográfica y territorial sobre los polígonos oficiales de Sonora.</p><div class="quickActions"><button id="mapFocus" type="button">⌖ Enfocar selección</button><button id="mapRestore" type="button">↶ Restaurar mapa</button></div></section>
+ <section class="introCard"><div class="cahos-map-banner">
+<div><img src="/CAHOS/assets/cahos-emblema.svg" alt="" width="35" height="35"><strong>MAPA CAHOS</strong><small>Territorio · capas · vigilancia epidemiológica · Sonora</small></div>
+<svg viewBox="0 0 260 150" aria-hidden="true"><use href="/CAHOS/assets/cahos-modulos.svg#map"></use></svg>
+</div><div class="cardTop"><span>Herramientas del mapa</span><span>⌄</span></div><div class="version">MAPA CAHOS · v3.0</div><h3>Centro de Capas</h3><p>Explora y combina información epidemiológica, demográfica y territorial sobre los polígonos oficiales de Sonora.</p><div class="quickActions"><button id="mapFocus" type="button">⌖ Enfocar selección</button><button id="mapRestore" type="button">↶ Restaurar mapa</button></div></section>
  <section class="filterPanel">
 <div class="controlLabel">Filtros epidemiológicos</div><div class="filters">
 <label>Buscar patología<input id="search" type="search" placeholder="Ej. dengue o infecciones intestinales"></label>
@@ -264,7 +267,8 @@ button.primary,button.secondary{border-radius:10px}
 </div>
 </section>
  <div id="access" class="accessCard" aria-live="polite">Verificando permisos institucionales…</div>
- <div class="sidebarLinks" aria-label="Otros productos CAHOS"><a href="/CAHOS/">◫ Panorama epidemiológico</a><a href="/CAHOS/poblacion.html">♙ Población y pirámides</a><a href="/CAHOS/revision.html">▣ Control de calidad</a><a href="/CAHOS/conexion.html">⌁ Infraestructura</a><a href="/CAHOS/acceso.html">◉ Acceso seguro</a></div>
+ <div class="cahos-pin-legend" aria-label="Simbología de marcadores"><span><svg viewBox="0 0 64 88" aria-hidden="true"><use href="/CAHOS/assets/cahos-marcadores.svg#default"></use></svg>Territorio</span><span><svg viewBox="0 0 64 88" aria-hidden="true"><use href="/CAHOS/assets/cahos-marcadores.svg#selected"></use></svg>Seleccionado</span><span><svg viewBox="0 0 64 88" aria-hidden="true"><use href="/CAHOS/assets/cahos-marcadores.svg#population"></use></svg>Población</span><span><svg viewBox="0 0 64 88" aria-hidden="true"><use href="/CAHOS/assets/cahos-marcadores.svg#alert"></use></svg>Alerta</span></div>
+<div class="sidebarLinks" aria-label="Otros productos CAHOS"><a href="/CAHOS/">◫ Panorama epidemiológico</a><a href="/CAHOS/poblacion.html">♙ Población y pirámides</a><a href="/CAHOS/revision.html">▣ Control de calidad</a><a href="/CAHOS/conexion.html">⌁ Infraestructura</a><a href="/CAHOS/acceso.html">◉ Acceso seguro</a></div>
 </aside>
 <main class="mapWorkspace" aria-label="Mapa territorial de Sonora">
  <div class="mapArea">
