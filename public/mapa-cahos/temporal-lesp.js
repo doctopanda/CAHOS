@@ -99,6 +99,45 @@
   });
   return values;
  }
+ // Serie anual del diagnóstico, independiente del filtro LESP del mapa.
+ // Ausencia de una fila en un extracto exclusivo de positivos => null, no un cero observado.
+ function labDiagnosisWeeks(municipality,pathology="",scope="annual"){
+  const p=current();
+  if(!memory.master||!memory.loaded||memory.year!==p.year||p.start>memory.lastPositiveWeek)return null;
+  if(scope!=="annual"&&scope!=="period")throw Error("Alcance de la serie LESP no reconocido");
+  const start=scope==="period"?p.start:1,end=Math.min(memory.lastPositiveWeek,scope==="period"?p.end:memory.lastPositiveWeek);
+  const key=canonical(municipality),weekCounts=new Map();
+  for(const r of memory.rows){
+   if(canonical(r.municipality)!==key||r.week<start||r.week>end)continue;
+   if(pathology&&r.pathology!==pathology)continue;
+   weekCounts.set(r.week,(weekCounts.get(r.week)||0)+r.positive_lab_results);
+  }
+  const points=[];
+  for(let week=start;week<=end;week++)points.push({
+   week,count:weekCounts.has(week)?weekCounts.get(week):null,
+   inSelectedPeriod:week>=p.start&&week<=p.end
+  });
+  return {
+   year:p.year,municipality,pathology,scope,points,
+   total:points.reduce((sum,row)=>sum+(row.count??0),0),
+   withData:points.filter(row=>row.count!==null).length,
+   peak:points.filter(row=>row.count!==null).sort((a,b)=>b.count-a.count||a.week-b.week)[0]||null,
+   selectedPeriod:{start:p.start,end:p.end},
+   lastPositiveWeek:memory.lastPositiveWeek,
+   hasRecords:weekCounts.size>0
+  };
+ }
+ function labAnnualDiagnoses(municipality){
+  const p=current();
+  if(!memory.master||!memory.loaded||memory.year!==p.year)return [];
+  const key=canonical(municipality),totals=new Map();
+  for(const r of memory.rows){
+   if(canonical(r.municipality)!==key)continue;
+   totals.set(r.pathology,(totals.get(r.pathology)||0)+r.positive_lab_results);
+  }
+  return [...totals].map(([pathology,count])=>({pathology,count}))
+   .sort((a,b)=>b.count-a.count||a.pathology.localeCompare(b.pathology,"es"));
+ }
  function labStatus(){
   const label=$("labStatus");
   if(!label)return;
@@ -199,7 +238,7 @@
  root.CAHOSTemporal=Object.freeze({
   current,label,epiWeek,syncWeekOptions,onChange:fn=>callbacks.add(fn),
   onImport:fn=>importCallbacks.add(fn),
-  bind,setMaster,loadRemoteSnapshot,pendingPayload,labFilter,labCount,labStateTotal,labSummary,labBreakdown,labWeeks,labStatus,
+  bind,setMaster,loadRemoteSnapshot,pendingPayload,labFilter,labCount,labStateTotal,labSummary,labBreakdown,labWeeks,labDiagnosisWeeks,labAnnualDiagnoses,labStatus,
   hasLab:()=>memory.loaded,labYear:()=>memory.year,origin:()=>memory.origin
  });
 })(window);
