@@ -245,7 +245,7 @@ button.primary,button.secondary{border-radius:10px}
 <section class="box"><h2>Tendencia demográfica</h2><div class="mini">2015–2030, población proyectada del municipio seleccionado</div><svg id="trend" viewBox="0 0 320 150"></svg></section>
 <section class="box"><h2>Lectura epidemiológica</h2><p class="mini" id="context">No se publican automáticamente conteos municipales sensibles. La visibilidad depende del rol y de la validación de los datos.</p><p class="foot">Las tasas utilizan población anual del mismo municipio, año, sexo y grupo de edad compatible. No equivalen a incidencia oficial certificada.</p></section></details>
 </aside>
- <div class="mapLegend" aria-live="polite"><strong id="layerLegend">Regionalización territorial</strong><span><i class="swatch" style="background:#dce8e4"></i>Sin dato / sin asignación</span><span><i class="swatch" style="background:#bddfcb"></i>Menor valor</span><span><i class="swatch" style="background:#13735e"></i>Mayor valor</span><span id="layerLegendYear">2026</span></div>
+ <div class="mapLegend" aria-live="polite"><strong id="layerLegend">Regionalización territorial</strong><span><i class="swatch" style="background:#dce8e4"></i><span id="legendNoData">Sin dato / sin asignación</span></span><span><i class="swatch" style="background:#bddfcb" id="legendLowSwatch"></i><span id="legendLow">Zona territorial</span></span><span><i class="swatch" style="background:#e1a646" id="legendHighSwatch"></i><span id="legendHigh">Zona compartida</span></span><span id="layerLegendYear">2026</span></div>
 </main></div>
 <script src="/CAHOS/configuracion-publica.js"></script>
 <script src="/CAHOS/cahos-auth.js"></script>
