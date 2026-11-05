@@ -10,9 +10,21 @@ const SEP=new Intl.NumberFormat("es-MX");
 const fmt=n=>Number.isFinite(Number(n))?SEP.format(Number(n)):"—";
 const bands=["00_04","05_09","10_14","15_19","20_24","25_29","30_34","35_39","40_44","45_49","50_54","55_59","60_64","65_mm"];
 const shared=window.CAHOSSelection?.read()||{};
+const temporal=window.CAHOSTemporal;
+const LAB_METRICS=new Set(["lab_cases","lab_rate_mun","lab_rate_state"]);
+const SUIVE_METRICS=new Set(["cases","rate","rate_state","share"]);
+function periodKey(){const p=temporal.current();return [p.year,p.start,p.end].join(":");}
+function isValidSuivePeriod(){return state.casePeriodKey===periodKey();}
+function stateDenominator(){if(!state.population.length)return null;
+ const all=state.features.map(f=>rateDenominator(String(f.properties.cvegeo)));
+ return all.length&&all.every(x=>Number.isFinite(x)&&x>0)?all.reduce((a,b)=>a+b,0):null;
+}
+function annualPopulation(){const v=state.population.map(r=>Number(r.population_total));
+ return v.length===72&&v.every(x=>Number.isFinite(x)&&x>0)?v.reduce((a,b)=>a+b,0):null;
+}
 const state={features:[],catalog:{},member:{},year:2026,population:[],municipal:new Map(),
  selected:null,selectedZones:new Set(),selectedMunicipalities:new Set(),regionalization:null,municipalMissing:new Set(),
- grandTotal:null,caseQuality:null,provisional:false,jobStatus:null,queryBusy:false,
+ grandTotal:null,caseQuality:null,casePeriodKey:null,provisional:false,jobStatus:null,queryBusy:false,
  loading:false,source:null,featureMap:new Map(),leafletMap:null,leafletLayer:null,viewBox:{x:0,y:0,w:900,h:620},lastDetailRequest:0};
 const inform=(text,cls="")=>{$("status").className="notice "+cls;$("status").textContent=text};
 const api=async(path,method="GET",body=null)=>(await window.CAHOSAuth.api(path,{method,...(body?{body}: {})})).body;
@@ -129,16 +141,26 @@ function rateDenominator(code){
 }
 function metricValue(code,metric){
  if(metric==="population")return populationFor(code)?.population_total??null;
+ if(LAB_METRICS.has(metric)){
+  const name=state.featureMap.get(code)?.properties?.nombre||"";
+  const value=temporal.labCount(name);if(value===null)return null;
+  if(metric==="lab_cases")return value;
+  const denom=metric==="lab_rate_mun"?populationFor(code)?.population_total:annualPopulation();
+  return denom?value/denom*100000:null;
+ }
+ if(SUIVE_METRICS.has(metric)&&!isValidSuivePeriod())return null;
  const cases=state.municipal.get(code);
  if(cases===undefined)return null;
  if(metric==="cases")return cases;
+ if(metric==="share")return state.grandTotal>0?cases/state.grandTotal*100:null;
+ if(metric==="rate_state"){const denom=stateDenominator();return denom?cases/denom*100000:null;}
  const denom=rateDenominator(code);
  return denom?cases/denom*100000:null;
 }
 function fill(value,max){
  if(value===null||!Number.isFinite(value))return "#dce8e4";
  const t=Math.sqrt(Math.max(0,Math.min(1,value/Math.max(1,max))));
- const a=[204,237,224],b=[13,104,83];
+ const a=[255,215,232],b=[138,31,91];
  return "rgb("+a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(",")+")";
 }
 function rings(geometry){
@@ -148,8 +170,8 @@ function rings(geometry){
 }
 
 
-const ZONE_COLORS=["#2b8b75","#648cbd","#d2a03e","#976fb2","#b36b61","#759d57",
- "#467e9a","#d08b70","#a38b43","#428e89"];
+const ZONE_COLORS=["#B62F79","#9471BD","#E79B50","#B7579B","#D76887","#9663C7",
+ "#CB8EC8","#BA6460","#A86799","#DF87B0"];
 function scheme(){return $("regionScheme")?.value||"custom"}
 function schemeData(){return state.regionalization?.regionalizations?.[scheme()]||null}
 function zoneList(){
@@ -307,9 +329,9 @@ function polygonStyle(feature){
  const code=String(feature.properties.cvegeo),metric=$("metric").value;
  const selected=state.selectedMunicipalities.has(code),regions=zonesFor(code);
  return {
-  color:selected?"#d49a39":metric==="zones"&&regions.length>1?"#67466e":"#20695b",
+  color:selected?"#8A1F5B":metric==="zones"&&regions.length>1?"#8a5baf":"#9f5a80",
   weight:selected?3.8:metric==="zones"&&regions.length>1?2.1:1.2,
-  opacity:1,fillColor:(metric==="cases"||metric==="rate")&&state.municipalMissing.has(code)?
+  opacity:1,fillColor:SUIVE_METRICS.has(metric)&&isValidSuivePeriod()&&state.municipalMissing.has(code)?
    "#eeb267":regionColor(code,metric)||fill(metricValue(code,metric),polygonMetricMax(metric)),
   fillOpacity:selectedCodes().has(code)?0.77:0.13
  };
@@ -321,9 +343,9 @@ function tooltipNode(feature){
  const description=metric==="zones"?(scheme()==="imss"?"Sede regional (sin polígonos IMSS)":
   names.join(" / ")||"Sin región asignada"):
   value===null?"Sin información":
-  metric==="rate"?value.toLocaleString("es-MX",{maximumFractionDigits:2})+" /100,000":fmt(value);
+  ["rate","rate_state","lab_rate_mun","lab_rate_state"].includes(metric)?value.toLocaleString("es-MX",{maximumFractionDigits:2})+" /100,000":metric==="share"?value.toFixed(2)+" %":fmt(value);
  span.textContent=feature.properties.nombre+" · "+(
-  (metric==="cases"||metric==="rate")&&state.municipalMissing.has(code)?
+  SUIVE_METRICS.has(metric)&&isValidSuivePeriod()&&state.municipalMissing.has(code)?
    "0 imputado por ausencia de registro":description);
  return span;
 }
@@ -333,9 +355,12 @@ function updateMapFoot(){
   districts:"Distritos de Salud · 2025",coespo:"Regiones COESPO · 10",
   imss:"IMSS Bienestar · 10 sedes, cobertura municipal pendiente"};
  const legendNames={zones:"Regionalización territorial",population:"Población proyectada",
-  cases:"Casos municipales autorizados",rate:"Tasa por 100,000 habitantes"};
+  cases:"SUIVE · casos municipales",rate:"SUIVE · tasa municipal /100 mil",
+  rate_state:"SUIVE · por población estatal /100 mil",share:"SUIVE · porcentaje de casos estatales",
+  lab_cases:"LESP · resultados positivos privados",lab_rate_mun:"LESP · positivos / población municipal",
+  lab_rate_state:"LESP · positivos / población estatal"};
  $("layerLegend").textContent=legendNames[metric]||"Capa territorial";
- $("layerLegendYear").textContent=metric==="zones"?"Capa territorial":String(state.year);
+ $("layerLegendYear").textContent=metric==="zones"?"Capa territorial":temporal.label();
  $("legendNoData").textContent=metric==="zones"?"Sin asignación":"Sin dato / retenido";
  $("legendLow").textContent=metric==="zones"?"Zona territorial":"Menor valor";
  $("legendHigh").textContent=metric==="zones"?"Zonas compartidas":"Mayor valor";
@@ -345,9 +370,11 @@ function updateMapFoot(){
   (schemes[scheme()]||"")+" · "+
   (metric==="zones"?"Color por regionalización":
    metric==="population"?"Proyección poblacional":
+   LAB_METRICS.has(metric)?temporal.hasLab()?"Agregados LESP privados; positivos no equivalen a confirmados":"LESP no importado; sin cifras para mostrar":
+   !isValidSuivePeriod()?"SUIVE: desglose municipal pendiente para el periodo":
    n>0?n+" municipios con registro y "+state.municipalMissing.size+" con 0 imputado (consulta protegida)":
    "Sin datos epidemiológicos disponibles; gris no es cero casos.")+
-  " · "+state.year+" · Las cifras no certifican corte oficial.";
+  " · "+temporal.label()+" · Cifras no certifican corte oficial.";
 }
 function showLeafletSeats(){
  if(!state.leafletMap)return;
@@ -446,14 +473,14 @@ function drawMap(){
   }
   const code=String(feature.properties.cvegeo),value=metricValue(code,metric);
   const regions=zonesFor(code),selected=state.selectedMunicipalities.has(code);
-  const fillColor=(metric==="cases"||metric==="rate")&&state.municipalMissing.has(code)?
+  const fillColor=SUIVE_METRICS.has(metric)&&isValidSuivePeriod()&&state.municipalMissing.has(code)?
    "#eeb267":regionColor(code,metric)||fill(value,max);
   const names=zoneList().filter(x=>regions.includes(x.id)).map(x=>x.name);
   const description=metric==="zones"?
    scheme()==="imss"?"IMSS: solo sedes, sin polígonos regionales":
     names.join(" / ")||"Sin región asignada":
     value===null?"Sin dato territorial":
-    metric==="rate"?value.toFixed(2)+" por 100,000":fmt(value);
+    ["rate","rate_state","lab_rate_mun","lab_rate_state"].includes(metric)?value.toFixed(2)+" por 100,000":metric==="share"?value.toFixed(2)+" %":fmt(value);
   const path=mk("path",{d,fill:fillColor,
    stroke:selected?"#f3b850":metric==="zones"&&regions.length>1?"#58466d":"#fff",
    "stroke-width":selected?3.5:metric==="zones"&&regions.length>1?2:0.85,
