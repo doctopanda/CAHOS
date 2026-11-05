@@ -173,15 +173,20 @@ function selectedCodes(){
 function saveRegionalScheme(){
  save();
 }
+function removeMunicipality(code){
+ if(!state.selectedMunicipalities.delete(code))return;
+ if(state.selected===code)state.selected=[...state.selectedMunicipalities].at(-1)||null;
+ saveRegionalScheme();renderMunicipalitySelection();drawMap();
+ if(state.selected&&state.featureMap.has(state.selected))showDetail(state.selected);
+ else clearMapDetail();
+}
 function chooseMunicipality(code,additive=false){
- if(additive){
-  if(state.selectedMunicipalities.has(code))state.selectedMunicipalities.delete(code);
-  else state.selectedMunicipalities.add(code);
- }else{
-  state.selectedMunicipalities.add(code);
- }
- state.selected=code;saveRegionalScheme();
- renderMunicipalitySelection();drawMap();showDetail(code);
+ // Volver a pulsar el polígono deselecciona; conserva zoom, capas, filtros y consultas.
+ if(state.selectedMunicipalities.has(code)){removeMunicipality(code);return;}
+ // Se conserva la selección multiterritorial previa para comparaciones.
+ state.selectedMunicipalities.add(code);
+ state.selected=code;
+ saveRegionalScheme();renderMunicipalitySelection();drawMap();showDetail(code);
 }
 function refreshZoneChips(){
  const root=$("zoneChips");root.replaceChildren();
@@ -214,11 +219,7 @@ function renderMunicipalitySelection(){
   button.type="button";button.className="zoneChip";
   button.textContent=(record.nombre||code)+" ×";
   button.title="Quitar municipio de la selección";
-  button.addEventListener("click",()=>{
-   state.selectedMunicipalities.delete(code);
-   if(state.selected===code)state.selected=null;
-   saveRegionalScheme();renderMunicipalitySelection();drawMap();
-  });
+  button.addEventListener("click",()=>removeMunicipality(code));
   root.append(button);
  }
 }
@@ -505,6 +506,7 @@ function showDetail(code){
  const cases=state.municipal.get(code),denom=rateDenominator(code);
  const rate=cases!==undefined&&denom?cases/denom*100000:null;
  $("name").textContent=feature?.properties?.nombre||record?.municipality_name||"Sonora";
+ $("deselectMunicipality").disabled=!state.selectedMunicipalities.has(code);
  const assignments=[];
  for(const key of ["custom","districts","coespo"]){
   const membership=CAHOSRegions.membership(state.regionalization,key,code).map(x=>x.name);
@@ -678,6 +680,13 @@ $("clearTerritory").addEventListener("click",()=>{
  save();refreshZoneChips();renderMunicipalitySelection();drawMap();
  clearMapDetail();
 });
+$("deselectMunicipality").addEventListener("click",()=>{
+ if(state.selected)removeMunicipality(state.selected);
+});
+$("clearMunicipalitySelection").addEventListener("click",()=>{
+ state.selectedMunicipalities.clear();state.selected=null;
+ saveRegionalScheme();renderMunicipalitySelection();drawMap();clearMapDetail();
+});
 $("consult").addEventListener("click",loadCases);
 for(const [id,mult] of [["zoomIn",.72],["zoomOut",1.38]]){
  $(id).addEventListener("click",()=>{
@@ -699,6 +708,7 @@ $("resetZoom").addEventListener("click",()=>{
  state.viewBox={x:0,y:0,w:900,h:620};$("map").setAttribute("viewBox","0 0 900 620");
 });
 function clearMapDetail(){
+ $("deselectMunicipality").disabled=true;
  $("name").textContent="Sonora";
  $("note").textContent="Selecciona un polígono para analizar un municipio.";
  $("municipalityRegions").textContent="Sin municipio seleccionado.";
@@ -730,6 +740,11 @@ $("panelCompress").addEventListener("click",()=>{
 $("panelExpand").addEventListener("click",()=>{
  document.body.classList.remove("controls-compact");
  setTimeout(()=>state.leafletMap?.invalidateSize(false),80);
+});
+document.addEventListener("keydown",event=>{
+ const target=event.target;
+ if(event.key!=="Escape"||target?.matches?.("input,select,textarea,[contenteditable=true]"))return;
+ if(state.selected&&state.selectedMunicipalities.has(state.selected))removeMunicipality(state.selected);
 });
 window.addEventListener("pagehide",save);
 initialize();
