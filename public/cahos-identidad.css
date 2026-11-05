@@ -1,0 +1,205 @@
+/* CAHOS · Identidad integral 2026
+   Paleta aprobada y controles accesibles. Solo presentación: no modifica datos ni permisos. */
+:root{
+ --cahos-baya:#8A1F5B;--cahos-baya-texto:#712047;--cahos-rosa:#F06DA6;
+ --cahos-pastel:#FFC2D9;--cahos-lila:#CDB4F4;--cahos-crema:#FFF4E6;
+ --cahos-texto:#54283E;--cahos-secundario:#714B61;--cahos-borde:#EAC8D8;
+}
+body.cahos-unified{
+ --bg:#FFF8F5;--ink:#54283E;--muted:#714B61;--line:#EAC8D8;
+ --pine:#8A1F5B;--teal:#CE458D;--blue:#9870BD;--panel:#FFFEFD;
+ --cahos-deep:#8A1F5B;--cahos-green:#A72C71;--cahos-mint:#F06DA6;
+ --cahos-pale:#FFF0F6;--cahos-border:#EAC8D8;--cahos-text:#54283E;
+ background:#FFF8F5!important;color:#54283E!important;
+ font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+body.cahos-unified .cahos-global-topbar{
+ background:linear-gradient(107deg,#711641 0%,#8A1F5B 50%,#B94381 100%);
+ box-shadow:0 3px 16px #8A1F5B24;
+ border-bottom:1px solid #F6C3D5;min-height:75px;
+}
+.cahos-global-topbar .cahos-brand-emblem{
+ background:#FFF4E6; border:2px solid #FFC2D9;overflow:hidden;border-radius:50%;
+ width:48px;height:48px;flex-shrink:0;padding:1px;
+}
+.cahos-global-topbar .cahos-brand-emblem img{width:100%;height:100%;display:block;object-fit:contain}
+.cahos-global-topbar .cahos-brand-words strong{color:#FFF8F3;letter-spacing:.25px}
+.cahos-global-topbar .cahos-brand-words small{color:#FFE4EF;letter-spacing:.45px}
+.cahos-global-topbar .cahos-global-caption{color:#FFF4E6;border-left:1px solid #F7CDDF99}
+.cahos-global-topbar .cahos-global-links a{color:#FFF7F2}
+.cahos-global-topbar .cahos-global-links a[aria-current="page"],
+.cahos-global-topbar .cahos-global-links a.cahos-global-active{
+ background:#FFF4E62C;box-shadow:inset 0 0 0 1px #FFD8E6A6;color:#FFF;
+}
+.cahos-global-topbar .cahos-global-links .cahos-global-logout{background:#FFF4E62C;border-color:#FFC6DF;color:#FFF}
+.cahos-global-topbar button{background:#FFF4E620;border:1px solid #FFD1E1;color:#FFF}
+.cahos-global-topbar button:hover{background:#FFF4E63B}
+body.cahos-unified .cahos-global-side{background:linear-gradient(180deg,#FFF9F5,#FFF0F6);border-right:1px solid #E6C4D5}
+.cahos-global-side .cahos-side-top{color:#80224F!important;font-weight:850}
+.cahos-global-side .cahos-side-card{background:#FFFCFA!important;border-color:#EAC8D8!important}
+.cahos-global-side .cahos-side-card h2{color:#8A1F5B}
+.cahos-global-side .cahos-side-card p{color:#69445A}
+.cahos-global-side .cahos-side-kicker{color:#9B2869!important}
+.cahos-global-side .cahos-module-nav{gap:7px}
+.cahos-global-side .cahos-module-nav a{
+ display:flex;min-height:47px;gap:10px;align-items:center;
+ color:#712047!important;background:#FFFDFC!important;border:1px solid #EBCBD9!important;
+ font-weight:780;text-decoration:none;border-radius:11px;
+}
+.cahos-global-side .cahos-module-nav a:hover{background:#FFE9F1!important}
+.cahos-global-side .cahos-module-nav a[aria-current="page"]{
+ background:#FFE1ED!important;border-color:#E58FBD!important;color:#6C153D!important;
+ box-shadow:inset 4px 0 0 #B52C7C;
+}
+.cahos-nav-icon{display:grid;place-items:center;width:32px;height:32px;flex-shrink:0;
+ background:linear-gradient(135deg,#FFE4EF,#EFE2FA);border-radius:9px}
+.cahos-nav-icon svg{width:29px;height:28px;display:block}
+.cahos-module-nav .cahos-nav-icon{min-width:32px}
+.cahos-sidebar-section{background:#FFFCFA!important;border:1px solid #EAC8D8!important;border-radius:13px}
+.cahos-sidebar-section>summary{background:#FFE8F1!important;color:#7A1C4C!important;font-weight:850;padding:13px}
+.cahos-global-side .cahos-native-controls button.nav,
+.cahos-global-side .cahos-native-controls a.nav{
+ background:#FFFCFA!important;color:#72244C!important;border:1px solid #E7CAD8!important;
+}
+.cahos-global-side .cahos-native-controls button.nav.on,
+.cahos-global-side .cahos-native-controls a.nav.on{
+ background:#FFE1ED!important;color:#731943!important;border-color:#DCA2BF!important;
+}
+.cahos-global-side .cahos-native-controls h3{color:#8A1F5B!important}
+.cahos-global-side .cahos-native-controls .favorite{background:#FFF5F8!important;color:#713D57!important}
+.cahos-global-side .cahos-native-controls .tag{background:#FFF1F6!important;color:#714259!important;border-color:#ECD1DF!important}
+.cahos-global-side .cahos-sidebar-section .selectors{max-width:100%}
+.cahos-global-side .cahos-sidebar-section label{color:#643349;font-size:12px;font-weight:750}
+.cahos-global-side .cahos-sidebar-section select,
+.cahos-global-side .cahos-sidebar-section input{background:white;border:1px solid #DBAAC6;color:#4A1E33}
+.cahos-global-side .cahos-sidebar-section button{background:#8A1F5B;color:white}
+.cahos-content-area{background:#FFF9F6}
+.cahos-content-area .panel,.cahos-content-area .kpi,.cahos-content-area .card,
+.cahos-content-area .step,.cahos-content-area .box{
+ background:#FFFEFC!important;border-color:#E9C9D8!important;
+ box-shadow:0 5px 16px #842A5D0C;
+}
+.cahos-content-area .kpi{position:relative;overflow:hidden}
+.cahos-content-area .kpi::after{
+ content:"";position:absolute;right:-31px;bottom:-48px;width:110px;height:82px;
+ border-radius:65% 35% 30% 70%;background:linear-gradient(120deg,#FFD0E1,#EEDBF9);opacity:.34;pointer-events:none
+}
+.cahos-content-area h1,.cahos-content-area h2,.cahos-content-area .kpi strong,.cahos-content-area .kpi b{color:#7A1C4E}
+.cahos-content-area .subtitle,.cahos-content-area .hint,.cahos-content-area .muted,
+.cahos-content-area .chartHint,.cahos-content-area .kpi .label,.cahos-content-area .kpi .lbl,
+.cahos-content-area .kpi small,.cahos-content-area .method,.cahos-content-area footer{color:#714B61}
+.cahos-content-area .eyebrow{color:#9C2A6D;font-weight:850}
+.cahos-content-area .pill{background:#FFEAF3;color:#7D1B4C;border:1px solid #EAB0D0}
+.cahos-content-area .pill.warn{background:#FFF5E6;color:#875725;border-color:#E8CDA5}
+.cahos-content-area .pill.bad{background:#FFF0EF;color:#9D3540;border-color:#E5BEC1}
+.cahos-content-area button,.cahos-content-area .btn{background:#8A1F5B;color:#FFF;border-color:#8A1F5B}
+.cahos-content-area button:hover:not(:disabled),.cahos-content-area .btn:hover:not(:disabled){filter:brightness(1.12)}
+.cahos-content-area .btn.alt,.cahos-content-area button.secondary{background:#FBE4EF;color:#731840;border:1px solid #EAB1D0}
+.cahos-content-area input,.cahos-content-area select,
+.cahos-content-area input[type="search"],.cahos-content-area input[type="number"]{border-color:#DAB5C8;color:#54283E;background:#FFF}
+.cahos-content-area input:focus-visible,.cahos-content-area select:focus-visible{
+ outline:3px solid #A32F71;outline-offset:2px;
+}
+.cahos-content-area table th,.cahos-content-area th{background:#FCE8F2;color:#7F2451;border-bottom:1px solid #E8C2D6}
+.cahos-content-area th,.cahos-content-area td{border-bottom-color:#EFDEE7}
+.cahos-content-area .notice,.cahos-content-area .notice.ok{
+ background:#FFF0F5!important;border-color:#F0CADB!important;color:#733451!important;
+}
+.cahos-content-area .notice.warn{background:#FFF7E8!important;border-color:#EAD4B0!important;color:#7C562E!important}
+.cahos-content-area .notice.err,.cahos-content-area .notice.error{
+ background:#FFF0EF!important;border-color:#E8BEC3!important;color:#923846!important
+}
+.cahos-content-area .links a{color:#79204F!important;background:#FFF5F9;border:1px solid #EBC8D9}
+.cahos-content-area .links a:hover{background:#FFE5F0}
+.cahos-content-area .importPanel{background:#FFF4F9;border-color:#E0AFC9}
+.cahos-content-area .disease button{color:#8A1F5B;border-color:#DCB6CB}
+.cahos-content-area .disease button.on{background:#8A1F5B;color:#FFF}
+.cahos-content-area .seriesLegend{color:#74455D}
+.cahos-content-area .placeholder{color:#77516B}
+.cahos-content-area .loader{background:linear-gradient(90deg,#F06DA6,#8A1F5B)}
+.cahos-module-cover{
+ position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;
+ overflow:hidden;gap:8px;min-height:157px;border-radius:20px;padding:22px 225px 20px 25px;
+ border:1px solid #E7B9D0;
+ background:linear-gradient(111deg,#FFFDF9 0%,#FFF7F3 51%,#FFE4F0 100%);
+ box-shadow:0 8px 25px #8A1F5B0E;margin:5px 0 18px;
+}
+.cahos-module-cover::before{content:"";position:absolute;width:240px;height:240px;
+ right:105px;bottom:-195px;border-radius:50%;background:#FFBADA77;pointer-events:none}
+.cahos-module-cover::after{content:"";position:absolute;width:140px;height:140px;
+ right:-32px;top:-77px;border-radius:50%;background:#CDB4F466;pointer-events:none}
+.cahos-module-cover>*,.cahos-cover-copy{z-index:1;position:relative}
+.cahos-module-cover h1{margin:0;font-size:clamp(26px,3vw,38px);line-height:1.18;color:#821A50}
+.cahos-module-cover .eyebrow,.cahos-cover-kicker{font-weight:900;font-size:11px;letter-spacing:1.4px;color:#9C316C}
+.cahos-module-cover .subtitle,.cahos-cover-description{max-width:560px;font-size:13px;color:#6D435A;line-height:1.5}
+.cahos-module-cover .pill{display:inline-flex;width:max-content;max-width:100%}
+.cahos-cover-art{position:absolute!important;right:12px;top:7px;width:210px;height:145px;
+ z-index:0;pointer-events:none}
+.cahos-cover-art svg{width:100%;height:100%;display:block}
+.cahos-cover-copy{display:grid;gap:6px}
+.cahos-cover-brand{display:flex;align-items:center;gap:9px;max-width:100%}
+.cahos-cover-brand img{width:35px;height:35px;border-radius:50%;background:#FFF4E6}
+.cahos-cover-brand strong{font-size:10px;font-weight:850;letter-spacing:1px;color:#8A1F5B}
+.cahos-miniature{border:1px solid #EDC4D6;background:linear-gradient(120deg,#FFF6FA,#F4E8FC);
+ border-radius:11px;padding:8px 10px;color:#7C1F4C;font-weight:750}
+.cahos-miniature svg{width:42px;height:28px;vertical-align:middle}
+.cahos-cover-local{display:none}
+.cahos-identity-note{font-size:11px;color:#77465C}
+@media(max-width:950px){
+ .cahos-module-cover{padding-right:130px;min-height:140px}
+ .cahos-cover-art{width:145px;height:120px;right:0;top:13px;opacity:.8}
+}
+@media(max-width:600px){
+ .cahos-global-topbar .cahos-brand-emblem{width:39px;height:39px}
+ .cahos-global-links a{font-size:10px}
+ .cahos-module-cover{padding:17px 16px 18px;min-height:148px}
+ .cahos-cover-art{width:132px;height:95px;top:42px;opacity:.22}
+ .cahos-module-cover h1{font-size:26px}
+ .cahos-module-cover .subtitle,.cahos-cover-description{font-size:12px}
+ .cahos-global-side .cahos-module-nav{display:grid}
+}
+@media(prefers-reduced-motion:reduce){.cahos-module-cover,.cahos-global-side nav a{scroll-behavior:auto;transition:none}}
+
+/* Radar demográfico: tarjetas compactas con valores auténticos y procedencia */
+.cahos-content-area .cahos-insights{border-color:#E8BED5!important;padding:20px}
+.cahos-insights-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.cahos-insights-head>div{flex:1;min-width:0}
+.cahos-insights-head h2{font-size:clamp(20px,2.4vw,27px);color:#7C1E50;margin:3px 0}
+.cahos-insights-head .hint{max-width:760px;line-height:1.55}
+.cahos-insights-head>svg{width:185px;height:108px;flex:0 0 auto}
+.cahos-insights-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}
+.cahos-insight{position:relative;min-width:0;border:1px solid #E9C2D5;border-radius:15px;
+ padding:15px 14px 14px;background:linear-gradient(125deg,#FFFEFC,#FFF1F6);overflow:hidden}
+.cahos-insight::after{content:"";position:absolute;right:-40px;bottom:-51px;border-radius:50%;
+ width:104px;height:105px;background:#CDB4F43D;pointer-events:none}
+.cahos-insight-icon{display:grid;place-items:center;width:35px;height:35px;font-size:20px;
+ border-radius:50%;color:#8A1F5B;background:#FFE0EF;margin-bottom:8px;font-weight:850}
+.cahos-insight-title{font-size:11px;letter-spacing:.3px;font-weight:850;color:#8A1F5B;min-height:31px}
+.cahos-insight b{display:block;color:#741A48;font-size:clamp(16px,1.65vw,23px);
+ line-height:1.18;overflow-wrap:anywhere;margin:6px 0;font-variant-numeric:tabular-nums}
+.cahos-insight small{display:block;color:#6D455A;font-size:11px;line-height:1.45;position:relative;z-index:1}
+.cahos-insight:focus-visible{outline:3px solid #AA3777;outline-offset:2px}
+.cahos-insights-foot{font-size:11px;color:#6F465B;border-top:1px solid #EECFDF;padding-top:11px;margin:14px 0 0}
+@media(max-width:1280px){.cahos-insights-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.cahos-insights-grid{grid-template-columns:1fr 1fr;gap:8px}
+ .cahos-insight{padding:11px}.cahos-insights-head>svg{width:92px;height:78px}
+ .cahos-insight b{font-size:17px}}
+@media(max-width:430px){.cahos-insights-grid{grid-template-columns:1fr}.cahos-insight-title{min-height:auto}}
+
+/* Tarjetas epidemiológicas y estados heredados, ahora con la misma legibilidad */
+.cahos-content-area .populationStrip{border:1px solid #EAC4D8!important;background:linear-gradient(110deg,#FFF5F8,#F6E9FB)!important;color:#5D2948!important}
+.cahos-content-area .populationStrip strong{color:#79204E!important}
+.cahos-content-area .populationStrip .part span{color:#77485E!important}
+.cahos-content-area .populationStrip a{color:#79204E!important;border-color:#E4B6CE!important;background:#FFFDFB!important}
+.cahos-content-area .reviewGate{background:#FFF8EE!important;border-color:#E4CBA6!important;color:#714F32!important}
+.cahos-content-area .reviewGate a{background:#8A1F5B!important;color:#FFF!important}
+.cahos-content-area .suive-zero-guide{background:#FFF8EB!important;border-color:#E5CDA9!important;color:#5D4133!important}
+.cahos-content-area .suive-zero-guide .missing-zero{color:#AE6004!important}
+.cahos-content-area .suive-zero-guide .observed-zero{color:#142F2A!important}
+.cahos-content-area .steps .step{background:#FFF7FA!important;border-color:#ECD0DF!important}
+.cahos-content-area .diseaseList{border-color:#E9C8D9!important}
+.cahos-content-area .disease{border-bottom-color:#ECD5E1!important}
+.cahos-content-area .method,.cahos-content-area .stamp{color:#70465A!important}
+.cahos-content-area .chartHint{color:#684154!important}
+.cahos-content-area .sourceStrip{border-color:#EAC7D9}
+.cahos-content-area .chart svg text{font-weight:500}

@@ -124,7 +124,7 @@ function drawAgeCurve(name,code){
  const max=Math.max(1,...rows.map(x=>Math.max(x.H,x.M)));
  rows.forEach((r,i)=>{
   const y=15+(rows.length-1-i)*17,wH=155*r.H/max,wM=155*r.M/max;
-  const t=(x,y,text,color="#334155",size=10)=>{
+  const t=(x,y,text,color="#62334E",size=10)=>{
    const e=document.createElementNS("http://www.w3.org/2000/svg","text");
    e.setAttribute("x",x);e.setAttribute("y",y);e.setAttribute("font-size",size);
    e.setAttribute("fill",color);e.textContent=text;svg.append(e);
@@ -134,7 +134,7 @@ function drawAgeCurve(name,code){
    e.setAttribute("x",x);e.setAttribute("y",y-10);e.setAttribute("width",Math.max(0,width));
    e.setAttribute("height",12);e.setAttribute("rx",2);e.setAttribute("fill",color);svg.append(e);
   };
-  rect(205-wH,wH,"#438f9e");rect(245,wM,"#bc82aa");t(213,y,r.name);
+  rect(205-wH,wH,"#9870BD");rect(245,wM,"#F06DA6");t(213,y,r.name);
  });
  root.append(svg);
  const leg=document.createElement("p");leg.className="hint";leg.textContent="Azul: hombres · Magenta: mujeres · Proyección poblacional, no casos.";root.append(leg);

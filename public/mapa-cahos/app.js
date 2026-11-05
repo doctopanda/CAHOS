@@ -25,7 +25,7 @@ function annualPopulation(){const v=state.population.map(r=>Number(r.population_
 const state={features:[],catalog:{},member:{},year:2026,population:[],municipal:new Map(),
  selected:null,selectedZones:new Set(),selectedMunicipalities:new Set(),regionalization:null,municipalMissing:new Set(),
  grandTotal:null,periodStateTotal:null,periodStateMissing:0,caseQuality:null,casePeriodKey:null,provisional:false,jobStatus:null,queryBusy:false,
- loading:false,source:null,featureMap:new Map(),leafletMap:null,leafletLayer:null,viewBox:{x:0,y:0,w:900,h:620},lastDetailRequest:0};
+ loading:false,source:null,featureMap:new Map(),leafletMap:null,leafletLayer:null,selectedMarker:null,viewBox:{x:0,y:0,w:900,h:620},lastDetailRequest:0};
 const inform=(text,cls="")=>{$("status").className="notice "+cls;$("status").textContent=text};
 const api=async(path,method="GET",body=null)=>(await window.CAHOSAuth.api(path,{method,...(body?{body}: {})})).body;
 const label=(dim,id)=>state.catalog[dim]?.find(x=>x.id===id)?.nombre||"";
@@ -307,7 +307,7 @@ async function loadRegionalization(){
 
 function blank(svg,text){
  svg.replaceChildren();svg.append(mk("text",{x:svg.id==="map"?450:160,y:svg.id==="map"?300:90,
-  "text-anchor":"middle",fill:"#708b80","font-size":"13"},text));
+  "text-anchor":"middle",fill:"#714B61","font-size":"13"},text));
 }
 
 
@@ -428,6 +428,27 @@ function initLeafletMap(geo){
   return false;
  }
 }
+function syncSelectedMarker(){
+ if(!window.L||!state.leafletMap||!state.leafletLayer)return;
+ if(state.selectedMarker){
+  state.leafletMap.removeLayer(state.selectedMarker);state.selectedMarker=null;
+ }
+ const code=state.selected;if(!code||!state.selectedMunicipalities.has(code))return;
+ let layer=null;
+ state.leafletLayer.eachLayer(item=>{
+  if(String(item.feature?.properties?.cvegeo)===code)layer=item;
+ });
+ if(!layer)return;
+ const coords=typeof layer.getCenter==="function"?layer.getCenter():layer.getBounds().getCenter();
+ const icon=window.L.divIcon({
+  className:"cahos-map-pin",
+  html:'<svg viewBox="0 0 64 88" role="img" aria-label="Municipio seleccionado"><use href="/CAHOS/assets/cahos-marcadores.svg#selected"></use></svg>',
+  iconSize:[34,48],iconAnchor:[17,46]
+ });
+ state.selectedMarker=window.L.marker(coords,{icon,zIndexOffset:900,keyboard:true,title:"Municipio seleccionado: "+(layer.feature?.properties?.nombre||"")});
+ state.selectedMarker.on("click",()=>removeMunicipality(code));
+ state.selectedMarker.addTo(state.leafletMap);
+}
 function updateLeaflet(){
  if($("mapBase")?.value!=="osm"||!window.L||!state.features.length){
   $("streetMap").hidden=true;$("map").hidden=false;
@@ -443,6 +464,7 @@ function updateLeaflet(){
   if(layer.feature)layer.setTooltipContent(tooltipNode(layer.feature));
  });
  showLeafletSeats();
+ syncSelectedMarker();
  setTimeout(()=>state.leafletMap?.invalidateSize(false),40);
  updateMapFoot();renderTerritorialSummary();
  return true;
@@ -506,14 +528,14 @@ function pyramid(record){
  bands.forEach((b,i)=>{
   // Pirámide epidemiológica convencional: los menores abajo, los mayores arriba.
   const y=14+(bands.length-1-i)*27,wM=112*vals[0][i]/max,wF=112*vals[1][i]/max;
-  const lm=mk("rect",{x:center-21-wM,y,width:wM,height:20,rx:2,fill:"#558db8"});
+  const lm=mk("rect",{x:center-21-wM,y,width:wM,height:20,rx:2,fill:"#9870BD"});
   lm.append(mk("title",{},cap(b)+": "+fmt(vals[0][i])+" hombres"));svg.append(lm);
-  const lf=mk("rect",{x:center+21,y,width:wF,height:20,rx:2,fill:"#1b9b87"});
+  const lf=mk("rect",{x:center+21,y,width:wF,height:20,rx:2,fill:"#F06DA6"});
   lf.append(mk("title",{},cap(b)+": "+fmt(vals[1][i])+" mujeres"));svg.append(lf);
-  svg.append(mk("text",{x:center,y:y+14,"font-size":9,"text-anchor":"middle",fill:"#264f44"},cap(b)));
+  svg.append(mk("text",{x:center,y:y+14,"font-size":9,"text-anchor":"middle",fill:"#6B3451"},cap(b)));
  });
- svg.append(mk("text",{x:77,y:398,"font-size":11,fill:"#558db8","text-anchor":"middle"},"Hombres"));
- svg.append(mk("text",{x:241,y:398,"font-size":11,fill:"#1b9b87","text-anchor":"middle"},"Mujeres"));
+ svg.append(mk("text",{x:77,y:398,"font-size":11,fill:"#9870BD","text-anchor":"middle"},"Hombres"));
+ svg.append(mk("text",{x:241,y:398,"font-size":11,fill:"#F06DA6","text-anchor":"middle"},"Mujeres"));
 }
 async function trend(code,requestId){
  const svg=$("trend");blank(svg,"Cargando tendencia…");
@@ -530,13 +552,13 @@ async function trend(code,requestId){
    return [px,py];
   });
   for(let i=0;i<3;i++)svg.append(mk("line",{x1:28,y1:15+i*45,x2:302,y2:15+i*45,stroke:"#e1ece6"}));
-  svg.append(mk("polyline",{points:pts.map(p=>p.join(",")).join(" "),fill:"none",stroke:"#137c68","stroke-width":3}));
+  svg.append(mk("polyline",{points:pts.map(p=>p.join(",")).join(" "),fill:"none",stroke:"#8A1F5B","stroke-width":3}));
   rows.forEach((row,i)=>{
-   const circle=mk("circle",{cx:pts[i][0],cy:pts[i][1],r:2.6,fill:"#137c68"});
+   const circle=mk("circle",{cx:pts[i][0],cy:pts[i][1],r:2.6,fill:"#8A1F5B"});
    circle.append(mk("title",{},row.year+": "+fmt(row.population_total)));svg.append(circle);
   });
-  svg.append(mk("text",{x:28,y:135,fill:"#738c81","font-size":11},"2015"));
-  svg.append(mk("text",{x:302,y:135,fill:"#738c81","font-size":11,"text-anchor":"end"},"2030"));
+  svg.append(mk("text",{x:28,y:135,fill:"#714B61","font-size":11},"2015"));
+  svg.append(mk("text",{x:302,y:135,fill:"#714B61","font-size":11,"text-anchor":"end"},"2030"));
  }catch{if(requestId===state.lastDetailRequest)blank(svg,"Sin tendencia disponible")}
 }
 function renderLabDetail(code){
@@ -564,29 +586,12 @@ function renderLabDetail(code){
  svg.append(mk("text",{x:6,y:85,fill:"#8A1F5B","font-size":9},"SE "+series[0].week));
  svg.append(mk("text",{x:278,y:85,fill:"#8A1F5B","font-size":9,"text-anchor":"end"},"SE "+series.at(-1).week));
 }
-function renderSonoraBrand(geo){
- const host=$("sonoraBrand");if(!host||!geo?.features?.length)return;
- const points=[];
- for(const f of geo.features)for(const ring of rings(f.geometry))for(const pt of ring)
-  if(Number.isFinite(pt[0])&&Number.isFinite(pt[1]))points.push(pt);
- if(!points.length)return;
- let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
- for(const pt of points){const x=pt[0]*.87,y=pt[1];minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y)}
- const k=Math.min(90/(maxX-minX),90/(maxY-minY));
- const project=p=>[(p[0]*.87-minX)*k+5,(maxY-p[1])*k+5];
- const svg=mk("svg",{viewBox:"0 0 100 100",role:"img","aria-label":"Silueta real de Sonora a partir de los municipios INEGI"});
- for(const f of geo.features){
-  let d="";
-  for(const ring of rings(f.geometry)){
-   const skip=Math.max(1,Math.floor(ring.length/240)),seq=ring.filter((_,i)=>i%skip===0);
-   if(seq.length<3)continue;
-   d+=seq.map((p,i)=>{const [x,y]=project(p);return(i?"L":"M")+x.toFixed(2)+" "+y.toFixed(2)}).join(" ")+"Z";
-  }
-  svg.append(mk("path",{d,fill:"#8A1F5B",stroke:"none"}));
- }
- host.replaceChildren(svg);
+function renderSonoraBrand(){
+ const host=$("sonoraBrand");if(!host)return;
+ const img=document.createElement("img");
+ img.src="/CAHOS/assets/cahos-emblema.svg";img.alt="Logo CAHOS con silueta sólida de Sonora";
+ img.width=45;img.height=45;host.replaceChildren(img);
 }
-
 function showDetail(code){
  const record=populationFor(code),feature=state.featureMap.get(code);
  const cases=isValidSuivePeriod()?state.municipal.get(code):undefined,denom=rateDenominator(code);
@@ -794,6 +799,7 @@ async function initialize(){
   drawMap();
 
   if(!await window.CAHOSAuth.accessToken()){
+   $("mapLogin").hidden=false;$("mapLogout").hidden=true;$("mapAdmin").hidden=true;
    inform("Cartografía pública disponible. Para casos y tasas, inicia sesión segura en CAHOS.","ok");
    $("access").innerHTML='<a href="/CAHOS/acceso.html">Iniciar sesión segura en CAHOS</a>';
    return;
@@ -803,6 +809,8 @@ async function initialize(){
    ...["pathologies","years","entities","sex","age"].map(dim=>api("/api/catalog?dim="+dim))
   ]);
   if(!profile?.enabled)throw Error("La cuenta no está habilitada en CAHOS");
+  $("mapLogin").hidden=true;$("mapLogout").hidden=false;
+  $("mapAdmin").hidden=profile.is_master!==true;
   temporal.setMaster(profile.is_master===true);
   $("access").textContent=profile.is_master?"Administrador Maestro · Vista protegida":
     "Cuenta autorizada · Capas limitadas por privacidad";

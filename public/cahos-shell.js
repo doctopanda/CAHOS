@@ -19,42 +19,58 @@
   connection:["Infraestructura","Consulta el estado de la conexión del servicio CAHOS."],
   admin:["Administración maestra","Vinculación del agente central, generación y revocación de tokens."]
  };
+ const SVG_NS="http://www.w3.org/2000/svg";
+ const assets="/CAHOS/assets/";
  function applySonoraMark(emblem){
   if(!emblem)return;
-  fetch("/CAHOS/data/sonora_municipios.geojson",{cache:"force-cache"}).then(r=>{
-   if(!r.ok)throw Error("geometry unavailable");return r.json();
-  }).then(geo=>{
-   if(geo?.type!=="FeatureCollection"||geo.features?.length!==72)return;
-   const rings=geom=>geom?.type==="Polygon"?geom.coordinates:geom?.type==="MultiPolygon"?geom.coordinates.flat():[];
-   let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
-   for(const f of geo.features)for(const ring of rings(f.geometry))for(const p of ring){
-    if(!Number.isFinite(p[0])||!Number.isFinite(p[1]))continue;
-    const x=p[0]*.87,y=p[1];minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);
-   }
-   if(!Number.isFinite(minX)||maxX===minX||maxY===minY)return;
-   const factor=Math.min(90/(maxX-minX),90/(maxY-minY));
-   const project=p=>[(p[0]*.87-minX)*factor+5,(maxY-p[1])*factor+5];
-   const NS="http://www.w3.org/2000/svg",svg=document.createElementNS(NS,"svg");
-   svg.setAttribute("viewBox","0 0 100 100");svg.setAttribute("role","img");
-   svg.setAttribute("aria-label","Silueta de Sonora desde polígonos INEGI");svg.style.cssText="width:100%;height:100%;display:block";
-   for(const f of geo.features){
-    let d="";
-    for(const ring of rings(f.geometry)){
-     const skip=Math.max(1,Math.floor(ring.length/250)),pts=ring.filter((_,i)=>i%skip===0);
-     if(pts.length<3)continue;
-     d+=pts.map((p,i)=>{const [x,y]=project(p);return (i?"L":"M")+x.toFixed(2)+" "+y.toFixed(2)}).join(" ")+"Z";
-    }
-    const path=document.createElementNS(NS,"path");path.setAttribute("d",d);path.setAttribute("fill","#8A1F5B");
-    svg.append(path);
-   }
-   emblem.replaceChildren(svg);
-  }).catch(()=>{ /* Emblema decorativo: conservar ícono si cartografía no está disponible */ });
+  const img=document.createElement("img");img.src=assets+"cahos-emblema.svg";
+  img.alt="";img.loading="eager";img.decoding="async";
+  emblem.replaceChildren(img);
+ }
+ function artFor(module){
+  const box=document.createElement("span");box.className="cahos-nav-icon";
+  const svg=document.createElementNS(SVG_NS,"svg");
+  svg.setAttribute("viewBox","0 0 260 150");svg.setAttribute("aria-hidden","true");
+  svg.setAttribute("focusable","false");
+  const use=document.createElementNS(SVG_NS,"use");
+  use.setAttribute("href",assets+"cahos-modulos.svg#"+module);
+  svg.append(use);box.append(svg);return box;
+ }
+ function addModuleCover(main,module){
+  const top=main.querySelector(":scope > .top");
+  let hero;
+  if(top){
+   hero=top;
+   hero.classList.add("cahos-module-cover");
+  }else{
+   const h1=main.querySelector("h1");
+   if(!h1)return;
+   hero=document.createElement("section");hero.className="cahos-module-cover";
+   const copy=document.createElement("div");copy.className="cahos-cover-copy";
+   const brand=document.createElement("span");brand.className="cahos-cover-brand";
+   const img=document.createElement("img");img.src=assets+"cahos-emblema.svg";img.alt="";
+   const txt=document.createElement("strong");txt.textContent="CAHOS · "+module.toUpperCase();
+   brand.append(img,txt);copy.append(brand);
+   h1.parentNode.insertBefore(hero,h1);
+   copy.append(h1);
+   const desc=document.createElement("p");desc.className="cahos-cover-description";
+   desc.textContent=names[module]?.[1]||"Sistema de inteligencia epidemiológica";
+   copy.append(desc);hero.append(copy);
+  }
+  if(!hero.querySelector(".cahos-cover-art")){
+   const art=document.createElement("span");art.className="cahos-cover-art";
+   const svg=document.createElementNS(SVG_NS,"svg");svg.setAttribute("viewBox","0 0 260 150");
+   svg.setAttribute("aria-hidden","true");svg.setAttribute("focusable","false");
+   const use=document.createElementNS(SVG_NS,"use");
+   use.setAttribute("href",assets+"cahos-modulos.svg#"+module);
+   svg.append(use);art.append(svg);hero.append(art);
+  }
  }
  function link(e,side=false){
   const a=document.createElement("a");
   a.href=e.href;a.textContent=side?e.side:e.label;
   if(e.id===document.body.dataset.cahosModule){a.setAttribute("aria-current","page");a.classList.add("cahos-global-active");}
-  if(side){const i=document.createElement("span");i.className="cahos-nav-icon";i.textContent=e.icon;a.prepend(i);}
+  if(side)a.prepend(artFor(e.id));
   return a;
  }
  function init(){
@@ -71,6 +87,11 @@
   const title=document.createElement("strong");title.textContent="CAHOS";
   const small=document.createElement("small");small.textContent="OBSERVATORIO EPIDEMIOLÓGICO";
   words.append(title,small);brand.append(emblem,words);
+  if(!document.querySelector('link[rel="icon"]')){
+   const favicon=document.createElement("link");favicon.rel="icon";
+   favicon.type="image/svg+xml";favicon.href=assets+"cahos-emblema.svg";
+   document.head.append(favicon);
+  }
   const caption=document.createElement("span");caption.className="cahos-global-caption";caption.textContent="Inteligencia epidemiológica · Sonora";
   const nav=document.createElement("nav");nav.className="cahos-global-links";nav.setAttribute("aria-label","Productos CAHOS");
   for(const e of entries.filter(e=>!e.masterOnly))nav.append(link(e));
@@ -117,6 +138,7 @@
     }
    }
    content.append(main);
+   addModuleCover(main,page);
    if(root!==main)root.remove();
   }
   // Si la sesión está activa, reemplazar "Ingresar" por una salida real;
