@@ -25,7 +25,7 @@ function annualPopulation(){const v=state.population.map(r=>Number(r.population_
 const state={features:[],catalog:{},member:{},year:2026,population:[],municipal:new Map(),
  selected:null,selectedZones:new Set(),selectedMunicipalities:new Set(),regionalization:null,municipalMissing:new Set(),
  grandTotal:null,periodStateTotal:null,periodStateMissing:0,caseQuality:null,casePeriodKey:null,provisional:false,jobStatus:null,queryBusy:false,
- loading:false,source:null,featureMap:new Map(),leafletMap:null,leafletLayer:null,viewBox:{x:0,y:0,w:900,h:620},lastDetailRequest:0};
+ loading:false,source:null,featureMap:new Map(),leafletMap:null,leafletLayer:null,selectedMarker:null,viewBox:{x:0,y:0,w:900,h:620},lastDetailRequest:0};
 const inform=(text,cls="")=>{$("status").className="notice "+cls;$("status").textContent=text};
 const api=async(path,method="GET",body=null)=>(await window.CAHOSAuth.api(path,{method,...(body?{body}: {})})).body;
 const label=(dim,id)=>state.catalog[dim]?.find(x=>x.id===id)?.nombre||"";
@@ -428,6 +428,27 @@ function initLeafletMap(geo){
   return false;
  }
 }
+function syncSelectedMarker(){
+ if(!window.L||!state.leafletMap||!state.leafletLayer)return;
+ if(state.selectedMarker){
+  state.leafletMap.removeLayer(state.selectedMarker);state.selectedMarker=null;
+ }
+ const code=state.selected;if(!code||!state.selectedMunicipalities.has(code))return;
+ let layer=null;
+ state.leafletLayer.eachLayer(item=>{
+  if(String(item.feature?.properties?.cvegeo)===code)layer=item;
+ });
+ if(!layer)return;
+ const coords=typeof layer.getCenter==="function"?layer.getCenter():layer.getBounds().getCenter();
+ const icon=window.L.divIcon({
+  className:"cahos-map-pin",
+  html:'<svg viewBox="0 0 64 88" role="img" aria-label="Municipio seleccionado"><use href="/CAHOS/assets/cahos-marcadores.svg#selected"></use></svg>',
+  iconSize:[34,48],iconAnchor:[17,46]
+ });
+ state.selectedMarker=window.L.marker(coords,{icon,zIndexOffset:900,keyboard:true,title:"Municipio seleccionado: "+(layer.feature?.properties?.nombre||"")});
+ state.selectedMarker.on("click",()=>removeMunicipality(code));
+ state.selectedMarker.addTo(state.leafletMap);
+}
 function updateLeaflet(){
  if($("mapBase")?.value!=="osm"||!window.L||!state.features.length){
   $("streetMap").hidden=true;$("map").hidden=false;
@@ -443,6 +464,7 @@ function updateLeaflet(){
   if(layer.feature)layer.setTooltipContent(tooltipNode(layer.feature));
  });
  showLeafletSeats();
+ syncSelectedMarker();
  setTimeout(()=>state.leafletMap?.invalidateSize(false),40);
  updateMapFoot();renderTerritorialSummary();
  return true;
@@ -564,29 +586,12 @@ function renderLabDetail(code){
  svg.append(mk("text",{x:6,y:85,fill:"#8A1F5B","font-size":9},"SE "+series[0].week));
  svg.append(mk("text",{x:278,y:85,fill:"#8A1F5B","font-size":9,"text-anchor":"end"},"SE "+series.at(-1).week));
 }
-function renderSonoraBrand(geo){
- const host=$("sonoraBrand");if(!host||!geo?.features?.length)return;
- const points=[];
- for(const f of geo.features)for(const ring of rings(f.geometry))for(const pt of ring)
-  if(Number.isFinite(pt[0])&&Number.isFinite(pt[1]))points.push(pt);
- if(!points.length)return;
- let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
- for(const pt of points){const x=pt[0]*.87,y=pt[1];minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y)}
- const k=Math.min(90/(maxX-minX),90/(maxY-minY));
- const project=p=>[(p[0]*.87-minX)*k+5,(maxY-p[1])*k+5];
- const svg=mk("svg",{viewBox:"0 0 100 100",role:"img","aria-label":"Silueta real de Sonora a partir de los municipios INEGI"});
- for(const f of geo.features){
-  let d="";
-  for(const ring of rings(f.geometry)){
-   const skip=Math.max(1,Math.floor(ring.length/240)),seq=ring.filter((_,i)=>i%skip===0);
-   if(seq.length<3)continue;
-   d+=seq.map((p,i)=>{const [x,y]=project(p);return(i?"L":"M")+x.toFixed(2)+" "+y.toFixed(2)}).join(" ")+"Z";
-  }
-  svg.append(mk("path",{d,fill:"#8A1F5B",stroke:"none"}));
- }
- host.replaceChildren(svg);
+function renderSonoraBrand(){
+ const host=$("sonoraBrand");if(!host)return;
+ const img=document.createElement("img");
+ img.src="/CAHOS/assets/cahos-emblema.svg";img.alt="Logo CAHOS con silueta sólida de Sonora";
+ img.width=45;img.height=45;host.replaceChildren(img);
 }
-
 function showDetail(code){
  const record=populationFor(code),feature=state.featureMap.get(code);
  const cases=isValidSuivePeriod()?state.municipal.get(code):undefined,denom=rateDenominator(code);
@@ -794,6 +799,7 @@ async function initialize(){
   drawMap();
 
   if(!await window.CAHOSAuth.accessToken()){
+   $("mapLogin").hidden=false;$("mapLogout").hidden=true;$("mapAdmin").hidden=true;
    inform("Cartografía pública disponible. Para casos y tasas, inicia sesión segura en CAHOS.","ok");
    $("access").innerHTML='<a href="/CAHOS/acceso.html">Iniciar sesión segura en CAHOS</a>';
    return;
@@ -803,6 +809,8 @@ async function initialize(){
    ...["pathologies","years","entities","sex","age"].map(dim=>api("/api/catalog?dim="+dim))
   ]);
   if(!profile?.enabled)throw Error("La cuenta no está habilitada en CAHOS");
+  $("mapLogin").hidden=true;$("mapLogout").hidden=false;
+  $("mapAdmin").hidden=profile.is_master!==true;
   temporal.setMaster(profile.is_master===true);
   $("access").textContent=profile.is_master?"Administrador Maestro · Vista protegida":
     "Cuenta autorizada · Capas limitadas por privacidad";
