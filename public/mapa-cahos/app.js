@@ -24,7 +24,7 @@ function annualPopulation(){const v=state.population.map(r=>Number(r.population_
 }
 const state={features:[],catalog:{},member:{},year:2026,population:[],municipal:new Map(),
  selected:null,selectedZones:new Set(),selectedMunicipalities:new Set(),regionalization:null,municipalMissing:new Set(),
- grandTotal:null,caseQuality:null,casePeriodKey:null,provisional:false,jobStatus:null,queryBusy:false,
+ grandTotal:null,periodStateTotal:null,periodStateMissing:0,caseQuality:null,casePeriodKey:null,provisional:false,jobStatus:null,queryBusy:false,
  loading:false,source:null,featureMap:new Map(),leafletMap:null,leafletLayer:null,viewBox:{x:0,y:0,w:900,h:620},lastDetailRequest:0};
 const inform=(text,cls="")=>{$("status").className="notice "+cls;$("status").textContent=text};
 const api=async(path,method="GET",body=null)=>(await window.CAHOSAuth.api(path,{method,...(body?{body}: {})})).body;
@@ -639,20 +639,77 @@ async function loadPopulation(){
   throw Error("El año no tiene 72 denominadores poblacionales verificados");
  state.population=result.rows;
 }
+function renderStatePeriod(){
+ const total=state.periodStateTotal,denom=stateDenominator();
+ if(total===null){
+  $("statePeriodTotal").textContent="—";$("statePeriodTotal").style.color="";
+  $("statePeriodRate").textContent="—";return;
+ }
+ CAHOSZero.mark($("statePeriodTotal"),total,total===0&&state.periodStateMissing>0);
+ $("statePeriodRate").textContent=denom?(total/denom*100000).toLocaleString("es-MX",{maximumFractionDigits:2}):"—";
+}
+async function loadStatePeriod(period,pathology,year){
+ state.periodStateTotal=null;state.periodStateMissing=0;renderStatePeriod();
+ const body={kind:"weekly",pathology,years:[year],entity:state.member.entity,
+  sex:$("sex").value||"",age:$("age").value||"",
+  week_start:period.start,week_end:period.end};
+ inform("Consultando semanas estatales SUIVE "+temporal.label()+" · consulta protegida.");
+ let result=await api("/api/query","POST",body);
+ if(["queued","running"].includes(result?.status)&&result?.job_id){
+  const jobId=String(result.job_id);
+  for(let i=0;i<30;i++){
+   inform("Esperando serie semanal estatal · control "+(i+1)+"/30. No se crean trabajos duplicados.");
+   await new Promise(resolve=>setTimeout(resolve,5000));
+   const progress=await api("/api/jobs/"+encodeURIComponent(jobId));
+   if(progress.status==="ready"){result=progress.result;break;}
+   if(["failed","no_data","awaiting_review","result_unavailable"].includes(progress.status)){
+    result=progress;break;
+   }
+   if(!["queued","running"].includes(progress.status)){result=progress;break;}
+  }
+ }
+ if(!Array.isArray(result?.rows)||!result.rows.length){
+  $("statePeriodQuality").textContent="Sin resultado estatal semanal utilizable. Una extracción sin filas o retenida no equivale a cero.";
+  inform("No hay consulta semanal SUIVE estatal disponible: "+(result?.status||"sin filas")+
+   ". El desglose municipal continúa oculto para evitar confusión con el acumulado anual.","error");
+  return;
+ }
+ const perWeek=new Map();
+ for(const row of result.rows){
+  const week=Number(row.weeks);
+  if(!Number.isInteger(week)||week<period.start||week>period.end||perWeek.has(week))
+   throw Error("Semana epidemiológica duplicada o fuera del intervalo de consulta");
+  perWeek.set(week,CAHOSZero.normalize(row.cases));
+ }
+ let missing=0,total=0;
+ for(let week=period.start;week<=period.end;week++){
+  const observation=perWeek.get(week);
+  if(!observation||observation.imputed)missing++;
+  total+=observation?.value||0;
+ }
+ state.periodStateTotal=total;state.periodStateMissing=missing;
+ renderStatePeriod();
+ $("statePeriodQuality").textContent=temporal.label()+" · "+
+  perWeek.size+" semanas con fila · "+missing+" SE sin medida numérica (0 operativo naranja). "+
+  "Tasa estatal con denominador poblacional compatible. Corte oficial no certificado.";
+ inform(fmt(total)+" casos en SUIVE estatal, "+temporal.label()+
+  ". El mapa municipal se conserva sin valores del periodo porque no existe un desglose autorizado semanal por municipio; LESP privado sí permite filtrar su periodo.","ok");
+}
 async function loadCases(){
  if(state.queryBusy)return;
  const pathology=$("pathology").value,year=$("year").value;
  if(!pathology||!year){inform("Selecciona patología y año antes de consultar.","error");return}
  state.queryBusy=true;$("consult").disabled=true;
  state.municipal=new Map();state.municipalMissing=new Set();state.grandTotal=null;state.casePeriodKey=null;state.provisional=false;
+ state.periodStateTotal=null;state.periodStateMissing=0;renderStatePeriod();
  state.year=yrNumber(year);save();
  inform("Consultando el cubo SINAVE desde el agente autorizado. Los datos municipales dependen de tu rol.");
  try{
   await loadPopulation();
-  drawMap();
-  const window=temporal.current();
-  if(!window.annual){
-   inform("Para "+temporal.label()+" el mapa LESP privado funciona por semanas. SUIVE municipal aún requiere desplegar la extracción semanal protegida; no presentaremos cifras anuales como semanales.","error");
+  renderStatePeriod();drawMap();
+  const periodRange=temporal.current();
+  if(!periodRange.annual){
+   await loadStatePeriod(periodRange,pathology,year);
    return;
   }
   const body={kind:"municipality",pathology,years:[year],entity:state.member.entity,
@@ -690,7 +747,10 @@ async function loadCases(){
      state.municipal.set(code,0);state.municipalMissing.add(code);
     }
    }
-   state.grandTotal=check.total;state.casePeriodKey=periodKey();state.provisional=result.provisional===true;
+   state.grandTotal=check.total;state.periodStateTotal=check.total;state.periodStateMissing=0;
+   state.casePeriodKey=periodKey();state.provisional=result.provisional===true;
+   renderStatePeriod();
+   $("statePeriodQuality").textContent="Total anual SUIVE y desglose municipal conciliados. Periodo: "+temporal.label();
    state.caseQuality=result.validacion||"revisión interna";
    inform(check.municipalities+" municipios con fila del cubo; "+state.municipalMissing.size+
     " municipios/celdas imputados a cero naranja. Total estatal "+fmt(check.total)+" casos. "+
@@ -785,6 +845,8 @@ temporal.bind();
 temporal.onChange(()=>{
  if(!isValidSuivePeriod()){
   state.municipal.clear();state.municipalMissing.clear();state.grandTotal=null;
+  state.periodStateTotal=null;state.periodStateMissing=0;renderStatePeriod();
+  $("statePeriodQuality").textContent="Nuevo periodo seleccionado. Pulsa Consultar territorio para recuperar la serie estatal SUIVE.";
  }
  drawMap();if(state.selected)showDetail(state.selected);save();
 });
