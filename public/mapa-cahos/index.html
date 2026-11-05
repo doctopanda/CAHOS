@@ -182,16 +182,16 @@ button.primary,button.secondary{border-radius:10px}
 .right .territoryActions button:disabled{opacity:.45;cursor:default}
 .right .territoryActions button:focus-visible{outline:3px solid #e8b253;outline-offset:2px}
 .topbar nav .mapLogout{border:1px solid #bae3d6;border-radius:9px;padding:8px 10px;background:#ffffff1a;color:#fff;font-size:11px;font-weight:750;cursor:pointer}
-</style></head>
+</style><link rel="stylesheet" href="./rosa.css"></head>
 <body><div class="app">
 <header class="topbar">
- <div class="brand"><div class="brand-mark">⌁</div><div><strong>CAHOS</strong><small>MAPA · MOTOR TERRITORIAL</small></div></div>
+ <div class="brand"><div class="brand-mark" id="sonoraBrand" title="Silueta construida con los polígonos INEGI de Sonora">◈</div><div><strong>CAHOS</strong><small>MAPA · MOTOR TERRITORIAL</small></div></div>
  <div class="subtitle">Observatorio Territorial Epidemiológico de Sonora</div>
  <nav aria-label="Productos conectados"><a href="/CAHOS/">Panorama</a><a href="/CAHOS/poblacion.html">Población</a><a href="/CAHOS/revision.html">Calidad</a><a href="/CAHOS/conexion.html">Infraestructura</a><a href="/CAHOS/acceso.html">Acceso</a><button id="mapLogout" type="button" class="mapLogout">Salir</button><a class="openVisor" href="/CAHOS/">▥ Visor</a></nav>
 </header>
 <aside class="sidebar" id="controlPanel" aria-label="Centro de capas de CAHOS">
  <div class="panelHeading"><h2>◈ Panel territorial</h2><div class="panelTools"><button id="panelCompress" type="button">Comprimir</button><button id="panelExpand" type="button">Expandir</button></div></div>
- <section class="introCard"><div class="cardTop"><span>Herramientas del mapa</span><span>⌄</span></div><div class="version">MAPA CAHOS · v2.0</div><h3>Centro de Capas</h3><p>Explora y combina información epidemiológica, demográfica y territorial sobre los polígonos oficiales de Sonora.</p><div class="quickActions"><button id="mapFocus" type="button">⌖ Enfocar selección</button><button id="mapRestore" type="button">↶ Restaurar mapa</button></div></section>
+ <section class="introCard"><div class="cardTop"><span>Herramientas del mapa</span><span>⌄</span></div><div class="version">MAPA CAHOS · v3.0</div><h3>Centro de Capas</h3><p>Explora y combina información epidemiológica, demográfica y territorial sobre los polígonos oficiales de Sonora.</p><div class="quickActions"><button id="mapFocus" type="button">⌖ Enfocar selección</button><button id="mapRestore" type="button">↶ Restaurar mapa</button></div></section>
  <section class="filterPanel">
 <div class="controlLabel">Filtros epidemiológicos</div><div class="filters">
 <label>Buscar patología<input id="search" type="search" placeholder="Ej. dengue o infecciones intestinales"></label>
@@ -201,10 +201,43 @@ button.primary,button.secondary{border-radius:10px}
 <label>Grupo de edad<select id="age"><option value="">Todas las edades</option></select></label>
 </div>
 <div class="controlLabel">Capas y consulta</div><div class="actions"><button class="primary" id="consult" type="button">↻ Consultar territorio</button>
-<label class="dim">Colorizar por <select id="metric"><option value="cases">Casos registrados</option><option value="rate">Tasa por 100,000</option><option value="population">Población proyectada</option><option value="zones" selected>Regionalización territorial</option></select></label>
+<label class="dim">Colorizar por <select id="metric"><option value="cases">Casos registrados</option><option value="rate">SUIVE · tasa municipal /100 mil</option>
+<option value="rate_state">SUIVE · casos municipales / población estatal × 100 mil</option>
+<option value="share">SUIVE · porcentaje de casos del estado</option>
+<option value="lab_cases">LESP · resultados positivos por municipio</option>
+<option value="lab_rate_mun">LESP · positivos / población municipal × 100 mil</option>
+<option value="lab_rate_state">LESP · positivos / población estatal × 100 mil</option><option value="population">Población proyectada</option><option value="zones" selected>Regionalización territorial</option></select></label>
 <label class="dim">Base cartográfica <select id="mapBase"><option value="osm">OpenStreetMap</option><option value="polygons">Solo polígonos INEGI</option></select></label>
 <span class="legend"><i class="swatch" style="background:#dce8e4"></i>Sin dato / retenido <i class="swatch" style="background:#b9e4d2"></i>Menor valor <i class="swatch" style="background:#13735e"></i>Mayor valor</span>
 </div>
+</section>
+<section class="periodPanel" aria-label="Periodo epidemiológico">
+ <div class="controlLabel">Tiempo epidemiológico · DGE/OPS</div>
+ <div class="body"><div class="periodGrid">
+  <label>Tipo de periodo<select id="periodMode">
+   <option value="annual">Año epidemiológico</option>
+   <option value="range">Rango de semanas</option>
+   <option value="single">Semana individual</option>
+   <option value="cumulative">Acumulado hasta la SE</option>
+  </select></label>
+  <label>SE inicial<select id="weekStart" aria-label="Semana epidemiológica inicial"></select></label>
+  <label>SE final<select id="weekEnd" aria-label="Semana epidemiológica final"></select></label>
+ </div><div class="periodCaption" id="periodCaption" aria-live="polite">Configura el periodo de análisis.</div>
+ <p class="explain">Semanas domingo a sábado. En SUIVE, el desglose municipal por intervalo exige extracción semanal autenticada. No mostramos totales anuales como semanales.</p></div>
+</section>
+<section class="lespPanel" aria-label="Fuente laboratorial protegida">
+ <div class="controlLabel">LESP · Resultados positivos</div>
+ <div class="body">
+  <label>Patología en informe LESP<select id="labPathology"><option value="">Todas las patologías positivas</option></select></label>
+  <p class="explain">Fuente independiente del cubo SUIVE. Un resultado positivo no equivale automáticamente a caso confirmado por vigilancia.</p>
+  <div id="lespImportPanel" hidden>
+   <label>Importar agregado privado del LESP (JSON, sin datos nominales)<input id="lespFile" type="file" accept=".json,application/json"></label>
+   <p class="explain">Solo Maestro. El archivo permanece en la memoria de esta pestaña, sin cargarlo a GitHub ni a Supabase.</p>
+  </div>
+  <div id="labStatus" class="lespStatus" role="status">LESP no cargado. No se publican datos del archivo.</div>
+ </div>
+</section>
+<section class="filterPanel" aria-label="Selección de territorios"><div class="controlLabel">Regionalización</div>
 <div class="zonePanel" aria-label="Regionalización operativa">
  <h2>Regionalización territorial · capas independientes</h2>
   <div class="territoryBar"><label>Esquema territorial<select id="regionScheme">
@@ -249,7 +282,17 @@ button.primary,button.secondary{border-radius:10px}
 <div><span>Tasa /100,000</span><b id="rate">—</b></div>
 <div><span>Población</span><b id="population">—</b></div>
 <div><span>Contribución estatal</span><b id="share">—</b></div>
-</div></section>
+<div><span>SUIVE /100 mil población estatal</span><b id="rateState">—</b></div>
+<div><span>LESP · resultados positivos</span><b id="labCount">—</b></div>
+<div><span>LESP /100 mil municipio</span><b id="labRateMunicipal">—</b></div>
+<div><span>LESP /100 mil estado</span><b id="labRateState">—</b></div>
+</div>
+<div class="sourceStrip"><span id="municipalPeriod">Año 2026</span><span>SUIVE · medidas del cubo</span><span>LESP · resultados positivos</span></div>
+<section class="lespSection"><h3>Resultados positivos LESP por patología</h3>
+ <p class="mini" id="labInfo">Carga un agregado privado autorizado para consultar resultados.</p>
+ <ul class="labList" id="labList"></ul>
+ <svg id="labMiniChart" class="labMiniChart" viewBox="0 0 286 90" role="img" aria-label="Resultados positivos LESP por semana epidemiológica"></svg>
+</section></section>
 <section class="box"><h2>Regionalización del municipio</h2><div class="mini" id="municipalityRegions">Sin municipio seleccionado.</div></section>
 <details class="analyticDetails"><summary>Ver análisis demográfico</summary><section class="box"><h2>Pirámide poblacional</h2><div class="mini">Hombres izquierda · Mujeres derecha · Proyección seleccionada</div><svg id="pyramid" viewBox="0 0 320 405"></svg></section>
 <section class="box"><h2>Tendencia demográfica</h2><div class="mini">2015–2030, población proyectada del municipio seleccionado</div><svg id="trend" viewBox="0 0 320 150"></svg></section>
@@ -261,5 +304,5 @@ button.primary,button.secondary{border-radius:10px}
 <script src="/CAHOS/cahos-auth.js"></script>
 <script src="/CAHOS/cahos-state.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="/CAHOS/cahos-zero.js"></script><script src="./region-core.js"></script>
+<script src="/CAHOS/cahos-zero.js"></script><script src="./region-core.js"></script><script src="./temporal-lesp.js"></script>
 <script src="./app.js"></script></body></html>
