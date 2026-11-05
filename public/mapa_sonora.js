@@ -34,7 +34,7 @@ function reconcileMunicipios(){
  for(const row of (observaciones?.rows||[])){
   const measure=CAHOSZero.normalize(row.cases),cases=measure.value;
   if(!String(row.municipalities||'').trim()&&!String(row.municipalities_id||'').trim()){
-   result.stateTotal=Number.isFinite(cases)?cases:null;
+   result.stateTotal=!measure.imputed&&Number.isFinite(cases)?cases:null;
    result.ignoredTotalRows++;
    continue;
   }
