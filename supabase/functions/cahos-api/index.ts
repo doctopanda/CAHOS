@@ -408,7 +408,7 @@ async function handler(req){
  }
 
  if(path==="/admin/create-agent"&&req.method==="POST"){
-  if(user.role!=="admin"||user.isMaster!==true)return send(req,{error:"master_admin_only"},403);
+  if(user.isMaster!==true)return send(req,{error:"master_admin_only"},403);
   const bytes=crypto.getRandomValues(new Uint8Array(32));
   const token=[...bytes].map(x=>x.toString(16).padStart(2,"0")).join("");
   const hash=await sha256(token);
@@ -416,7 +416,7 @@ async function handler(req){
   return send(req,{agent_id:added[0].id,token,warning:"Copie el token una sola vez en el Windows autorizado. No estará disponible nuevamente."},201);
  }
  if(path==="/admin/revoke-agent"&&req.method==="POST"){
-  if(user.role!=="admin"||user.isMaster!==true)return send(req,{error:"master_admin_only"},403);
+  if(user.isMaster!==true)return send(req,{error:"master_admin_only"},403);
   const body=requireObject(await req.json());if(!uuid(body.agent_id))return send(req,{error:"invalid_agent_id"},400);
   const changed=await db("PATCH","cahos_agents?id=eq."+body.agent_id+"&created_by=eq."+user.userId+"&enabled=eq.true",
     {enabled:false,revoked_at:dateISO()});
@@ -437,7 +437,7 @@ async function handler(req){
     ...(url.searchParams.get("full")==="1"?{rows:entries}:{})});
  }
  if(path==="/admin/agents"&&req.method==="GET"){
-  if(user.role!=="admin"||user.isMaster!==true)return send(req,{error:"master_admin_only"},403);
+  if(user.isMaster!==true)return send(req,{error:"master_admin_only"},403);
   const agents=await db("GET","cahos_agents?select=id,label,enabled,created_at,last_seen_at,revoked_at&order=created_at.desc&limit=20");
   return send(req,{agents});
  }
