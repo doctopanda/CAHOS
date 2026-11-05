@@ -69,7 +69,9 @@ function canonicalize(payload){
   if(!item||typeof item!=="object"||Array.isArray(item)||
     Object.keys(item).some(k=>!["year","week","municipality","pathology","positive_lab_results"].includes(k)))
    fail("invalid_aggregate_columns");
-  const y=yearValue(item.year),w=Number(item.week),count=Number(item.positive_lab_results);
+  if(typeof item.positive_lab_results!=="number"||typeof item.week!=="number"||
+     typeof item.year!=="number")fail("invalid_aggregate_measure");
+  const y=yearValue(item.year),w=item.week,count=item.positive_lab_results;
   const municipality=typeof item.municipality==="string"?item.municipality.normalize("NFC").trim().toLocaleUpperCase("es-MX"):"";
   const pathology=typeof item.pathology==="string"?item.pathology.normalize("NFC").trim():"";
   if(!Number.isSafeInteger(w)||w<1||w>53||
