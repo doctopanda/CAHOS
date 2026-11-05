@@ -185,3 +185,21 @@ body.cahos-unified .cahos-global-side{background:linear-gradient(180deg,#FFF9F5,
  .cahos-insight{padding:11px}.cahos-insights-head>svg{width:92px;height:78px}
  .cahos-insight b{font-size:17px}}
 @media(max-width:430px){.cahos-insights-grid{grid-template-columns:1fr}.cahos-insight-title{min-height:auto}}
+
+/* Tarjetas epidemiológicas y estados heredados, ahora con la misma legibilidad */
+.cahos-content-area .populationStrip{border:1px solid #EAC4D8!important;background:linear-gradient(110deg,#FFF5F8,#F6E9FB)!important;color:#5D2948!important}
+.cahos-content-area .populationStrip strong{color:#79204E!important}
+.cahos-content-area .populationStrip .part span{color:#77485E!important}
+.cahos-content-area .populationStrip a{color:#79204E!important;border-color:#E4B6CE!important;background:#FFFDFB!important}
+.cahos-content-area .reviewGate{background:#FFF8EE!important;border-color:#E4CBA6!important;color:#714F32!important}
+.cahos-content-area .reviewGate a{background:#8A1F5B!important;color:#FFF!important}
+.cahos-content-area .suive-zero-guide{background:#FFF8EB!important;border-color:#E5CDA9!important;color:#5D4133!important}
+.cahos-content-area .suive-zero-guide .missing-zero{color:#AE6004!important}
+.cahos-content-area .suive-zero-guide .observed-zero{color:#142F2A!important}
+.cahos-content-area .steps .step{background:#FFF7FA!important;border-color:#ECD0DF!important}
+.cahos-content-area .diseaseList{border-color:#E9C8D9!important}
+.cahos-content-area .disease{border-bottom-color:#ECD5E1!important}
+.cahos-content-area .method,.cahos-content-area .stamp{color:#70465A!important}
+.cahos-content-area .chartHint{color:#684154!important}
+.cahos-content-area .sourceStrip{border-color:#EAC7D9}
+.cahos-content-area .chart svg text{font-weight:500}
