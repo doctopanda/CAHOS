@@ -201,8 +201,11 @@ function cleanRows(rows){
   for(const [key,val] of Object.entries(row)){
    if(!allowedFields.has(key))continue;
    if(key==="cases"){
-    if(val===null)obj.cases=null;
+    if(val===null||(typeof val==="string"&&val.trim()===""))obj.cases=null;
     else if(typeof val==="number"&&Number.isFinite(val)&&val>=0&&val<=1e9)obj.cases=val;
+    else if(typeof val==="string"&&/^[0-9]+$/.test(val.trim())&&
+      Number.isSafeInteger(Number(val.trim()))&&Number(val.trim())<=1e9)
+      obj.cases=Number(val.trim());
     else throw new Error("invalid_case_measure");
    } else {
     if(typeof val!=="string"||val.length>250)throw new Error("invalid_dimension_label");
