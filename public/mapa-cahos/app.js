@@ -837,6 +837,8 @@ async function initialize(){
   $("mapAdmin").hidden=profile.is_master!==true;
   temporal.setMaster(profile.is_master===true);
   renderLabOverview();
+  if(location.hash==="#lespImportPanel"&&profile.is_master===true)
+   setTimeout(()=>$("lespImportPanel")?.scrollIntoView({block:"center",behavior:"smooth"}),100);
   $("access").textContent=profile.is_master?"Administrador Maestro · Vista protegida":
     "Cuenta autorizada · Capas limitadas por privacidad";
   ["pathologies","years","entities","sex","age"].forEach((dim,i)=>state.catalog[dim]=catalogs[i].members||[]);
