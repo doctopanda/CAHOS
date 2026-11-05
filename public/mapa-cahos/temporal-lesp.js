@@ -4,7 +4,7 @@
 (function(root){
  "use strict";
  const $=id=>document.getElementById(id);
- const memory={rows:null,year:null,source:null,catalog:[],quality:null,lastPositiveWeek:null,loaded:false,master:false};
+ const memory={rows:null,year:null,source:null,catalog:[],quality:null,lastPositiveWeek:null,loaded:false,master:false,origin:"none"};
  const callbacks=new Set(),importCallbacks=new Set();
  const norm=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]+/g," ").trim();
  const nameAliases={"MAGDALENA DE KINO":"MAGDALENA","SAN LUIS RIO COLORADO":"SAN LUIS RIO COLORADO","PUERTO PENASCO":"PUERTO PENASCO"};
@@ -105,7 +105,7 @@
   const w=current();
   label.textContent=memory.loaded?
    (memory.year===w.year?
-    "LESP importado correctamente · "+memory.rows.length+" celdas agregadas · Año "+
+    (memory.origin==="protected"?"Supabase protegido: ":"Vista previa local: ")+memory.rows.length+" celdas agregadas · Año "+
       memory.year+" · último positivo registrado SE "+memory.lastPositiveWeek+
       ". Datos locales y preliminares, no casos confirmados.":
     "LESP importado para "+memory.year+"; el mapa está consultando "+w.year+
@@ -114,10 +114,8 @@
      "LESP no cargado. Selecciona el JSON privado en el control de importación para visualizar la capa.":
      "LESP sin fuente cargada en esta pestaña. La importación está reservada al Administrador Maestro.");
  }
- async function importPrivateFile(file){
-  if(!memory.master)throw Error("Solo el Administrador Maestro puede importar agregados LESP");
-  if(!file||file.size>4000000)throw Error("Archivo demasiado grande para importación local");
-  const raw=await file.text(),parsed=JSON.parse(raw);
+ function loadAggregate(parsed,origin){
+  if(!memory.master)throw Error("Solo el Administrador Maestro puede consultar agregados LESP");
   if(parsed?.schema!=="cahos-lesp-aggregates-v1"||parsed?.data_classification!=="PRIVATE_AGGREGATE_DO_NOT_PUBLISH"||
    !Array.isArray(parsed.rows)||parsed.rows.length>12000)throw Error("Formato agregado LESP no autorizado");
   const rows=parsed.rows.map(r=>{
@@ -132,16 +130,39 @@
    return {year,week,municipality:r.municipality,pathology:r.pathology,positive_lab_results:count};
   });
   const years=new Set(rows.map(r=>r.year));if(years.size!==1)throw Error("Un solo año epidemiológico por archivo");
+  const keys=new Set();
+  for(const row of rows){
+   const key=[row.year,row.week,row.municipality.normalize("NFC").trim().toLocaleUpperCase("es-MX"),row.pathology.normalize("NFC").trim()].join("|");
+   if(keys.has(key))throw Error("El archivo contiene una agrupación duplicada");
+   keys.add(key);
+  }
   memory.rows=rows;memory.year=[...years][0];memory.source=String(parsed.source||"LESP").slice(0,120);
   memory.catalog=[...new Set(rows.map(r=>r.pathology))].sort((a,b)=>a.localeCompare(b,"es"));
   memory.quality=parsed.quality||{};memory.lastPositiveWeek=Math.max(...rows.map(r=>r.week));memory.loaded=true;
+  memory.origin=origin;
   const sel=$("labPathology");if(sel){
    sel.replaceChildren(new Option("Todas las patologías positivas",""));
    for(const name of memory.catalog)sel.add(new Option(name,name));
   }
   labStatus();
-  for(const fn of importCallbacks)fn({year:memory.year,lastPositiveWeek:memory.lastPositiveWeek,rows:memory.rows.length});
+  for(const fn of importCallbacks)fn({year:memory.year,lastPositiveWeek:memory.lastPositiveWeek,rows:memory.rows.length,origin});
   fire();
+ }
+ async function importPrivateFile(file){
+  if(!memory.master)throw Error("Solo el Administrador Maestro puede importar agregados LESP");
+  if(!file||file.size>4000000)throw Error("Archivo demasiado grande para importación local");
+  const parsed=JSON.parse(await file.text());
+  loadAggregate(parsed,"local");
+ }
+ function loadRemoteSnapshot(payload){
+  if(payload?.status!=="ready")throw Error("No hay una versión activa autorizada de LESP");
+  loadAggregate(payload,"protected");
+ }
+ function pendingPayload(){
+  if(!memory.master||!memory.loaded||memory.origin!=="local")return null;
+  return {schema:"cahos-lesp-aggregates-v1",data_classification:"PRIVATE_AGGREGATE_DO_NOT_PUBLISH",
+   source:memory.source,quality:memory.quality,rows:memory.rows.map(r=>({...r})),
+   confirm_full_year_snapshot:true};
  }
  function setMaster(v){memory.master=v===true;
   const panel=$("lespImportPanel");if(panel)panel.hidden=!memory.master;
@@ -175,7 +196,7 @@
  root.CAHOSTemporal=Object.freeze({
   current,label,epiWeek,syncWeekOptions,onChange:fn=>callbacks.add(fn),
   onImport:fn=>importCallbacks.add(fn),
-  bind,setMaster,labFilter,labCount,labStateTotal,labSummary,labBreakdown,labWeeks,labStatus,
-  hasLab:()=>memory.loaded,labYear:()=>memory.year
+  bind,setMaster,loadRemoteSnapshot,pendingPayload,labFilter,labCount,labStateTotal,labSummary,labBreakdown,labWeeks,labStatus,
+  hasLab:()=>memory.loaded,labYear:()=>memory.year,origin:()=>memory.origin
  });
 })(window);
