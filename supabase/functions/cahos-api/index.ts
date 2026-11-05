@@ -162,10 +162,15 @@ function technicalReview(rows,job){
   const m=String(x).match(/&\[([0-9]{4})\]$/);return m?m[1]:null;
  }));
  const seen=new Set();
- let sum=0,nonzero=0;
+ let sum=0,nonzero=0,missingMeasures=0;
  for(const row of rows){
-  if(!Number.isSafeInteger(row.cases)||row.cases<0){issues.push("invalid_measure");break;}
-  sum+=row.cases;if(row.cases>0)nonzero++;
+  if(row.cases===null){
+   // Celda sin número en una extracción existente: 0 para suma, con procedencia.
+   missingMeasures++;
+  }else if(!Number.isSafeInteger(row.cases)||row.cases<0){
+   issues.push("invalid_measure");break;
+  }
+  sum+=row.cases===null?0:row.cases;if(row.cases>0)nonzero++;
   const coords=[];
   for(const col of axis){
    if(typeof row[col]!=="string"||!row[col].trim()){issues.push("missing_axis");break;}
@@ -184,7 +189,7 @@ function technicalReview(rows,job){
  const sensitive=kind==="municipality"||kind==="institution";
  if(sensitive)issues.push("privacy_review_required");
  return {passed:issues.length===0,issues:[...new Set(issues)],
-  row_count:rows.length,measure_sum:sum,nonzero_rows:nonzero};
+  row_count:rows.length,measure_sum:sum,nonzero_rows:nonzero,missing_measures_imputed_zero:missingMeasures,missing_measure_provenance:"null_only"};
 }
 
 function cleanRows(rows){
