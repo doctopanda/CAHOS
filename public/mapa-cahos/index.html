@@ -181,12 +181,13 @@ button.primary,button.secondary{border-radius:10px}
 .right .territoryActions button:first-child{background:#fff5e7;border-color:#e5cfaa;color:#8d6433}
 .right .territoryActions button:disabled{opacity:.45;cursor:default}
 .right .territoryActions button:focus-visible{outline:3px solid #e8b253;outline-offset:2px}
+.topbar nav .mapLogout{border:1px solid #bae3d6;border-radius:9px;padding:8px 10px;background:#ffffff1a;color:#fff;font-size:11px;font-weight:750;cursor:pointer}
 </style></head>
 <body><div class="app">
 <header class="topbar">
  <div class="brand"><div class="brand-mark">⌁</div><div><strong>CAHOS</strong><small>MAPA · MOTOR TERRITORIAL</small></div></div>
  <div class="subtitle">Observatorio Territorial Epidemiológico de Sonora</div>
- <nav aria-label="Productos conectados"><a href="/CAHOS/">Panorama</a><a href="/CAHOS/poblacion.html">Población</a><a href="/CAHOS/revision.html">Calidad</a><a href="/CAHOS/conexion.html">Infraestructura</a><a href="/CAHOS/acceso.html">Acceso</a><a class="openVisor" href="/CAHOS/">▥ Visor</a></nav>
+ <nav aria-label="Productos conectados"><a href="/CAHOS/">Panorama</a><a href="/CAHOS/poblacion.html">Población</a><a href="/CAHOS/revision.html">Calidad</a><a href="/CAHOS/conexion.html">Infraestructura</a><a href="/CAHOS/acceso.html">Acceso</a><button id="mapLogout" type="button" class="mapLogout">Salir</button><a class="openVisor" href="/CAHOS/">▥ Visor</a></nav>
 </header>
 <aside class="sidebar" id="controlPanel" aria-label="Centro de capas de CAHOS">
  <div class="panelHeading"><h2>◈ Panel territorial</h2><div class="panelTools"><button id="panelCompress" type="button">Comprimir</button><button id="panelExpand" type="button">Expandir</button></div></div>
