@@ -15,7 +15,7 @@
 .reviewGate{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:-1px 0 15px;padding:15px 18px;border:1px solid #dec895;border-radius:13px;background:#fff8e9;color:#54482b}
 .reviewGate strong{display:block;font-size:14px;color:#58451d}
 .reviewGate span{display:block;font-size:12px;line-height:1.5;margin-top:3px}
-.reviewGate a{display:inline-block;padding:11px 16px;border-radius:9px;background:#176959;color:white;font-size:13px;font-weight:750;text-decoration:none}
+.reviewGate a{display:inline-block;padding:11px 16px;border-radius:9px;background:#8A1F5B;color:white;font-size:13px;font-weight:750;text-decoration:none}
 </style><style>
 .populationStrip{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;margin:0 0 15px;padding:15px 19px;background:linear-gradient(110deg,#e1f3ed,#f6faf8);border-radius:13px;border:1px solid #bedfd0}
 .populationStrip strong{font-size:21px;color:#175b4d}.populationStrip .part{display:grid;gap:2px}.populationStrip .part span{font-size:11px;color:#58796d}
@@ -54,7 +54,7 @@
 <div class="toolbar" style="margin-top:14px;margin-bottom:-3px"><button class="btn alt" id="exportData">↓ Exportar datos consultados CSV</button><span class="hint">Solo datos recuperados del cubo para esta selección</span></div><div class="gridCharts"><div class="panel"><h2>Serie semanal</h2><div class="sub">Comportamiento del padecimiento en el año elegido</div><div class="chart" id="weeklyChart"></div></div><div class="panel"><h2>Comparativo interanual homogéneo</h2><div class="sub">Mismas semanas, distintas anualidades</div><div class="chart" id="yearChart"></div></div><div class="panel full"><h2>Totales de años completos y parciales</h2><div class="sub">Totales anuales que reporta el cubo; interpretar años en curso por separado</div><div class="chart" style="height:250px" id="annualChart"></div><div class="stamp" id="periodWarning"></div></div></div></section>
 <section id="view-mapa" class="view hide">
  <div class="panel"><h2>Mapa epidemiológico de Sonora</h2>
-<p class="hint">Este es el mapa-resumen del Panorama y se conserva. <a href="./mapa-cahos/" style="color:#116f5d;font-weight:780">Abrir MAPA CAHOS: visor territorial avanzado con capas y fichas →</a></p>
+<p class="hint">Este es el mapa-resumen del Panorama y se conserva. <a href="./mapa-cahos/" style="color:#8A1F5B;font-weight:780">Abrir MAPA CAHOS: visor territorial avanzado con capas y fichas →</a></p>
  <div class="sub" id="mapTitleDisease">Selecciona una patología y año en Panorama. Los polígonos vienen de INEGI.</div>
  <div class="toolbar"><label>Colorizar por <select id="mapMetric"><option value="cases">Casos registrados</option><option value="rate">Tasa por 100,000 habitantes</option></select></label>
  <button id="mapQuery" class="btn">↻ Consultar municipios del cubo</button></div>
@@ -72,7 +72,7 @@
 </main></div>
 <script src="./cahos-zero.js"></script><script src="./configuracion-publica.js"></script><script src="./cahos-auth.js"></script><script src="./cahos-state.js"></script>
 <script>
-const $=s=>document.querySelector(s);const num=x=>Number(x||0).toLocaleString('es-MX',{maximumFractionDigits:1});const COLORS=['#178d79','#7766a5','#c1944e','#bf6862','#2d6f96','#86a445','#b17aaf','#515d78','#56a8a2'];
+const $=s=>document.querySelector(s);const num=x=>Number(x||0).toLocaleString('es-MX',{maximumFractionDigits:1});const COLORS=['#8A1F5B','#B54F91','#9A73C0','#E58A52','#B33A77','#7653A8','#D45D9F','#9B4866','#A987D2'];
 const state={catalog:{},favorites:[],status:null,data:{},path:'panorama',running:false,canReview:false,awaitingReview:false,populationByYear:new Map()};
 const remembered=window.CAHOSSelection?.read()||{};
 function rememberFilters(){const g=id=>$(id)?.value||'';
