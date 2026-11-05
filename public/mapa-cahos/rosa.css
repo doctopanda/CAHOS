@@ -1,0 +1,69 @@
+/* CAHOS · identidad 2026 inspirada en sello rosa/lila.
+   La cartografía conserva los polígonos INEGI; colores representan datos según leyenda. */
+:root{
+ --cahos-berry:#8A1F5B;--cahos-bubble:#F06DA6;--cahos-blush:#FFC2D9;
+ --cahos-lilac:#CDB4F4;--cahos-cream:#FFF4E6;
+ --dark:#8A1F5B;--forest:#8A1F5B;--green:#A72C71;--mint:#E266A0;
+ --line:#F2CCDE;--ink:#5C2444;--muted:#876078;--bg:#FFF8F3;
+}
+body{color:#5a2745;background:#fff7f4}
+.topbar{background:linear-gradient(110deg,#7e174f 0%,#a3296e 55%,#d45e98 100%);box-shadow:0 4px 20px #79275b3b}
+.topbar .brand-mark{background:#fff4e6;border:2px solid #f6b9d7;border-radius:50%;color:#8a1f5b;padding:4px;overflow:hidden}
+.topbar .brand-mark svg{display:block;width:100%;height:100%}
+.topbar .brand strong,.topbar .brand small{color:#fff8f4}
+.topbar nav a{color:#fff8f4}
+.topbar .openVisor{border-color:#ffd3e7;background:#ffffff24}
+.topbar nav .mapLogout{border-color:#ffc7dd}
+.sidebar{background:linear-gradient(180deg,#fff8f6,#fff3f6 62%,#fffaf4);border-right:1px solid #eac2d3}
+.sidebar .panelHeading h2,.cardTop,.introCard h3{color:#7e2052}
+.panelHeading button,.quickActions button{background:#fff1f6;border:1px solid #e8bad3;color:#8a2457}
+.quickActions button:first-child,button.primary{background:linear-gradient(110deg,#a92270,#d45998);border-color:#ac2c73;color:white}
+button.secondary{background:#fde8f0;border-color:#f1b9d2;color:#8a275e}
+button.primary:hover,.quickActions button:first-child:hover{filter:brightness(1.05)}
+.introCard,.filterPanel{background:#fffdfb;border-color:#f0d4e2;box-shadow:0 4px 15px #8a1f5b12}
+.controlLabel,.zonePanel h2{background:#fff0f6;color:#87295b;border-bottom-color:#f3d8e6}
+.filters label,.actions label{color:#87586f}
+.filters input,.filters select,.actions select,.territoryBar select,.muniActions select{border:1px solid #e8c4d6;background:#fffdfa;color:#602641}
+.zoneChip{color:#7c2955;border-color:#ebd0dd;background:#fffaf7}
+.zoneChip[aria-pressed="true"]{border-color:#b33274;background:#ffe1ef;box-shadow:inset 0 0 0 1px #cd5a97}
+.zoneTotals{background:#fff8f5;border-color:#efd1df;color:#7f4b65}
+.accessCard{background:#ffeff4;border-color:#f1cade;color:#7e285b}
+.sidebarLinks a{border-color:#edd0df;background:#fffaf7;color:#852654}
+.mapWorkspace,.mapWorkspace .mapArea{background:#f8e9eb}
+.right .box{background:#fffaf8f5;border-color:#e9c5d6;box-shadow:0 5px 20px #79275b20;backdrop-filter:blur(5px)}
+.right .box h2,.right .caption{color:#902759}
+.right .box .mini{color:#805b6e}
+.right .kpis div{border-color:#f3d9e5;background:#fffdfb}
+.right .kpis span{color:#885774}
+.right .kpis b{color:#7d2451}
+.panoramaCard .panoramaGrid div{background:linear-gradient(140deg,#fff0f7,#f9e9fa)}
+.panoramaCard .panoramaGrid b{color:#98266c}
+.right .territoryActions button{background:#fbe5ee;border-color:#f0bfd5;color:#8d2b5e}
+.right .territoryActions button:first-child{background:#fff0e5;color:#995a33}
+.mapTools button{background:#fff7f2;color:#8b1d59;border-color:#f0bbd4}
+.mapFoot,.mapLegend{background:#fffaf7ed;border:1px solid #e9bfd4;color:#70405d}
+.mapLegend strong{color:#82245b}
+.notice{background:#fff4eeef;color:#863c60;border:1px solid #f4c9d7}
+.notice.ok{background:#fbe8f1f3;border-color:#eab7cf;color:#842552}
+.notice.error{background:#fff1f1f3;border-color:#e8b1b6;color:#a63c53}
+.periodPanel,.lespPanel{padding:0;margin:0 0 12px;background:#fffdfb;border:1px solid #efcfdd;border-radius:14px;overflow:hidden}
+.periodPanel .body,.lespPanel .body{padding:12px 13px}
+.periodGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.periodGrid>label:first-child{grid-column:1/-1}
+.periodGrid label,.lespPanel label{display:grid;gap:4px;font-size:11px;color:#814e68;font-weight:760}
+.periodPanel select,.lespPanel select,.lespPanel input{min-width:0;width:100%;background:#fff;border:1px solid #efc5d7;border-radius:9px;min-height:36px;color:#702c53;padding:6px 8px}
+.periodCaption{font-size:11px;font-weight:800;color:#982a65;padding:9px 0 0}
+.lespPanel .explain{font-size:11px;color:#8a627a;line-height:1.5;margin:7px 0}
+.lespPanel [hidden]{display:none!important}
+.lespStatus{font-size:11px;line-height:1.5;background:#fff1f6;border:1px solid #f0cadd;border-radius:9px;padding:8px 9px;color:#7d3a5b}
+.labBadge{display:inline-block;border-radius:8px;background:#ffe2ee;border:1px solid #efb4ce;color:#8b205c;padding:4px 7px;font:800 10px system-ui,Segoe UI,sans-serif}
+.sourceStrip{display:flex;flex-wrap:wrap;gap:6px;margin:9px 0 2px}
+.sourceStrip span{border:1px solid #ebccda;background:#fff5f8;color:#784362;border-radius:10px;padding:5px 8px;font-size:10px;font-weight:700}
+.labList{font-size:11px;line-height:1.5;color:#71415c;margin:8px 0 0;padding:0;list-style:none}
+.labList li{display:flex;gap:8px;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f2e1e8}
+.labList strong{color:#97265f}
+.labMiniChart{display:block;width:100%;height:auto;max-height:110px;background:#fff7f9;border-radius:9px;border:1px solid #efccdc}
+.lespSection{border-top:1px solid #f1d5e3;margin-top:12px;padding-top:10px}
+.lespSection h3{font-size:13px;color:#8a1f5b;margin:0 0 5px}
+#brandMapSource{display:block;font-size:9px;color:#f9d4e5;margin-top:4px}
+@media(max-width:950px){.periodGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
