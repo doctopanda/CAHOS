@@ -663,34 +663,191 @@ function renderLabOverview(){
  $("labOverviewNote").textContent="Fuente LESP "+(temporal.origin()==="protected"?"Supabase protegida":"en vista previa local")+" · "+temporal.label()+
   ". Resultados positivos candidatos, pendientes de validación y deduplicación. Los municipios sin registro en este extracto se muestran sin dato.";
 }
-function renderLabDetail(code){
- const name=state.featureMap.get(code)?.properties?.nombre||"",list=$("labList");
- list.replaceChildren();const svg=$("labMiniChart");svg.replaceChildren();
- const lab=temporal.labCount(name);
- if(lab===null){
-  $("labInfo").textContent=!temporal.hasLab()?
-    "LESP no cargado. El Administrador Maestro debe importar el JSON agregado privado.":
-    temporal.labYear()!==temporal.current().year?
-    "El archivo importado pertenece a "+temporal.labYear()+", no al año "+temporal.current().year+".":
-    "No hay resultados positivos registrados para este municipio, patología e intervalo en el extracto importado. No equivale a cero casos confirmados.";
+// The LESP explorer remains local to a Master-authorized session.
+// Never persist its municipal series in URL, localStorage or a public map layer.
+const labExplorer={code:null,diagnosis:"",scope:"annual"};
+function labDiagnosisLabel(){return labExplorer.diagnosis||"Todos los diagnósticos";}
+function selectedLabMunicipality(){
+ return labExplorer.code?state.featureMap.get(labExplorer.code)?.properties?.nombre||"":"" ;
+}
+function labWeekLabel(week){return "SE "+String(week).padStart(2,"0");}
+function labPointDescription(point){
+ if(!point)return "Sin semana seleccionada.";
+ return labWeekLabel(point.week)+": "+(point.count===null?
+  "sin registro positivo en el extracto; no equivale a cero casos":
+  fmt(point.count)+" resultados positivos de laboratorio clasificados.");
+}
+function drawLabWeeklyChart(svg,series,expanded=false){
+ svg.replaceChildren();
+ const width=expanded?980:286,height=expanded?338:90;
+ svg.setAttribute("viewBox","0 0 "+width+" "+height);
+ if(!series||!series.points.length){
+  svg.append(mk("text",{x:width/2,y:height/2,fill:"#8A5775","font-size":expanded?17:10,
+   "text-anchor":"middle"},"Sin registros para el periodo"));
   return;
  }
- $("labInfo").textContent=fmt(lab)+" resultados positivos clasificados · "+temporal.label()+
-  " · procedencia reportada (no necesariamente residencia).";
- for(const item of temporal.labBreakdown(name).slice(0,8)){
-  const li=document.createElement("li"),label=document.createElement("span"),count=document.createElement("strong");
-  label.textContent=item.pathology;count.textContent=fmt(item.count);li.append(label,count);list.append(li);
+ const points=series.points,marginL=expanded?52:9,marginR=expanded?16:9;
+ const plotTop=expanded?30:9,plotBottom=expanded?286:69;
+ const usableWidth=width-marginL-marginR,usableHeight=plotBottom-plotTop;
+ const max=Math.max(1,...points.filter(x=>x.count!==null).map(x=>x.count));
+ const step=usableWidth/points.length,barWidth=Math.max(2,Math.min(expanded?21:5.8,step*.76));
+ if(expanded){
+  for(let tick=0;tick<=4;tick++){
+   const y=plotBottom-tick/4*usableHeight,value=max*tick/4;
+   svg.append(mk("line",{x1:marginL,y1:y,x2:width-marginR,y2:y,
+    stroke:"#EEDBE6","stroke-width":1}));
+   svg.append(mk("text",{x:marginL-9,y:y+4,fill:"#8C6680","text-anchor":"end",
+    "font-size":12},fmt(Math.round(value))));
+  }
  }
- const series=temporal.labWeeks(name)||[];if(!series.length)return;
- const max=Math.max(1,...series.map(x=>x.count)),space=Math.min(5,90/series.length);
- const barw=Math.max(2,(256/series.length)-space);
- series.forEach((v,i)=>{
-  const height=v.count/max*58;
-  const rect=mk("rect",{x:15+i*(barw+space),y:70-height,width:barw,height:Math.max(1,height),rx:2,fill:"#B33279"});
-  rect.append(mk("title",{},"SE "+v.week+": "+v.count+" positivos"));svg.append(rect);
+ points.forEach((point,i)=>{
+  const x=marginL+i*step+(step-barWidth)/2;
+  if(point.count!==null){
+   const barHeight=Math.max(point.count>0?(expanded?2.5:1.5):1.3,
+    point.count/max*usableHeight);
+   const rect=mk("rect",{x:x.toFixed(2),y:(plotBottom-barHeight).toFixed(2),
+    width:barWidth.toFixed(2),height:barHeight.toFixed(2),rx:expanded?3:1.5,
+    fill:point.inSelectedPeriod?"#A72A72":"#CDB4F4"});
+   rect.append(mk("title",{},labPointDescription(point)));
+   if(expanded){
+    rect.classList.add("labBar");
+    rect.setAttribute("role","button");
+    rect.setAttribute("tabindex","0");
+    rect.setAttribute("aria-label",labPointDescription(point));
+    const inspect=()=>{$("labDialogPoint").textContent=labPointDescription(point)};
+    rect.addEventListener("click",inspect);
+    rect.addEventListener("focus",inspect);
+    rect.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();inspect()}});
+   }
+   svg.append(rect);
+  }else if(expanded){
+   // Open circles denote missing rows, not a verified zero.
+   const circ=mk("circle",{cx:(x+barWidth/2).toFixed(2),cy:plotBottom-3,r:2.2,
+    fill:"#FFF",stroke:"#D8B5C9","stroke-width":1.3});
+   circ.append(mk("title",{},labPointDescription(point)));svg.append(circ);
+  }
+  if(expanded&&(i===0||i===points.length-1||point.week%5===0)){
+   svg.append(mk("text",{x:(x+barWidth/2).toFixed(2),y:plotBottom+22,
+    fill:"#85586D","font-size":11,"text-anchor":"middle"},labWeekLabel(point.week)));
+  }
  });
- svg.append(mk("text",{x:6,y:85,fill:"#8A1F5B","font-size":9},"SE "+series[0].week));
- svg.append(mk("text",{x:278,y:85,fill:"#8A1F5B","font-size":9,"text-anchor":"end"},"SE "+series.at(-1).week));
+ if(!expanded){
+  svg.append(mk("text",{x:marginL,y:86,fill:"#8A1F5B","font-size":9},
+   labWeekLabel(points[0].week)));
+  svg.append(mk("text",{x:width-marginR,y:86,fill:"#8A1F5B","font-size":9,
+   "text-anchor":"end"},labWeekLabel(points.at(-1).week)));
+ }
+}
+function updateLabExplorerButtons(){
+ $("labDiagnosisAll").setAttribute("aria-pressed",String(!labExplorer.diagnosis));
+ for(const btn of $("labList").querySelectorAll("button[data-diagnosis]"))
+  btn.setAttribute("aria-pressed",String(btn.dataset.diagnosis===labExplorer.diagnosis));
+}
+function selectLabDiagnosis(diagnosis){
+ if(!labExplorer.code)return;
+ const name=selectedLabMunicipality(),annual=temporal.labAnnualDiagnoses(name);
+ if(diagnosis&&!annual.some(x=>x.pathology===diagnosis))return;
+ labExplorer.diagnosis=diagnosis;
+ updateLabExplorerButtons();
+ renderLabMini();
+ if($("labDetailDialog").open)renderLabExpanded();
+}
+function renderLabMini(){
+ const name=selectedLabMunicipality(),svg=$("labMiniChart"),open=$("labMiniOpen");
+ const annual=name?temporal.labDiagnosisWeeks(name,labExplorer.diagnosis,"annual"):null;
+ $("labChartDiagnosis").textContent=labDiagnosisLabel();
+ $("labChartYear").textContent=String(temporal.current().year);
+ $("labChartPeriod").textContent=annual?
+  "Evolución anual "+annual.year+" · hasta "+labWeekLabel(annual.lastPositiveWeek):
+  "Sin serie anual disponible";
+ open.disabled=!annual?.hasRecords;
+ open.setAttribute("aria-label","Ampliar la serie anual de "+labDiagnosisLabel()+
+  (name?" en "+name:""));
+ $("labSeriesNote").textContent=annual?
+  "Baya: semanas incluidas en el filtro actual · Lila: resto del año. Semanas sin fila LESP no son ceros observados.":
+  "Sin serie disponible para el municipio y año. No se imputan ceros.";
+ drawLabWeeklyChart(svg,annual,false);
+}
+function renderLabExpanded(){
+ const dlg=$("labDetailDialog");if(!dlg.open||!labExplorer.code)return;
+ const name=selectedLabMunicipality(),diagnoses=temporal.labAnnualDiagnoses(name);
+ if(!diagnoses.length){dlg.close();return}
+ const path=$("labDialogPathology"),prior=path.value;
+ path.replaceChildren(new Option("Todos los diagnósticos",""));
+ for(const row of diagnoses)path.add(new Option(row.pathology,row.pathology));
+ path.value=labExplorer.diagnosis;
+ const series=temporal.labDiagnosisWeeks(name,labExplorer.diagnosis,labExplorer.scope);
+ const annual=labExplorer.scope==="annual";
+ $("labDialogAnnual").classList.toggle("active",annual);
+ $("labDialogAnnual").setAttribute("aria-pressed",String(annual));
+ $("labDialogRange").classList.toggle("active",!annual);
+ $("labDialogRange").setAttribute("aria-pressed",String(!annual));
+ $("labDialogTitle").textContent="LESP · "+labDiagnosisLabel();
+ $("labDialogDescription").textContent=name+" · Año "+temporal.current().year+
+  " · resultados positivos clasificados, no casos confirmados.";
+ $("labDialogSeriesTitle").textContent="Comportamiento semanal · "+labDiagnosisLabel();
+ const p=temporal.current();
+ $("labDialogPeriodNote").textContent=(annual?"Serie anual disponible":"Periodo "+labWeekLabel(p.start)+"–"+labWeekLabel(p.end))+
+  " · último positivo clasificado del archivo: "+labWeekLabel(temporal.labDiagnosisWeeks(name,"","annual")?.lastPositiveWeek||p.end);
+ $("labDialogTotal").textContent=series?.hasRecords?fmt(series.total):"—";
+ $("labDialogPeak").textContent=series?.peak?fmt(series.peak.count):"—";
+ $("labDialogPeakWeek").textContent=series?.peak?labWeekLabel(series.peak.week):"Sin semanas registradas";
+ $("labDialogObserved").textContent=series?fmt(series.withData)+" / "+fmt(series.points.length):"—";
+ $("labDialogCutoff").textContent=series?labWeekLabel(series.lastPositiveWeek):"—";
+ $("labDialogPoint").textContent=series?.hasRecords?
+  "Selecciona una barra para consultar su semana. Las barras lilas están fuera del periodo filtrado.":
+  "No hay registros positivos clasificados para este diagnóstico en el intervalo.";
+ drawLabWeeklyChart($("labDialogChart"),series,true);
+ $("labDialogChart").setAttribute("aria-label","Resultados LESP de "+labDiagnosisLabel()+
+  " en "+name+", "+(annual?"serie anual":"periodo seleccionado"));
+}
+function openLabExpanded(){
+ if(!labExplorer.code||$("labMiniOpen").disabled)return;
+ const dlg=$("labDetailDialog");
+ labExplorer.scope="annual";
+ if(!dlg.open)dlg.showModal();
+ renderLabExpanded();
+ $("labDialogClose").focus();
+}
+function renderLabDetail(code){
+ const name=state.featureMap.get(code)?.properties?.nombre||"",list=$("labList");
+ if(labExplorer.code!==code){
+  labExplorer.code=code;labExplorer.diagnosis="";labExplorer.scope="annual";
+  if($("labDetailDialog").open)$("labDetailDialog").close();
+ }
+ list.replaceChildren();
+ const annualDiagnoses=temporal.labAnnualDiagnoses(name);
+ const periodDiagnoses=temporal.labBreakdown(name);
+ const lab=temporal.labCount(name);
+ if(!annualDiagnoses.length){
+  $("labInfo").textContent=!temporal.hasLab()?
+   "LESP todavía no disponible: inicia sesión como Maestro para recuperar los agregados protegidos.":
+   temporal.labYear()!==temporal.current().year?
+   "El archivo corresponde a "+temporal.labYear()+", no a "+temporal.current().year+".":
+   "Este municipio no tiene registros positivos clasificados en el extracto anual. No significa cero casos confirmados.";
+  labExplorer.diagnosis="";
+  updateLabExplorerButtons();renderLabMini();
+  if($("labDetailDialog").open)$("labDetailDialog").close();
+  return;
+ }
+ const items=periodDiagnoses.length?periodDiagnoses:annualDiagnoses;
+ $("labInfo").textContent=lab!==null?
+  fmt(lab)+" resultados positivos clasificados · "+temporal.label()+
+  " · procedencia reportada (no necesariamente residencia).":
+  "Sin registros positivos en el periodo seleccionado. La lista muestra el total del año para explorar cada diagnóstico.";
+ for(const item of items){
+  const li=document.createElement("li"),button=document.createElement("button");
+  button.type="button";button.className="labDiagnosisButton";
+  button.dataset.diagnosis=item.pathology;
+  const label=document.createElement("span"),count=document.createElement("strong");
+  label.textContent=item.pathology;count.textContent=fmt(item.count);
+  button.append(label,count);button.addEventListener("click",()=>selectLabDiagnosis(item.pathology));
+  li.append(button);list.append(li);
+ }
+ if(labExplorer.diagnosis&&!annualDiagnoses.some(x=>x.pathology===labExplorer.diagnosis))
+  labExplorer.diagnosis="";
+ updateLabExplorerButtons();renderLabMini();
+ if($("labDetailDialog").open)renderLabExpanded();
 }
 function renderSonoraBrand(){
  const host=$("sonoraBrand");if(!host)return;
@@ -986,6 +1143,20 @@ temporal.onChange(()=>{
  }
  drawMap();if(state.selected)showDetail(state.selected);save();
 });
+$("labDiagnosisAll").addEventListener("click",()=>selectLabDiagnosis(""));
+$("labMiniOpen").addEventListener("click",openLabExpanded);
+$("labDialogClose").addEventListener("click",()=>$("labDetailDialog").close());
+$("labDialogDone").addEventListener("click",()=>$("labDetailDialog").close());
+$("labDetailDialog").addEventListener("click",event=>{
+ if(event.target===$("labDetailDialog"))$("labDetailDialog").close();
+});
+$("labDialogPathology").addEventListener("change",event=>selectLabDiagnosis(event.target.value));
+$("labDialogAnnual").addEventListener("click",()=>{
+ labExplorer.scope="annual";renderLabExpanded();
+});
+$("labDialogRange").addEventListener("click",()=>{
+ labExplorer.scope="period";renderLabExpanded();
+});
 $("lespPublish").addEventListener("click",publishProtectedLESP);
 $("lespReload").addEventListener("click",()=>{
  if(temporal.pendingPayload()&&!window.confirm("La vista previa local todavía no está publicada. ¿Descartarla y recuperar la versión activa?"))return;
@@ -1045,6 +1216,12 @@ function clearMapDetail(){
   "Archivo LESP cargado. Selecciona un municipio para consultar registros de positivos clasificados.":
   "Los datos LESP requieren importar un JSON agregado privado autorizado desde la sesión Maestra.";
  $("labList").replaceChildren();$("labMiniChart").replaceChildren();
+ labExplorer.code=null;labExplorer.diagnosis="";labExplorer.scope="annual";
+ $("labMiniOpen").disabled=true;
+ $("labChartDiagnosis").textContent="Todos los diagnósticos";
+ $("labChartPeriod").textContent="Selecciona un municipio";
+ $("labSeriesNote").textContent="Sin datos visibles. Selecciona un municipio para explorar diagnósticos.";
+ if($("labDetailDialog").open)$("labDetailDialog").close();
  $("name").textContent="Sonora";
  $("note").textContent="Selecciona un polígono para analizar un municipio.";
  $("municipalityRegions").textContent="Sin municipio seleccionado.";
