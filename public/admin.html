@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CAHOS | Administración maestra</title>
+<link rel="stylesheet" href="/CAHOS/cahos-shell.css">
+<script defer src="/CAHOS/cahos-shell.js"></script>
+<style>
+*{box-sizing:border-box}
+body{font:14px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;color:#18463e;background:#edf7f1}
+main{max-width:1030px;margin:auto;padding:16px 8px}
+h1{font-size:clamp(25px,3vw,36px);margin:6px 0}h2{font-size:18px;margin:0 0 8px}
+.card{background:white;padding:22px;border:1px solid #d5e6dd;border-radius:15px;margin:15px 0;box-shadow:0 9px 23px #124b3810}
+.note{color:#627d72;font-size:13px}.alert{background:#eaf7ef;border:1px solid #c4e3d3;border-radius:12px;padding:13px;margin:16px 0}
+.actions{display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+button{border:0;border-radius:9px;padding:11px 13px;background:#166f5d;color:white;font:inherit;font-weight:750;cursor:pointer}
+button.danger{background:#b75047}button.secondary{background:#e8f5ee;color:#12604d}
+button:disabled{opacity:.5;cursor:default}
+#agentToken{display:block;overflow-wrap:anywhere;word-break:break-all;font-family:ui-monospace,monospace;font-size:12px;background:#f2f7f2;padding:12px;border-radius:10px}
+#agentToken:empty{display:none}
+.agent{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:12px;border:1px solid #d6e5da;border-radius:10px;margin:9px 0}
+.agent strong{overflow-wrap:anywhere}
+.hidden{display:none!important}
+</style></head><body data-cahos-module="admin"><main>
+<div style="font-size:11px;font-weight:850;color:#198671;letter-spacing:1.2px">CAHOS · SEGURIDAD Y CONTROL</div>
+<h1>Administración maestra</h1>
+<p class="note">La vinculación y revocación de agentes está reservada al Administrador Maestro. El servidor debe validar el perfil en cada operación; ocultar controles no reemplaza la autorización.</p>
+<div class="alert" id="guard" role="status">Comprobando autenticación y privilegios…</div>
+<div id="secureContent" class="hidden">
+<section class="card"><h2>Vinculación del agente central</h2>
+<p class="note">El token solo se presenta al generarlo. Guárdalo exclusivamente en el equipo Windows autorizado. Nunca lo publiques ni lo compartas por mensajería.</p>
+<div class="actions"><button id="createAgent" type="button">Generar token de agente</button><button id="copyAgent" type="button" class="secondary hidden">Copiar token</button></div>
+<code id="agentToken" class="hidden"></code></section>
+<section class="card"><h2>Agentes registrados</h2><p class="note">Identifica agentes por estado y fecha, sin mostrar sus secretos.</p>
+<div class="actions"><button class="secondary" id="refreshAgents" type="button">Actualizar lista</button></div><div id="agents" aria-live="polite"></div></section>
+<section class="card"><h2>Herramientas institucionales</h2>
+<div class="actions"><a href="/CAHOS/revision.html">Control de calidad</a><a href="/CAHOS/conexion.html">Infraestructura</a><a href="/CAHOS/">Panorama SUIVE</a></div></section></div>
+</main>
+<script src="/CAHOS/configuracion-publica.js"></script><script src="/CAHOS/cahos-auth.js"></script>
+<script>
+const E=id=>document.getElementById(id);
+const tell=s=>E("guard").textContent=s;
+async function verifyMaster(){
+ const token=await CAHOSAuth.accessToken();
+ if(!token){location.replace("/CAHOS/acceso.html");return false;}
+ const user=await CAHOSAuth.profile();
+ if(!user?.enabled||user.is_master!==true){location.replace("/CAHOS/");return false;}
+ E("secureContent").classList.remove("hidden");
+ tell("Acceso maestro validado. Gestión de agentes habilitada.");
+ return true;
+}
+async function agents(){
+ try{
+  const response=(await CAHOSAuth.api("/admin/agents")).body;
+  const list=E("agents");list.replaceChildren();
+  if(!response.agents?.length){list.textContent="No hay agentes registrados.";return;}
+  for(const agent of response.agents){
+   const row=document.createElement("div");row.className="agent";
+   const label=document.createElement("div");
+   const name=document.createElement("strong");name.textContent=agent.label||"Agente CAHOS";
+   const info=document.createElement("div");info.className="note";
+   info.textContent=(agent.enabled&&!agent.revoked_at?"Activo":"Deshabilitado")+" · ID "+String(agent.id).slice(0,8)+" · Último contacto: "+(agent.last_seen_at?new Date(agent.last_seen_at).toLocaleString("es-MX"):"sin registro");
+   label.append(name,info);row.append(label);
+   if(agent.enabled&&!agent.revoked_at){
+    const revoke=document.createElement("button");revoke.type="button";revoke.className="danger";revoke.textContent="Revocar acceso";
+    revoke.addEventListener("click",async()=>{
+     if(!confirm("¿Revocar el agente seleccionado? Dejará de poder conectarse."))return;
+     revoke.disabled=true;
+     try{await CAHOSAuth.api("/admin/revoke-agent",{method:"POST",body:{agent_id:agent.id}});tell("Acceso del agente revocado.");await agents();}
+     catch(e){tell("No fue posible revocar: "+e.message);revoke.disabled=false;}
+    });
+    row.append(revoke);
+   }
+   list.append(row);
+  }
+ }catch(e){tell("No fue posible consultar los agentes: "+e.message)}
+}
+E("createAgent").addEventListener("click",async()=>{
+ const button=E("createAgent");button.disabled=true;
+ try{
+  const result=(await CAHOSAuth.api("/admin/create-agent",{method:"POST",body:{}})).body;
+  if(!/^[a-f0-9]{64}$/i.test(result.token))throw Error("La respuesta no incluyó un token válido");
+  E("agentToken").textContent=result.token;E("agentToken").classList.remove("hidden");
+  E("copyAgent").classList.remove("hidden");tell("Token creado. Se mostrará únicamente en esta sesión; cópialo en el equipo autorizado.");await agents();
+ }catch(e){tell("No se pudo generar el token: "+e.message)}
+ finally{button.disabled=false}
+});
+E("copyAgent").addEventListener("click",async()=>{
+ try{await navigator.clipboard.writeText(E("agentToken").textContent);tell("Token copiado. No lo compartas.");}
+ catch{tell("No se pudo copiar automáticamente. Copia el token manualmente.")}
+});
+E("refreshAgents").addEventListener("click",agents);
+verifyMaster().then(ok=>{if(ok)agents()}).catch(e=>tell("No se pudo validar la autorización: "+e.message));
+</script></body></html>
