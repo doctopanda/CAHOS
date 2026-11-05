@@ -159,3 +159,29 @@ body.cahos-unified .cahos-global-side{background:linear-gradient(180deg,#FFF9F5,
  .cahos-global-side .cahos-module-nav{display:grid}
 }
 @media(prefers-reduced-motion:reduce){.cahos-module-cover,.cahos-global-side nav a{scroll-behavior:auto;transition:none}}
+
+/* Radar demográfico: tarjetas compactas con valores auténticos y procedencia */
+.cahos-content-area .cahos-insights{border-color:#E8BED5!important;padding:20px}
+.cahos-insights-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.cahos-insights-head>div{flex:1;min-width:0}
+.cahos-insights-head h2{font-size:clamp(20px,2.4vw,27px);color:#7C1E50;margin:3px 0}
+.cahos-insights-head .hint{max-width:760px;line-height:1.55}
+.cahos-insights-head>svg{width:185px;height:108px;flex:0 0 auto}
+.cahos-insights-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}
+.cahos-insight{position:relative;min-width:0;border:1px solid #E9C2D5;border-radius:15px;
+ padding:15px 14px 14px;background:linear-gradient(125deg,#FFFEFC,#FFF1F6);overflow:hidden}
+.cahos-insight::after{content:"";position:absolute;right:-40px;bottom:-51px;border-radius:50%;
+ width:104px;height:105px;background:#CDB4F43D;pointer-events:none}
+.cahos-insight-icon{display:grid;place-items:center;width:35px;height:35px;font-size:20px;
+ border-radius:50%;color:#8A1F5B;background:#FFE0EF;margin-bottom:8px;font-weight:850}
+.cahos-insight-title{font-size:11px;letter-spacing:.3px;font-weight:850;color:#8A1F5B;min-height:31px}
+.cahos-insight b{display:block;color:#741A48;font-size:clamp(16px,1.65vw,23px);
+ line-height:1.18;overflow-wrap:anywhere;margin:6px 0;font-variant-numeric:tabular-nums}
+.cahos-insight small{display:block;color:#6D455A;font-size:11px;line-height:1.45;position:relative;z-index:1}
+.cahos-insight:focus-visible{outline:3px solid #AA3777;outline-offset:2px}
+.cahos-insights-foot{font-size:11px;color:#6F465B;border-top:1px solid #EECFDF;padding-top:11px;margin:14px 0 0}
+@media(max-width:1280px){.cahos-insights-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.cahos-insights-grid{grid-template-columns:1fr 1fr;gap:8px}
+ .cahos-insight{padding:11px}.cahos-insights-head>svg{width:92px;height:78px}
+ .cahos-insight b{font-size:17px}}
+@media(max-width:430px){.cahos-insights-grid{grid-template-columns:1fr}.cahos-insight-title{min-height:auto}}
