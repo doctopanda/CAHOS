@@ -5,7 +5,7 @@
  "use strict";
  const $=id=>document.getElementById(id);
  const memory={rows:null,year:null,source:null,catalog:[],quality:null,lastPositiveWeek:null,loaded:false,master:false};
- const callbacks=new Set();
+ const callbacks=new Set(),importCallbacks=new Set();
  const norm=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]+/g," ").trim();
  const nameAliases={"MAGDALENA DE KINO":"MAGDALENA","SAN LUIS RIO COLORADO":"SAN LUIS RIO COLORADO","PUERTO PENASCO":"PUERTO PENASCO"};
  const canonical=v=>nameAliases[norm(v)]||norm(v);
@@ -55,19 +55,38 @@
   const w=current(),pathology=$("labPathology")?.value||"";
   if(!memory.loaded||memory.year!==w.year||w.start>memory.lastPositiveWeek)return null;
   const totals=new Map(),byDisease=new Map();
-  let stateTotal=0;
+  let stateTotal=0,matchingRows=0;
   for(const r of memory.rows){
    if(r.week<w.start||r.week>w.end||(pathology&&r.pathology!==pathology))continue;
+   matchingRows++;
    const key=canonical(r.municipality);
    totals.set(key,(totals.get(key)||0)+r.positive_lab_results);
    stateTotal+=r.positive_lab_results;
    if(!byDisease.has(key))byDisease.set(key,new Map());
    const dist=byDisease.get(key);dist.set(r.pathology,(dist.get(r.pathology)||0)+r.positive_lab_results);
   }
-  return {totals,byDisease,stateTotal,window:w};
+  // Un extracto de positivos no acredita cobertura negativa ni ausencia de notificación.
+  // Si no hay registros en el intervalo, no se transforma la extracción en cero.
+  if(!matchingRows)return null;
+  return {totals,byDisease,stateTotal,matchingRows,window:w};
  }
- function labCount(name){const a=labFilter();return a? (a.totals.get(canonical(name))||0):null;}
+ function labCount(name){
+  const a=labFilter();if(!a)return null;
+  const key=canonical(name);
+  return a.totals.has(key)?a.totals.get(key):null;
+ }
  function labStateTotal(){return labFilter()?.stateTotal??null;}
+ function labSummary(){
+  const a=labFilter();
+  return a?{
+   total:a.stateTotal,
+   municipalities:a.totals.size,
+   groupedRows:a.matchingRows,
+   year:memory.year,
+   lastPositiveWeek:memory.lastPositiveWeek,
+   period:a.window
+  }:null;
+ }
  function labBreakdown(name){return [...(labFilter()?.byDisease.get(canonical(name))||new Map())]
   .sort((a,b)=>b[1]-a[1]).map(([pathology,count])=>({pathology,count}));}
  function labWeeks(name){
@@ -83,9 +102,17 @@
  function labStatus(){
   const label=$("labStatus");
   if(!label)return;
+  const w=current();
   label.textContent=memory.loaded?
-   "Archivo privado cargado: "+memory.rows.length+" celdas. Último positivo clasificado: SE "+memory.lastPositiveWeek+" (no acredita corte oficial). Sin envío a servidores.":
-   "LESP no cargado. Los resultados del archivo no se publican en GitHub Pages.";
+   (memory.year===w.year?
+    "LESP importado correctamente · "+memory.rows.length+" celdas agregadas · Año "+
+      memory.year+" · último positivo registrado SE "+memory.lastPositiveWeek+
+      ". Datos locales y preliminares, no casos confirmados.":
+    "LESP importado para "+memory.year+"; el mapa está consultando "+w.year+
+     ". Cambia el año para visualizar el archivo.") :
+   (memory.master?
+     "LESP no cargado. Selecciona el JSON privado en el control de importación para visualizar la capa.":
+     "LESP sin fuente cargada en esta pestaña. La importación está reservada al Administrador Maestro.");
  }
  async function importPrivateFile(file){
   if(!memory.master)throw Error("Solo el Administrador Maestro puede importar agregados LESP");
@@ -112,10 +139,13 @@
    sel.replaceChildren(new Option("Todas las patologías positivas",""));
    for(const name of memory.catalog)sel.add(new Option(name,name));
   }
-  labStatus();fire();
+  labStatus();
+  for(const fn of importCallbacks)fn({year:memory.year,lastPositiveWeek:memory.lastPositiveWeek,rows:memory.rows.length});
+  fire();
  }
  function setMaster(v){memory.master=v===true;
   const panel=$("lespImportPanel");if(panel)panel.hidden=!memory.master;
+  labStatus();
  }
  function bind(){
   const mode=$("periodMode"),start=$("weekStart"),end=$("weekEnd");
@@ -144,7 +174,8 @@
  }
  root.CAHOSTemporal=Object.freeze({
   current,label,epiWeek,syncWeekOptions,onChange:fn=>callbacks.add(fn),
-  bind,setMaster,labFilter,labCount,labStateTotal,labBreakdown,labWeeks,labStatus,
+  onImport:fn=>importCallbacks.add(fn),
+  bind,setMaster,labFilter,labCount,labStateTotal,labSummary,labBreakdown,labWeeks,labStatus,
   hasLab:()=>memory.loaded,labYear:()=>memory.year
  });
 })(window);

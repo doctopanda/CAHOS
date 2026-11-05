@@ -561,12 +561,36 @@ async function trend(code,requestId){
   svg.append(mk("text",{x:302,y:135,fill:"#714B61","font-size":11,"text-anchor":"end"},"2030"));
  }catch{if(requestId===state.lastDetailRequest)blank(svg,"Sin tendencia disponible")}
 }
+function renderLabOverview(){
+ const box=$("labOverview");if(!box)return;
+ const loaded=temporal.hasLab();
+ box.hidden=!loaded;
+ if(!loaded)return;
+ const summary=temporal.labSummary();
+ $("labLastWeek").textContent="SE "+(temporal.labYear()===temporal.current().year?
+  (summary?.lastPositiveWeek??"—"):"—");
+ if(!summary){
+  $("labTotal").textContent="—";$("labMunCount").textContent="—";
+  $("labOverviewNote").textContent=temporal.labYear()!==temporal.current().year?
+   "El archivo corresponde a "+temporal.labYear()+", cambia el año de consulta para leerlo.":
+   "No hay registros de resultados positivos en el intervalo o patología elegidos. Esto no equivale a cero casos confirmados.";
+  return;
+ }
+ $("labTotal").textContent=fmt(summary.total);
+ $("labMunCount").textContent=fmt(summary.municipalities);
+ $("labOverviewNote").textContent="Fuente LESP local · "+temporal.label()+
+  ". Resultados positivos candidatos, pendientes de validación y deduplicación. Los municipios sin registro en este extracto se muestran sin dato.";
+}
 function renderLabDetail(code){
  const name=state.featureMap.get(code)?.properties?.nombre||"",list=$("labList");
  list.replaceChildren();const svg=$("labMiniChart");svg.replaceChildren();
  const lab=temporal.labCount(name);
  if(lab===null){
-  $("labInfo").textContent="Sin archivo LESP privado válido para "+temporal.label()+". No se interpreta como cero confirmado.";
+  $("labInfo").textContent=!temporal.hasLab()?
+    "LESP no cargado. El Administrador Maestro debe importar el JSON agregado privado.":
+    temporal.labYear()!==temporal.current().year?
+    "El archivo importado pertenece a "+temporal.labYear()+", no al año "+temporal.current().year+".":
+    "No hay resultados positivos registrados para este municipio, patología e intervalo en el extracto importado. No equivale a cero casos confirmados.";
   return;
  }
  $("labInfo").textContent=fmt(lab)+" resultados positivos clasificados · "+temporal.label()+
@@ -812,6 +836,9 @@ async function initialize(){
   $("mapLogin").hidden=true;$("mapLogout").hidden=false;
   $("mapAdmin").hidden=profile.is_master!==true;
   temporal.setMaster(profile.is_master===true);
+  renderLabOverview();
+  if(location.hash==="#lespImportPanel"&&profile.is_master===true)
+   setTimeout(()=>$("lespImportPanel")?.scrollIntoView({block:"center",behavior:"smooth"}),100);
   $("access").textContent=profile.is_master?"Administrador Maestro · Vista protegida":
     "Cuenta autorizada · Capas limitadas por privacidad";
   ["pathologies","years","entities","sex","age"].forEach((dim,i)=>state.catalog[dim]=catalogs[i].members||[]);
@@ -850,7 +877,21 @@ for(const id of ["pathology","year","sex","age"]){
 }
 $("metric").addEventListener("change",()=>{drawMap();if(state.selected)showDetail(state.selected)});
 temporal.bind();
+temporal.onImport(({year,rows})=>{
+ const yearSelect=$("year");
+ // El archivo local siempre gobierna el año de la capa LESP; no mezclar cortes.
+ if(temporal.current().year!==year){
+  const option=[...yearSelect.options].find(opt=>/\b(?:19|20)\d{2}\b/.test(opt.textContent||"")&&
+   Number((opt.textContent.match(/(?:19|20)\d{2}/)||[])[0])===year);
+  if(option){yearSelect.value=option.value;yearSelect.dispatchEvent(new Event("change"));}
+ }
+ $("metric").value="lab_cases";
+ renderLabOverview();
+ inform("LESP importado: "+rows+" celdas agregadas del año "+year+
+  ". Activamos la capa LESP. Selecciona un municipio para ver sus patologías y semanas. No son casos confirmados.","ok");
+});
 temporal.onChange(()=>{
+ temporal.labStatus();renderLabOverview();
  if(!isValidSuivePeriod()){
   state.municipal.clear();state.municipalMissing.clear();state.grandTotal=null;
   state.periodStateTotal=null;state.periodStateMissing=0;renderStatePeriod();
@@ -908,7 +949,9 @@ function clearMapDetail(){
  $("cases").style.color="";$("rate").style.color="";
  for(const id of ["rateState","labCount","labRateMunicipal","labRateState"])$(id).textContent="—";
  $("municipalPeriod").textContent=temporal.label();
- $("labInfo").textContent="Selecciona un municipio y carga un agregado LESP privado autorizado.";
+ $("labInfo").textContent=temporal.hasLab()?
+  "Archivo LESP cargado. Selecciona un municipio para consultar registros de positivos clasificados.":
+  "Los datos LESP requieren importar un JSON agregado privado autorizado desde la sesión Maestra.";
  $("labList").replaceChildren();$("labMiniChart").replaceChildren();
  $("name").textContent="Sonora";
  $("note").textContent="Selecciona un polígono para analizar un municipio.";
