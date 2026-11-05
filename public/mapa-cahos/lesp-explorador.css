@@ -1,0 +1,76 @@
+/* CAHOS LESP · Explorador diagnóstico y gráfica flotante.
+   Identidad baya #8A1F5B · rosa #F06DA6 · lila #CDB4F4 · crema #FFF4E6. */
+.labDiagnosisHeading{display:flex;flex-wrap:wrap;gap:5px;align-items:center;justify-content:space-between}
+.labDiagnosisTag{font-size:9px;font-weight:850;letter-spacing:.04em;color:#8A1F5B;background:#FFE4F0;border:1px solid #EEC1D8;border-radius:99px;padding:4px 7px}
+.labDiagnosisReset,.labDiagnosisButton{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;background:transparent;border:1px solid transparent;border-radius:9px;color:#6B3D53;font-weight:620;font-size:12px;padding:8px 9px;min-height:36px;transition:background .16s,border-color .16s}
+.labDiagnosisReset{margin-top:9px;background:#FFF3F9;border-color:#EED5E3;color:#782453;font-weight:820}
+.labDiagnosisButton{width:100%;border-color:transparent}
+.labDiagnosisReset:hover,.labDiagnosisButton:hover{background:#FFE8F2;border-color:#E9BED2;color:#7D2455}
+.labDiagnosisReset[aria-pressed="true"],.labDiagnosisButton[aria-pressed="true"]{background:#FFE0ED;border-color:#DC85B2;box-shadow:inset 3px 0 0 #A42370;color:#661742}
+.labDiagnosisButton span{line-height:1.28;overflow-wrap:anywhere}
+.labDiagnosisButton strong{font-variant-numeric:tabular-nums;flex:0 0 auto;color:#94185B}
+.labDiagnosisButton:focus-visible,.labDiagnosisReset:focus-visible,.labMiniOpen:focus-visible{outline:3px solid #9D1B69;outline-offset:2px}
+.labList{max-height:330px;overflow:auto;scrollbar-color:#D5A4C0 #FFF6F9;margin:4px 0 10px}
+.labList li{display:block;border-bottom:1px solid #F1E3EA}
+.labChartHeading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 7px}
+.labChartHeading>div{min-width:0;display:grid;gap:2px}
+.labChartHeading strong{font-size:12px;color:#8A1F5B;overflow-wrap:anywhere}
+.labChartHeading small{font-size:10px;color:#7A5A6C;line-height:1.4}
+.labChartYear{flex:0 0 auto;font-size:10px;font-weight:850;background:#F3E4FC;border-radius:8px;color:#6F457F;padding:5px 8px}
+.labMiniOpen{display:block;width:100%;padding:0!important;border:1px solid #E7BED2!important;border-radius:13px;overflow:hidden;background:linear-gradient(120deg,#FFFBFA,#FFF1F8)!important;cursor:zoom-in;text-align:left;color:#782453!important}
+.labMiniOpen:disabled{cursor:default;opacity:.78}
+.labMiniOpen .labMiniChart{height:auto;max-height:128px;border:0;background:transparent;border-radius:0;display:block}
+.labMiniHint{display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:800;padding:5px 10px;border-top:1px solid #F1D6E3;color:#8A1F5B;background:#FFF9FA}
+.labMiniHint span:last-child{font-size:17px;line-height:1}
+.labMiniOpen:not(:disabled):hover{border-color:#CE65A0!important;box-shadow:0 5px 20px #9D377A25}
+.labSeriesNote{font-size:10px;line-height:1.45;color:#80566B;margin:7px 0 1px}
+.cahos-lab-dialog{position:fixed;inset:0;margin:auto;max-width:min(1100px,calc(100vw - 44px));width:100%;max-height:min(92dvh,960px);padding:0;border:1px solid #DFA7C6;border-radius:22px;background:#FFF9F8;color:#54283E;overflow:auto;box-shadow:0 24px 90px #3614255E}
+.cahos-lab-dialog::backdrop{background:rgba(38,13,32,.7);backdrop-filter:blur(7px)}
+.cahos-lab-dialog[open]{animation:lab-dialog-in .18s ease-out}
+@keyframes lab-dialog-in{from{transform:translateY(14px) scale(.985);opacity:.75}to{transform:none;opacity:1}}
+.labDialogShell{display:grid;gap:17px;padding:clamp(16px,2.6vw,30px)}
+.labDialogHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding-bottom:14px;border-bottom:1px solid #F0D8E2}
+.labDialogIdentity{display:flex;gap:13px;align-items:center;min-width:0}
+.labDialogIdentity img{flex:0 0 auto;background:#FFF4E6;border:2px solid #F1BBD4;border-radius:50%;width:50px;height:50px}
+.labDialogIdentity h2{margin:4px 0 3px;font-size:clamp(21px,2.7vw,31px);font-weight:900;letter-spacing:-.025em;color:#801D52;line-height:1.17}
+.labDialogIdentity p{font-size:12px;color:#795267;margin:0}
+.labDialogKicker{font-size:10px;font-weight:900;color:#AA4B81;letter-spacing:.12em}
+.labDialogClose{border:1px solid #E6B9CF!important;border-radius:50%;background:#FFE8F1!important;color:#76204C!important;flex:0 0 auto;width:38px;height:38px;font-size:17px;cursor:pointer}
+.labDialogTools{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.labDialogTools>label{display:grid;gap:6px;flex:1 1 290px;max-width:520px;font-size:11px;color:#71435B;font-weight:850}
+.labDialogTools select{width:100%;min-height:42px;background:#FFF!important;border:1px solid #DCACCA;border-radius:11px;padding:9px 12px;color:#662448!important;font-size:13px;font-weight:750}
+.labDialogScope{display:flex;flex-wrap:wrap;gap:6px;padding:4px;border:1px solid #EBD0DD;border-radius:12px;background:#FFF1F6}
+.labDialogScope button{border:0!important;background:transparent!important;color:#8A3764!important;border-radius:9px;padding:8px 13px;min-height:35px;font-size:12px;font-weight:760}
+.labDialogScope button.active{background:#8A1F5B!important;color:#FFF!important;box-shadow:0 3px 9px #8A1F5B25}
+.labDialogTools button:focus-visible,.labDialogClose:focus-visible,.labDialogFooter button:focus-visible,.labDialogTools select:focus-visible{outline:3px solid #A22F75;outline-offset:3px}
+.labDialogKpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.labDialogKpis>div{background:linear-gradient(120deg,#FFFDF9,#FFF0F6);border:1px solid #EBC8D9;border-radius:14px;padding:13px;display:grid;gap:4px;min-width:0}
+.labDialogKpis>div:nth-child(2){background:linear-gradient(120deg,#FFF4EC,#FFF0F5)}
+.labDialogKpis>div:nth-child(3){background:linear-gradient(120deg,#F7F0FF,#FFF5FB)}
+.labDialogKpis span{color:#77455D;font-size:10px;font-weight:780;line-height:1.45}
+.labDialogKpis strong{color:#7D1F50;font-size:clamp(19px,2.6vw,31px);font-weight:890;line-height:1.15;font-variant-numeric:tabular-nums}
+.labDialogKpis small{font-size:10px;color:#81546B}
+.labDialogChartWrap{border:1px solid #EBC5D7;border-radius:16px;padding:16px;background:#FFFEFD;min-width:0}
+.labDialogChartTop{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.labDialogChartTop>div{display:grid;gap:3px}
+.labDialogChartTop strong{font-size:15px;color:#7E1F50}
+.labDialogChartTop small{font-size:11px;color:#826376}
+.labDialogLegend{font-size:11px;font-weight:750;color:#795168;display:inline-flex;align-items:center;gap:6px}
+.labDialogLegend i{display:inline-block;width:11px;height:11px;border-radius:3px;background:#AD387E}
+#labDialogChart{display:block;width:100%;height:auto;max-height:440px;overflow:visible;touch-action:pan-y}
+#labDialogChart .labBar{cursor:crosshair;transition:opacity .15s}
+#labDialogChart .labBar:hover,#labDialogChart .labBar:focus{opacity:.72;outline:none}
+.labDialogPoint{background:#FFF3F8;border:1px solid #EECBD9;border-radius:9px;padding:10px 12px;font-size:12px;color:#713C5A;min-height:43px;margin:4px 0 0}
+.labDialogFooter{display:flex;gap:20px;align-items:center;justify-content:space-between;border-top:1px solid #EFDAE3;padding-top:15px}
+.labDialogFooter p{color:#805A6D;font-size:11px;line-height:1.6;max-width:760px;margin:0}
+.labDialogFooter strong{color:#792651}
+.labDialogFooter button{white-space:nowrap;background:#8A1F5B!important;border:1px solid #8A1F5B!important;border-radius:11px;padding:11px 16px;color:#FFF!important;font-weight:800;font-size:12px}
+@media(max-width:800px){.labDialogKpis{grid-template-columns:repeat(2,minmax(0,1fr))}.labDialogFooter{flex-direction:column;align-items:stretch}.labDialogFooter button{align-self:flex-end}}
+@media(max-width:520px){.cahos-lab-dialog{max-width:calc(100vw - 16px);max-height:96dvh;border-radius:15px}
+.labDialogShell{gap:12px;padding:13px}.labDialogHeader{gap:8px}
+.labDialogIdentity img{width:37px;height:37px}.labDialogIdentity h2{font-size:20px}
+.labDialogKpis{gap:7px}.labDialogKpis>div{padding:9px}
+.labDialogTools>label{flex-basis:100%}
+.labDialogScope{width:100%}.labDialogScope button{flex:1}
+.labDialogChartWrap{padding:7px}.labDialogPoint{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.cahos-lab-dialog[open]{animation:none}.labDiagnosisReset,.labDiagnosisButton,#labDialogChart .labBar{transition:none}}

@@ -182,7 +182,7 @@ button.primary,button.secondary{border-radius:10px}
 .right .territoryActions button:disabled{opacity:.45;cursor:default}
 .right .territoryActions button:focus-visible{outline:3px solid #e8b253;outline-offset:2px}
 .topbar nav .mapLogout{border:1px solid #bae3d6;border-radius:9px;padding:8px 10px;background:#ffffff1a;color:#fff;font-size:11px;font-weight:750;cursor:pointer}
-</style><link rel="stylesheet" href="./rosa.css"><link rel="stylesheet" href="./identidad-mapa.css"><link rel="icon" type="image/svg+xml" href="/CAHOS/assets/cahos-emblema.svg"></head>
+</style><link rel="stylesheet" href="./rosa.css"><link rel="stylesheet" href="./identidad-mapa.css"><link rel="stylesheet" href="./lesp-explorador.css"><link rel="icon" type="image/svg+xml" href="/CAHOS/assets/cahos-emblema.svg"></head>
 <body><div class="app">
 <header class="topbar">
  <div class="brand"><div class="brand-mark" id="sonoraBrand" title="CAHOS · emblema y silueta única de Sonora"><img src="/CAHOS/assets/cahos-emblema.svg" alt="Logo de CAHOS" width="45" height="45"></div><div><strong>CAHOS</strong><small>MAPA · MOTOR TERRITORIAL</small></div></div>
@@ -194,7 +194,7 @@ button.primary,button.secondary{border-radius:10px}
  <section class="introCard"><div class="cahos-map-banner">
 <div><img src="/CAHOS/assets/cahos-emblema.svg" alt="" width="35" height="35"><strong>MAPA CAHOS</strong><small>Territorio · capas · vigilancia epidemiológica · Sonora</small></div>
 <svg viewBox="0 0 260 150" aria-hidden="true"><use href="/CAHOS/assets/cahos-modulos.svg#map"></use></svg>
-</div><div class="cardTop"><span>Herramientas del mapa</span><span>⌄</span></div><div class="version">MAPA CAHOS · v3.0</div><h3>Centro de Capas</h3><p>Explora y combina información epidemiológica, demográfica y territorial sobre los polígonos oficiales de Sonora.</p><div class="quickActions"><button id="mapFocus" type="button">⌖ Enfocar selección</button><button id="mapRestore" type="button">↶ Restaurar mapa</button></div></section>
+</div><div class="cardTop"><span>Herramientas del mapa</span><span>⌄</span></div><div class="version">MAPA CAHOS · v3.1</div><h3>Centro de Capas</h3><p>Explora y combina información epidemiológica, demográfica y territorial sobre los polígonos oficiales de Sonora.</p><div class="quickActions"><button id="mapFocus" type="button">⌖ Enfocar selección</button><button id="mapRestore" type="button">↶ Restaurar mapa</button></div></section>
  <section class="filterPanel">
 <div class="controlLabel">Filtros epidemiológicos</div><div class="filters">
 <label>Buscar patología<input id="search" type="search" placeholder="Ej. dengue o infecciones intestinales"></label>
@@ -313,10 +313,29 @@ button.primary,button.secondary{border-radius:10px}
 <div><span>LESP /100 mil estado</span><b id="labRateState">—</b></div>
 </div>
 <div class="sourceStrip"><span id="municipalPeriod">Año 2026</span><span>SUIVE · medidas del cubo</span><span>LESP · resultados positivos</span></div>
-<section class="lespSection"><h3>Resultados positivos LESP por patología</h3>
+<section class="lespSection" aria-labelledby="labDiagnosisHeading">
+ <div class="labDiagnosisHeading">
+  <h3 id="labDiagnosisHeading">Resultados positivos LESP por patología</h3>
+  <span class="labDiagnosisTag">Explorador por diagnóstico</span>
+ </div>
  <p class="mini" id="labInfo">Carga un agregado privado autorizado para consultar resultados.</p>
- <ul class="labList" id="labList"></ul>
- <svg id="labMiniChart" class="labMiniChart" viewBox="0 0 286 90" role="img" aria-label="Resultados positivos LESP por semana epidemiológica"></svg>
+ <button type="button" id="labDiagnosisAll" class="labDiagnosisReset" aria-pressed="true">
+  <span>Todos los diagnósticos</span><span aria-hidden="true">↻</span>
+ </button>
+ <ul class="labList" id="labList" aria-label="Diagnósticos LESP disponibles en el periodo"></ul>
+ <div class="labChartHeading">
+  <div><strong id="labChartDiagnosis">Todos los diagnósticos</strong>
+   <small id="labChartPeriod">Comportamiento anual · semanas epidemiológicas</small>
+  </div>
+  <span class="labChartYear" id="labChartYear">2026</span>
+ </div>
+ <button type="button" class="labMiniOpen" id="labMiniOpen" disabled
+  aria-label="Ampliar la gráfica anual de resultados positivos LESP">
+  <svg id="labMiniChart" class="labMiniChart" viewBox="0 0 286 90" role="img"
+   aria-label="Serie semanal LESP del diagnóstico seleccionado"></svg>
+  <span class="labMiniHint"><span>Ver gráfica ampliada</span><span aria-hidden="true">⤢</span></span>
+ </button>
+ <p class="labSeriesNote" id="labSeriesNote">Las semanas sin registro de resultados positivos no equivalen a cero casos confirmados.</p>
 </section></section>
 <section class="box"><h2>Regionalización del municipio</h2><div class="mini" id="municipalityRegions">Sin municipio seleccionado.</div></section>
 <details class="analyticDetails"><summary>Ver análisis demográfico</summary><section class="box"><h2>Pirámide poblacional</h2><div class="mini">Hombres izquierda · Mujeres derecha · Proyección seleccionada</div><svg id="pyramid" viewBox="0 0 320 405"></svg></section>
@@ -325,6 +344,47 @@ button.primary,button.secondary{border-radius:10px}
 </aside>
  <div class="mapLegend" aria-live="polite"><strong id="layerLegend">Regionalización territorial</strong><span><i class="swatch" style="background:#dce8e4"></i><span id="legendNoData">Sin dato / sin asignación</span></span><span><i class="swatch" style="background:#bddfcb" id="legendLowSwatch"></i><span id="legendLow">Zona territorial</span></span><span><i class="swatch" style="background:#e1a646" id="legendHighSwatch"></i><span id="legendHigh">Zona compartida</span></span><span id="layerLegendYear">2026</span></div>
 </main></div>
+<dialog id="labDetailDialog" class="cahos-lab-dialog" aria-labelledby="labDialogTitle" aria-describedby="labDialogDescription">
+ <div class="labDialogShell">
+  <div class="labDialogHeader">
+   <div class="labDialogIdentity">
+    <img src="/CAHOS/assets/cahos-emblema.svg" alt="" width="47" height="47">
+    <div><span class="labDialogKicker">CAHOS · OBSERVATORIO EPIDEMIOLÓGICO</span>
+     <h2 id="labDialogTitle">Comportamiento anual · LESP</h2>
+     <p id="labDialogDescription">Resultados positivos de laboratorio por semana epidemiológica.</p>
+    </div>
+   </div>
+   <button type="button" id="labDialogClose" class="labDialogClose" aria-label="Cerrar gráfica ampliada">✕</button>
+  </div>
+  <div class="labDialogTools">
+   <label>Diagnóstico
+    <select id="labDialogPathology" aria-label="Seleccionar diagnóstico LESP"></select>
+   </label>
+   <div class="labDialogScope" role="group" aria-label="Alcance temporal">
+    <button id="labDialogAnnual" type="button" class="active" aria-pressed="true">Año completo</button>
+    <button id="labDialogRange" type="button" aria-pressed="false">Periodo seleccionado</button>
+   </div>
+  </div>
+  <div class="labDialogKpis" role="group" aria-label="Resumen del diagnóstico">
+   <div><span>Total registrado en la vista</span><strong id="labDialogTotal">—</strong></div>
+   <div><span>Pico semanal</span><strong id="labDialogPeak">—</strong><small id="labDialogPeakWeek">—</small></div>
+   <div><span>Semanas con registro</span><strong id="labDialogObserved">—</strong></div>
+   <div><span>Última SE del extracto</span><strong id="labDialogCutoff">—</strong></div>
+  </div>
+  <div class="labDialogChartWrap">
+   <div class="labDialogChartTop"><div><strong id="labDialogSeriesTitle">Resultados positivos por SE</strong>
+      <small id="labDialogPeriodNote">Año epidemiológico · fuente LESP protegida</small></div>
+    <span class="labDialogLegend"><i></i> Registros positivos</span></div>
+   <svg id="labDialogChart" viewBox="0 0 980 338" role="img"
+      aria-label="Serie ampliada de resultados positivos por semana epidemiológica"></svg>
+   <p id="labDialogPoint" class="labDialogPoint" aria-live="polite">Selecciona una barra para consultar la semana y sus resultados.</p>
+  </div>
+  <div class="labDialogFooter">
+   <p><strong>Interpretación:</strong> los resultados LESP no equivalen automáticamente a casos confirmados ni a pacientes únicos. Semanas sin fila en el extracto de positivos se muestran sin dato, no como ceros observados. Procedencia reportada, no necesariamente residencia.</p>
+   <button id="labDialogDone" type="button">Volver al mapa</button>
+  </div>
+ </div>
+</dialog>
 <script src="/CAHOS/configuracion-publica.js"></script>
 <script src="/CAHOS/cahos-auth.js"></script>
 <script src="/CAHOS/cahos-state.js"></script>
