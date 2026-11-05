@@ -467,7 +467,8 @@ function pyramid(record){
  const max=Math.max(1,...vals.flat()),center=160;
  const cap=s=>s==="65_mm"?"65+":s.replace("_","-");
  bands.forEach((b,i)=>{
-  const y=14+i*27,wM=112*vals[0][i]/max,wF=112*vals[1][i]/max;
+  // Pirámide epidemiológica convencional: los menores abajo, los mayores arriba.
+  const y=14+(bands.length-1-i)*27,wM=112*vals[0][i]/max,wF=112*vals[1][i]/max;
   const lm=mk("rect",{x:center-21-wM,y,width:wM,height:20,rx:2,fill:"#558db8"});
   lm.append(mk("title",{},cap(b)+": "+fmt(vals[0][i])+" hombres"));svg.append(lm);
   const lf=mk("rect",{x:center+21,y,width:wF,height:20,rx:2,fill:"#1b9b87"});
