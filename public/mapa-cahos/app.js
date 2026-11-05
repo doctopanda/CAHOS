@@ -539,10 +539,63 @@ async function trend(code,requestId){
   svg.append(mk("text",{x:302,y:135,fill:"#738c81","font-size":11,"text-anchor":"end"},"2030"));
  }catch{if(requestId===state.lastDetailRequest)blank(svg,"Sin tendencia disponible")}
 }
+function renderLabDetail(code){
+ const name=state.featureMap.get(code)?.properties?.nombre||"",list=$("labList");
+ list.replaceChildren();const svg=$("labMiniChart");svg.replaceChildren();
+ const lab=temporal.labCount(name);
+ if(lab===null){
+  $("labInfo").textContent="Sin archivo LESP privado válido para "+temporal.label()+". No se interpreta como cero confirmado.";
+  return;
+ }
+ $("labInfo").textContent=fmt(lab)+" resultados positivos clasificados · "+temporal.label()+
+  " · procedencia reportada (no necesariamente residencia).";
+ for(const item of temporal.labBreakdown(name).slice(0,8)){
+  const li=document.createElement("li"),label=document.createElement("span"),count=document.createElement("strong");
+  label.textContent=item.pathology;count.textContent=fmt(item.count);li.append(label,count);list.append(li);
+ }
+ const series=temporal.labWeeks(name)||[];if(!series.length)return;
+ const max=Math.max(1,...series.map(x=>x.count)),space=Math.min(5,90/series.length);
+ const barw=Math.max(2,(256/series.length)-space);
+ series.forEach((v,i)=>{
+  const height=v.count/max*58;
+  const rect=mk("rect",{x:15+i*(barw+space),y:70-height,width:barw,height:Math.max(1,height),rx:2,fill:"#B33279"});
+  rect.append(mk("title",{},"SE "+v.week+": "+v.count+" positivos"));svg.append(rect);
+ });
+ svg.append(mk("text",{x:6,y:85,fill:"#8A1F5B","font-size":9},"SE "+series[0].week));
+ svg.append(mk("text",{x:278,y:85,fill:"#8A1F5B","font-size":9,"text-anchor":"end"},"SE "+series.at(-1).week));
+}
+function renderSonoraBrand(geo){
+ const host=$("sonoraBrand");if(!host||!geo?.features?.length)return;
+ const points=[];
+ for(const f of geo.features)for(const ring of rings(f.geometry))for(const pt of ring)
+  if(Number.isFinite(pt[0])&&Number.isFinite(pt[1]))points.push(pt);
+ if(!points.length)return;
+ let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+ for(const pt of points){const x=pt[0]*.87,y=pt[1];minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y)}
+ const k=Math.min(90/(maxX-minX),90/(maxY-minY));
+ const project=p=>[(p[0]*.87-minX)*k+5,(maxY-p[1])*k+5];
+ const svg=mk("svg",{viewBox:"0 0 100 100",role:"img","aria-label":"Silueta real de Sonora a partir de los municipios INEGI"});
+ for(const f of geo.features){
+  let d="";
+  for(const ring of rings(f.geometry)){
+   const skip=Math.max(1,Math.floor(ring.length/240)),seq=ring.filter((_,i)=>i%skip===0);
+   if(seq.length<3)continue;
+   d+=seq.map((p,i)=>{const [x,y]=project(p);return(i?"L":"M")+x.toFixed(2)+" "+y.toFixed(2)}).join(" ")+"Z";
+  }
+  svg.append(mk("path",{d,fill:"#8A1F5B",stroke:"none"}));
+ }
+ host.replaceChildren(svg);
+}
+
 function showDetail(code){
  const record=populationFor(code),feature=state.featureMap.get(code);
- const cases=state.municipal.get(code),denom=rateDenominator(code);
+ const cases=isValidSuivePeriod()?state.municipal.get(code):undefined,denom=rateDenominator(code);
  const rate=cases!==undefined&&denom?cases/denom*100000:null;
+ const totalDenom=stateDenominator(),rateState=cases!==undefined&&totalDenom?cases/totalDenom*100000:null;
+ const lab=temporal.labCount(feature?.properties?.nombre||"");
+ const population=record?.population_total||null,allPop=annualPopulation();
+ const labRate=lab!==null&&population?lab/population*100000:null;
+ const labState=lab!==null&&allPop?lab/allPop*100000:null;
  $("name").textContent=feature?.properties?.nombre||record?.municipality_name||"Sonora";
  $("deselectMunicipality").disabled=!state.selectedMunicipalities.has(code);
  const assignments=[];
@@ -563,13 +616,19 @@ function showDetail(code){
  $("rate").textContent=rate===null?"—":rate.toLocaleString("es-MX",{maximumFractionDigits:2});
  $("rate").style.color=rate===0?(state.municipalMissing.has(code)?"#cb7612":"#142f2a"):"";
  $("population").textContent=record?fmt(record.population_total):"—";
+ $("municipalPeriod").textContent=temporal.label();
+ $("rateState").textContent=rateState===null?"—":rateState.toLocaleString("es-MX",{maximumFractionDigits:2});
+ $("labCount").textContent=lab===null?"—":fmt(lab);
+ $("labRateMunicipal").textContent=labRate===null?"—":labRate.toLocaleString("es-MX",{maximumFractionDigits:2});
+ $("labRateState").textContent=labState===null?"—":labState.toLocaleString("es-MX",{maximumFractionDigits:2});
+ renderLabDetail(code);
  $("share").textContent=cases===undefined||!state.grandTotal?"—":
   (cases/state.grandTotal*100).toFixed(2)+" %";
  pyramid(record);
  const token=++state.lastDetailRequest;trend(code,token);
- $("context").textContent="Municipio "+$("name").textContent+" · Población proyectada "+state.year+
+ $("context").textContent="Municipio "+$("name").textContent+" · "+temporal.label()+" · Población proyectada "+state.year+
   ". "+(rate===null?"No se calcula tasa con filtros/denominadores incompatibles. ":
-  "La tasa combina la medida de casos del cubo con el denominador poblacional territorial. ")+
+  "Tasa municipal y aporte estatal utilizan denominadores distintos; solo con filtros poblacionales compatibles. ")+
   (state.provisional?"Desglose municipal sin liberación oficial; visible solo para cuenta maestra.":
   "Los valores se muestran solo conforme a la autorización de CAHOS.");
 }
@@ -585,12 +644,17 @@ async function loadCases(){
  const pathology=$("pathology").value,year=$("year").value;
  if(!pathology||!year){inform("Selecciona patología y año antes de consultar.","error");return}
  state.queryBusy=true;$("consult").disabled=true;
- state.municipal=new Map();state.municipalMissing=new Set();state.grandTotal=null;state.provisional=false;
+ state.municipal=new Map();state.municipalMissing=new Set();state.grandTotal=null;state.casePeriodKey=null;state.provisional=false;
  state.year=yrNumber(year);save();
  inform("Consultando el cubo SINAVE desde el agente autorizado. Los datos municipales dependen de tu rol.");
  try{
   await loadPopulation();
   drawMap();
+  const window=temporal.current();
+  if(!window.annual){
+   inform("Para "+temporal.label()+" el mapa LESP privado funciona por semanas. SUIVE municipal aún requiere desplegar la extracción semanal protegida; no presentaremos cifras anuales como semanales.","error");
+   return;
+  }
   const body={kind:"municipality",pathology,years:[year],entity:state.member.entity,
    sex:$("sex").value||"",age:$("age").value||""};
   // Create or discover exactly one job. Polling GET never resubmits an OLAP query.
@@ -626,7 +690,7 @@ async function loadCases(){
      state.municipal.set(code,0);state.municipalMissing.add(code);
     }
    }
-   state.grandTotal=check.total;state.provisional=result.provisional===true;
+   state.grandTotal=check.total;state.casePeriodKey=periodKey();state.provisional=result.provisional===true;
    state.caseQuality=result.validacion||"revisión interna";
    inform(check.municipalities+" municipios con fila del cubo; "+state.municipalMissing.size+
     " municipios/celdas imputados a cero naranja. Total estatal "+fmt(check.total)+" casos. "+
@@ -663,6 +727,7 @@ async function initialize(){
    throw Error("La cartografía debe contener 72 polígonos municipales");
   state.features=publicGeo.features;
   state.featureMap=new Map(publicGeo.features.map(f=>[String(f.properties.cvegeo),f]));
+  renderSonoraBrand(publicGeo);
   state.selected=shared.pop_municipality||null;
   await loadRegionalization();
   if($("mapBase").value==="osm")initLeafletMap(publicGeo);
@@ -678,6 +743,7 @@ async function initialize(){
    ...["pathologies","years","entities","sex","age"].map(dim=>api("/api/catalog?dim="+dim))
   ]);
   if(!profile?.enabled)throw Error("La cuenta no está habilitada en CAHOS");
+  temporal.setMaster(profile.is_master===true);
   $("access").textContent=profile.is_master?"Administrador Maestro · Vista protegida":
     "Cuenta autorizada · Capas limitadas por privacidad";
   ["pathologies","years","entities","sex","age"].forEach((dim,i)=>state.catalog[dim]=catalogs[i].members||[]);
@@ -694,6 +760,7 @@ async function initialize(){
   if(shared.pathology)selectOption("pathology",shared.pathology);
   if(!$("pathology").value&&status.favoritos?.length)selectOption("pathology",status.favoritos[0]);
   state.year=yrNumber($("year").value)||2026;
+  temporal.syncWeekOptions();
   await loadPopulation();
   drawMap();
   if(state.selected&&state.featureMap.has(state.selected))showDetail(state.selected);
@@ -708,11 +775,19 @@ $("search").addEventListener("input",searchPathology);
 for(const id of ["pathology","year","sex","age"]){
  $(id).addEventListener("change",()=>{state.municipal=new Map();state.grandTotal=null;
   state.year=yrNumber($("year").value)||2026;save();clearMapDetail();
+  if(id==="year")temporal.syncWeekOptions();
   if(id==="year")loadPopulation().then(drawMap).catch(e=>inform(e.message,"error"));
   else drawMap();
  });
 }
-$("metric").addEventListener("change",drawMap);
+$("metric").addEventListener("change",()=>{drawMap();if(state.selected)showDetail(state.selected)});
+temporal.bind();
+temporal.onChange(()=>{
+ if(!isValidSuivePeriod()){
+  state.municipal.clear();state.municipalMissing.clear();state.grandTotal=null;
+ }
+ drawMap();if(state.selected)showDetail(state.selected);save();
+});
 $("mapBase").addEventListener("change",()=>{drawMap();save();});
 $("regionScheme").addEventListener("change",()=>{
  state.selectedZones.clear();
@@ -761,6 +836,10 @@ $("resetZoom").addEventListener("click",()=>{
 function clearMapDetail(){
  $("deselectMunicipality").disabled=true;
  $("cases").style.color="";$("rate").style.color="";
+ for(const id of ["rateState","labCount","labRateMunicipal","labRateState"])$(id).textContent="—";
+ $("municipalPeriod").textContent=temporal.label();
+ $("labInfo").textContent="Selecciona un municipio y carga un agregado LESP privado autorizado.";
+ $("labList").replaceChildren();$("labMiniChart").replaceChildren();
  $("name").textContent="Sonora";
  $("note").textContent="Selecciona un polígono para analizar un municipio.";
  $("municipalityRegions").textContent="Sin municipio seleccionado.";
