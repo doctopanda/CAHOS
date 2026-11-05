@@ -10,9 +10,21 @@ const SEP=new Intl.NumberFormat("es-MX");
 const fmt=n=>Number.isFinite(Number(n))?SEP.format(Number(n)):"—";
 const bands=["00_04","05_09","10_14","15_19","20_24","25_29","30_34","35_39","40_44","45_49","50_54","55_59","60_64","65_mm"];
 const shared=window.CAHOSSelection?.read()||{};
+const temporal=window.CAHOSTemporal;
+const LAB_METRICS=new Set(["lab_cases","lab_rate_mun","lab_rate_state"]);
+const SUIVE_METRICS=new Set(["cases","rate","rate_state","share"]);
+function periodKey(){const p=temporal.current();return [p.year,p.start,p.end].join(":");}
+function isValidSuivePeriod(){return state.casePeriodKey===periodKey();}
+function stateDenominator(){if(!state.population.length)return null;
+ const all=state.features.map(f=>rateDenominator(String(f.properties.cvegeo)));
+ return all.length&&all.every(x=>Number.isFinite(x)&&x>0)?all.reduce((a,b)=>a+b,0):null;
+}
+function annualPopulation(){const v=state.population.map(r=>Number(r.population_total));
+ return v.length===72&&v.every(x=>Number.isFinite(x)&&x>0)?v.reduce((a,b)=>a+b,0):null;
+}
 const state={features:[],catalog:{},member:{},year:2026,population:[],municipal:new Map(),
  selected:null,selectedZones:new Set(),selectedMunicipalities:new Set(),regionalization:null,municipalMissing:new Set(),
- grandTotal:null,caseQuality:null,provisional:false,jobStatus:null,queryBusy:false,
+ grandTotal:null,periodStateTotal:null,periodStateMissing:0,caseQuality:null,casePeriodKey:null,provisional:false,jobStatus:null,queryBusy:false,
  loading:false,source:null,featureMap:new Map(),leafletMap:null,leafletLayer:null,viewBox:{x:0,y:0,w:900,h:620},lastDetailRequest:0};
 const inform=(text,cls="")=>{$("status").className="notice "+cls;$("status").textContent=text};
 const api=async(path,method="GET",body=null)=>(await window.CAHOSAuth.api(path,{method,...(body?{body}: {})})).body;
@@ -129,16 +141,26 @@ function rateDenominator(code){
 }
 function metricValue(code,metric){
  if(metric==="population")return populationFor(code)?.population_total??null;
+ if(LAB_METRICS.has(metric)){
+  const name=state.featureMap.get(code)?.properties?.nombre||"";
+  const value=temporal.labCount(name);if(value===null)return null;
+  if(metric==="lab_cases")return value;
+  const denom=metric==="lab_rate_mun"?populationFor(code)?.population_total:annualPopulation();
+  return denom?value/denom*100000:null;
+ }
+ if(SUIVE_METRICS.has(metric)&&!isValidSuivePeriod())return null;
  const cases=state.municipal.get(code);
  if(cases===undefined)return null;
  if(metric==="cases")return cases;
+ if(metric==="share")return state.grandTotal>0?cases/state.grandTotal*100:null;
+ if(metric==="rate_state"){const denom=stateDenominator();return denom?cases/denom*100000:null;}
  const denom=rateDenominator(code);
  return denom?cases/denom*100000:null;
 }
 function fill(value,max){
  if(value===null||!Number.isFinite(value))return "#dce8e4";
  const t=Math.sqrt(Math.max(0,Math.min(1,value/Math.max(1,max))));
- const a=[204,237,224],b=[13,104,83];
+ const a=[255,215,232],b=[138,31,91];
  return "rgb("+a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(",")+")";
 }
 function rings(geometry){
@@ -148,8 +170,8 @@ function rings(geometry){
 }
 
 
-const ZONE_COLORS=["#2b8b75","#648cbd","#d2a03e","#976fb2","#b36b61","#759d57",
- "#467e9a","#d08b70","#a38b43","#428e89"];
+const ZONE_COLORS=["#B62F79","#9471BD","#E79B50","#B7579B","#D76887","#9663C7",
+ "#CB8EC8","#BA6460","#A86799","#DF87B0"];
 function scheme(){return $("regionScheme")?.value||"custom"}
 function schemeData(){return state.regionalization?.regionalizations?.[scheme()]||null}
 function zoneList(){
@@ -307,9 +329,9 @@ function polygonStyle(feature){
  const code=String(feature.properties.cvegeo),metric=$("metric").value;
  const selected=state.selectedMunicipalities.has(code),regions=zonesFor(code);
  return {
-  color:selected?"#d49a39":metric==="zones"&&regions.length>1?"#67466e":"#20695b",
+  color:selected?"#8A1F5B":metric==="zones"&&regions.length>1?"#8a5baf":"#9f5a80",
   weight:selected?3.8:metric==="zones"&&regions.length>1?2.1:1.2,
-  opacity:1,fillColor:(metric==="cases"||metric==="rate")&&state.municipalMissing.has(code)?
+  opacity:1,fillColor:SUIVE_METRICS.has(metric)&&isValidSuivePeriod()&&state.municipalMissing.has(code)?
    "#eeb267":regionColor(code,metric)||fill(metricValue(code,metric),polygonMetricMax(metric)),
   fillOpacity:selectedCodes().has(code)?0.77:0.13
  };
@@ -321,9 +343,9 @@ function tooltipNode(feature){
  const description=metric==="zones"?(scheme()==="imss"?"Sede regional (sin polígonos IMSS)":
   names.join(" / ")||"Sin región asignada"):
   value===null?"Sin información":
-  metric==="rate"?value.toLocaleString("es-MX",{maximumFractionDigits:2})+" /100,000":fmt(value);
+  ["rate","rate_state","lab_rate_mun","lab_rate_state"].includes(metric)?value.toLocaleString("es-MX",{maximumFractionDigits:2})+" /100,000":metric==="share"?value.toFixed(2)+" %":fmt(value);
  span.textContent=feature.properties.nombre+" · "+(
-  (metric==="cases"||metric==="rate")&&state.municipalMissing.has(code)?
+  SUIVE_METRICS.has(metric)&&isValidSuivePeriod()&&state.municipalMissing.has(code)?
    "0 imputado por ausencia de registro":description);
  return span;
 }
@@ -333,9 +355,12 @@ function updateMapFoot(){
   districts:"Distritos de Salud · 2025",coespo:"Regiones COESPO · 10",
   imss:"IMSS Bienestar · 10 sedes, cobertura municipal pendiente"};
  const legendNames={zones:"Regionalización territorial",population:"Población proyectada",
-  cases:"Casos municipales autorizados",rate:"Tasa por 100,000 habitantes"};
+  cases:"SUIVE · casos municipales",rate:"SUIVE · tasa municipal /100 mil",
+  rate_state:"SUIVE · por población estatal /100 mil",share:"SUIVE · porcentaje de casos estatales",
+  lab_cases:"LESP · resultados positivos privados",lab_rate_mun:"LESP · positivos / población municipal",
+  lab_rate_state:"LESP · positivos / población estatal"};
  $("layerLegend").textContent=legendNames[metric]||"Capa territorial";
- $("layerLegendYear").textContent=metric==="zones"?"Capa territorial":String(state.year);
+ $("layerLegendYear").textContent=metric==="zones"?"Capa territorial":temporal.label();
  $("legendNoData").textContent=metric==="zones"?"Sin asignación":"Sin dato / retenido";
  $("legendLow").textContent=metric==="zones"?"Zona territorial":"Menor valor";
  $("legendHigh").textContent=metric==="zones"?"Zonas compartidas":"Mayor valor";
@@ -345,9 +370,11 @@ function updateMapFoot(){
   (schemes[scheme()]||"")+" · "+
   (metric==="zones"?"Color por regionalización":
    metric==="population"?"Proyección poblacional":
+   LAB_METRICS.has(metric)?temporal.hasLab()?"Agregados LESP privados; positivos no equivalen a confirmados":"LESP no importado; sin cifras para mostrar":
+   !isValidSuivePeriod()?"SUIVE: desglose municipal pendiente para el periodo":
    n>0?n+" municipios con registro y "+state.municipalMissing.size+" con 0 imputado (consulta protegida)":
    "Sin datos epidemiológicos disponibles; gris no es cero casos.")+
-  " · "+state.year+" · Las cifras no certifican corte oficial.";
+  " · "+temporal.label()+" · Cifras no certifican corte oficial.";
 }
 function showLeafletSeats(){
  if(!state.leafletMap)return;
@@ -446,14 +473,14 @@ function drawMap(){
   }
   const code=String(feature.properties.cvegeo),value=metricValue(code,metric);
   const regions=zonesFor(code),selected=state.selectedMunicipalities.has(code);
-  const fillColor=(metric==="cases"||metric==="rate")&&state.municipalMissing.has(code)?
+  const fillColor=SUIVE_METRICS.has(metric)&&isValidSuivePeriod()&&state.municipalMissing.has(code)?
    "#eeb267":regionColor(code,metric)||fill(value,max);
   const names=zoneList().filter(x=>regions.includes(x.id)).map(x=>x.name);
   const description=metric==="zones"?
    scheme()==="imss"?"IMSS: solo sedes, sin polígonos regionales":
     names.join(" / ")||"Sin región asignada":
     value===null?"Sin dato territorial":
-    metric==="rate"?value.toFixed(2)+" por 100,000":fmt(value);
+    ["rate","rate_state","lab_rate_mun","lab_rate_state"].includes(metric)?value.toFixed(2)+" por 100,000":metric==="share"?value.toFixed(2)+" %":fmt(value);
   const path=mk("path",{d,fill:fillColor,
    stroke:selected?"#f3b850":metric==="zones"&&regions.length>1?"#58466d":"#fff",
    "stroke-width":selected?3.5:metric==="zones"&&regions.length>1?2:0.85,
@@ -512,10 +539,63 @@ async function trend(code,requestId){
   svg.append(mk("text",{x:302,y:135,fill:"#738c81","font-size":11,"text-anchor":"end"},"2030"));
  }catch{if(requestId===state.lastDetailRequest)blank(svg,"Sin tendencia disponible")}
 }
+function renderLabDetail(code){
+ const name=state.featureMap.get(code)?.properties?.nombre||"",list=$("labList");
+ list.replaceChildren();const svg=$("labMiniChart");svg.replaceChildren();
+ const lab=temporal.labCount(name);
+ if(lab===null){
+  $("labInfo").textContent="Sin archivo LESP privado válido para "+temporal.label()+". No se interpreta como cero confirmado.";
+  return;
+ }
+ $("labInfo").textContent=fmt(lab)+" resultados positivos clasificados · "+temporal.label()+
+  " · procedencia reportada (no necesariamente residencia).";
+ for(const item of temporal.labBreakdown(name).slice(0,8)){
+  const li=document.createElement("li"),label=document.createElement("span"),count=document.createElement("strong");
+  label.textContent=item.pathology;count.textContent=fmt(item.count);li.append(label,count);list.append(li);
+ }
+ const series=temporal.labWeeks(name)||[];if(!series.length)return;
+ const max=Math.max(1,...series.map(x=>x.count)),space=Math.min(5,90/series.length);
+ const barw=Math.max(2,(256/series.length)-space);
+ series.forEach((v,i)=>{
+  const height=v.count/max*58;
+  const rect=mk("rect",{x:15+i*(barw+space),y:70-height,width:barw,height:Math.max(1,height),rx:2,fill:"#B33279"});
+  rect.append(mk("title",{},"SE "+v.week+": "+v.count+" positivos"));svg.append(rect);
+ });
+ svg.append(mk("text",{x:6,y:85,fill:"#8A1F5B","font-size":9},"SE "+series[0].week));
+ svg.append(mk("text",{x:278,y:85,fill:"#8A1F5B","font-size":9,"text-anchor":"end"},"SE "+series.at(-1).week));
+}
+function renderSonoraBrand(geo){
+ const host=$("sonoraBrand");if(!host||!geo?.features?.length)return;
+ const points=[];
+ for(const f of geo.features)for(const ring of rings(f.geometry))for(const pt of ring)
+  if(Number.isFinite(pt[0])&&Number.isFinite(pt[1]))points.push(pt);
+ if(!points.length)return;
+ let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+ for(const pt of points){const x=pt[0]*.87,y=pt[1];minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y)}
+ const k=Math.min(90/(maxX-minX),90/(maxY-minY));
+ const project=p=>[(p[0]*.87-minX)*k+5,(maxY-p[1])*k+5];
+ const svg=mk("svg",{viewBox:"0 0 100 100",role:"img","aria-label":"Silueta real de Sonora a partir de los municipios INEGI"});
+ for(const f of geo.features){
+  let d="";
+  for(const ring of rings(f.geometry)){
+   const skip=Math.max(1,Math.floor(ring.length/240)),seq=ring.filter((_,i)=>i%skip===0);
+   if(seq.length<3)continue;
+   d+=seq.map((p,i)=>{const [x,y]=project(p);return(i?"L":"M")+x.toFixed(2)+" "+y.toFixed(2)}).join(" ")+"Z";
+  }
+  svg.append(mk("path",{d,fill:"#8A1F5B",stroke:"none"}));
+ }
+ host.replaceChildren(svg);
+}
+
 function showDetail(code){
  const record=populationFor(code),feature=state.featureMap.get(code);
- const cases=state.municipal.get(code),denom=rateDenominator(code);
+ const cases=isValidSuivePeriod()?state.municipal.get(code):undefined,denom=rateDenominator(code);
  const rate=cases!==undefined&&denom?cases/denom*100000:null;
+ const totalDenom=stateDenominator(),rateState=cases!==undefined&&totalDenom?cases/totalDenom*100000:null;
+ const lab=temporal.labCount(feature?.properties?.nombre||"");
+ const population=record?.population_total||null,allPop=annualPopulation();
+ const labRate=lab!==null&&population?lab/population*100000:null;
+ const labState=lab!==null&&allPop?lab/allPop*100000:null;
  $("name").textContent=feature?.properties?.nombre||record?.municipality_name||"Sonora";
  $("deselectMunicipality").disabled=!state.selectedMunicipalities.has(code);
  const assignments=[];
@@ -536,13 +616,19 @@ function showDetail(code){
  $("rate").textContent=rate===null?"—":rate.toLocaleString("es-MX",{maximumFractionDigits:2});
  $("rate").style.color=rate===0?(state.municipalMissing.has(code)?"#cb7612":"#142f2a"):"";
  $("population").textContent=record?fmt(record.population_total):"—";
+ $("municipalPeriod").textContent=temporal.label();
+ $("rateState").textContent=rateState===null?"—":rateState.toLocaleString("es-MX",{maximumFractionDigits:2});
+ $("labCount").textContent=lab===null?"—":fmt(lab);
+ $("labRateMunicipal").textContent=labRate===null?"—":labRate.toLocaleString("es-MX",{maximumFractionDigits:2});
+ $("labRateState").textContent=labState===null?"—":labState.toLocaleString("es-MX",{maximumFractionDigits:2});
+ renderLabDetail(code);
  $("share").textContent=cases===undefined||!state.grandTotal?"—":
   (cases/state.grandTotal*100).toFixed(2)+" %";
  pyramid(record);
  const token=++state.lastDetailRequest;trend(code,token);
- $("context").textContent="Municipio "+$("name").textContent+" · Población proyectada "+state.year+
+ $("context").textContent="Municipio "+$("name").textContent+" · "+temporal.label()+" · Población proyectada "+state.year+
   ". "+(rate===null?"No se calcula tasa con filtros/denominadores incompatibles. ":
-  "La tasa combina la medida de casos del cubo con el denominador poblacional territorial. ")+
+  "Tasa municipal y aporte estatal utilizan denominadores distintos; solo con filtros poblacionales compatibles. ")+
   (state.provisional?"Desglose municipal sin liberación oficial; visible solo para cuenta maestra.":
   "Los valores se muestran solo conforme a la autorización de CAHOS.");
 }
@@ -553,17 +639,79 @@ async function loadPopulation(){
   throw Error("El año no tiene 72 denominadores poblacionales verificados");
  state.population=result.rows;
 }
+function renderStatePeriod(){
+ const total=state.periodStateTotal,denom=stateDenominator();
+ if(total===null){
+  $("statePeriodTotal").textContent="—";$("statePeriodTotal").style.color="";
+  $("statePeriodRate").textContent="—";return;
+ }
+ CAHOSZero.mark($("statePeriodTotal"),total,total===0&&state.periodStateMissing>0);
+ $("statePeriodRate").textContent=denom?(total/denom*100000).toLocaleString("es-MX",{maximumFractionDigits:2}):"—";
+}
+async function loadStatePeriod(period,pathology,year){
+ state.periodStateTotal=null;state.periodStateMissing=0;renderStatePeriod();
+ const body={kind:"weekly",pathology,years:[year],entity:state.member.entity,
+  sex:$("sex").value||"",age:$("age").value||"",
+  week_start:period.start,week_end:period.end};
+ inform("Consultando semanas estatales SUIVE "+temporal.label()+" · consulta protegida.");
+ let result=await api("/api/query","POST",body);
+ if(["queued","running"].includes(result?.status)&&result?.job_id){
+  const jobId=String(result.job_id);
+  for(let i=0;i<30;i++){
+   inform("Esperando serie semanal estatal · control "+(i+1)+"/30. No se crean trabajos duplicados.");
+   await new Promise(resolve=>setTimeout(resolve,5000));
+   const progress=await api("/api/jobs/"+encodeURIComponent(jobId));
+   if(progress.status==="ready"){result=progress.result;break;}
+   if(["failed","no_data","awaiting_review","result_unavailable"].includes(progress.status)){
+    result=progress;break;
+   }
+   if(!["queued","running"].includes(progress.status)){result=progress;break;}
+  }
+ }
+ if(!Array.isArray(result?.rows)||!result.rows.length){
+  $("statePeriodQuality").textContent="Sin resultado estatal semanal utilizable. Una extracción sin filas o retenida no equivale a cero.";
+  inform("No hay consulta semanal SUIVE estatal disponible: "+(result?.status||"sin filas")+
+   ". El desglose municipal continúa oculto para evitar confusión con el acumulado anual.","error");
+  return;
+ }
+ const perWeek=new Map();
+ for(const row of result.rows){
+  const week=Number(row.weeks);
+  if(!Number.isInteger(week)||week<period.start||week>period.end||perWeek.has(week))
+   throw Error("Semana epidemiológica duplicada o fuera del intervalo de consulta");
+  perWeek.set(week,CAHOSZero.normalize(row.cases));
+ }
+ let missing=0,total=0;
+ for(let week=period.start;week<=period.end;week++){
+  const observation=perWeek.get(week);
+  if(!observation||observation.imputed)missing++;
+  total+=observation?.value||0;
+ }
+ state.periodStateTotal=total;state.periodStateMissing=missing;
+ renderStatePeriod();
+ $("statePeriodQuality").textContent=temporal.label()+" · "+
+  perWeek.size+" semanas con fila · "+missing+" SE sin medida numérica (0 operativo naranja). "+
+  "Tasa estatal con denominador poblacional compatible. Corte oficial no certificado.";
+ inform(fmt(total)+" casos en SUIVE estatal, "+temporal.label()+
+  ". El mapa municipal se conserva sin valores del periodo porque no existe un desglose autorizado semanal por municipio; LESP privado sí permite filtrar su periodo.","ok");
+}
 async function loadCases(){
  if(state.queryBusy)return;
  const pathology=$("pathology").value,year=$("year").value;
  if(!pathology||!year){inform("Selecciona patología y año antes de consultar.","error");return}
  state.queryBusy=true;$("consult").disabled=true;
- state.municipal=new Map();state.municipalMissing=new Set();state.grandTotal=null;state.provisional=false;
+ state.municipal=new Map();state.municipalMissing=new Set();state.grandTotal=null;state.casePeriodKey=null;state.provisional=false;
+ state.periodStateTotal=null;state.periodStateMissing=0;renderStatePeriod();
  state.year=yrNumber(year);save();
  inform("Consultando el cubo SINAVE desde el agente autorizado. Los datos municipales dependen de tu rol.");
  try{
   await loadPopulation();
-  drawMap();
+  renderStatePeriod();drawMap();
+  const periodRange=temporal.current();
+  if(!periodRange.annual){
+   await loadStatePeriod(periodRange,pathology,year);
+   return;
+  }
   const body={kind:"municipality",pathology,years:[year],entity:state.member.entity,
    sex:$("sex").value||"",age:$("age").value||""};
   // Create or discover exactly one job. Polling GET never resubmits an OLAP query.
@@ -599,7 +747,10 @@ async function loadCases(){
      state.municipal.set(code,0);state.municipalMissing.add(code);
     }
    }
-   state.grandTotal=check.total;state.provisional=result.provisional===true;
+   state.grandTotal=check.total;state.periodStateTotal=check.total;state.periodStateMissing=0;
+   state.casePeriodKey=periodKey();state.provisional=result.provisional===true;
+   renderStatePeriod();
+   $("statePeriodQuality").textContent="Total anual SUIVE y desglose municipal conciliados. Periodo: "+temporal.label();
    state.caseQuality=result.validacion||"revisión interna";
    inform(check.municipalities+" municipios con fila del cubo; "+state.municipalMissing.size+
     " municipios/celdas imputados a cero naranja. Total estatal "+fmt(check.total)+" casos. "+
@@ -636,6 +787,7 @@ async function initialize(){
    throw Error("La cartografía debe contener 72 polígonos municipales");
   state.features=publicGeo.features;
   state.featureMap=new Map(publicGeo.features.map(f=>[String(f.properties.cvegeo),f]));
+  renderSonoraBrand(publicGeo);
   state.selected=shared.pop_municipality||null;
   await loadRegionalization();
   if($("mapBase").value==="osm")initLeafletMap(publicGeo);
@@ -651,6 +803,7 @@ async function initialize(){
    ...["pathologies","years","entities","sex","age"].map(dim=>api("/api/catalog?dim="+dim))
   ]);
   if(!profile?.enabled)throw Error("La cuenta no está habilitada en CAHOS");
+  temporal.setMaster(profile.is_master===true);
   $("access").textContent=profile.is_master?"Administrador Maestro · Vista protegida":
     "Cuenta autorizada · Capas limitadas por privacidad";
   ["pathologies","years","entities","sex","age"].forEach((dim,i)=>state.catalog[dim]=catalogs[i].members||[]);
@@ -667,6 +820,7 @@ async function initialize(){
   if(shared.pathology)selectOption("pathology",shared.pathology);
   if(!$("pathology").value&&status.favoritos?.length)selectOption("pathology",status.favoritos[0]);
   state.year=yrNumber($("year").value)||2026;
+  temporal.syncWeekOptions();
   await loadPopulation();
   drawMap();
   if(state.selected&&state.featureMap.has(state.selected))showDetail(state.selected);
@@ -681,11 +835,21 @@ $("search").addEventListener("input",searchPathology);
 for(const id of ["pathology","year","sex","age"]){
  $(id).addEventListener("change",()=>{state.municipal=new Map();state.grandTotal=null;
   state.year=yrNumber($("year").value)||2026;save();clearMapDetail();
+  if(id==="year")temporal.syncWeekOptions();
   if(id==="year")loadPopulation().then(drawMap).catch(e=>inform(e.message,"error"));
   else drawMap();
  });
 }
-$("metric").addEventListener("change",drawMap);
+$("metric").addEventListener("change",()=>{drawMap();if(state.selected)showDetail(state.selected)});
+temporal.bind();
+temporal.onChange(()=>{
+ if(!isValidSuivePeriod()){
+  state.municipal.clear();state.municipalMissing.clear();state.grandTotal=null;
+  state.periodStateTotal=null;state.periodStateMissing=0;renderStatePeriod();
+  $("statePeriodQuality").textContent="Nuevo periodo seleccionado. Pulsa Consultar territorio para recuperar la serie estatal SUIVE.";
+ }
+ drawMap();if(state.selected)showDetail(state.selected);save();
+});
 $("mapBase").addEventListener("change",()=>{drawMap();save();});
 $("regionScheme").addEventListener("change",()=>{
  state.selectedZones.clear();
@@ -734,6 +898,10 @@ $("resetZoom").addEventListener("click",()=>{
 function clearMapDetail(){
  $("deselectMunicipality").disabled=true;
  $("cases").style.color="";$("rate").style.color="";
+ for(const id of ["rateState","labCount","labRateMunicipal","labRateState"])$(id).textContent="—";
+ $("municipalPeriod").textContent=temporal.label();
+ $("labInfo").textContent="Selecciona un municipio y carga un agregado LESP privado autorizado.";
+ $("labList").replaceChildren();$("labMiniChart").replaceChildren();
  $("name").textContent="Sonora";
  $("note").textContent="Selecciona un polígono para analizar un municipio.";
  $("municipalityRegions").textContent="Sin municipio seleccionado.";

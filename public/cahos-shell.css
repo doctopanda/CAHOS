@@ -111,3 +111,23 @@ body.cahos-side-collapsed.cahos-page-population .cahos-standard-layout{grid-temp
 
 .cahos-global-links .cahos-global-logout{padding:8px 11px;border:1px solid #b2dfd29c;border-radius:9px;background:#ffffff19;color:#fff;font:750 11px system-ui,Segoe UI,sans-serif;cursor:pointer;white-space:nowrap}
 .cahos-global-links .cahos-global-logout:hover{background:#ffffff31}
+
+/* CAHOS · identidad rosa/lila/crema, unificada con el mapa territorial v3. */
+body.cahos-unified{--cahos-deep:#8A1F5B;--cahos-green:#A52D70;--cahos-mint:#F06DA6;
+--cahos-pale:#FFF0F6;--cahos-border:#EFCDDC;--cahos-text:#5D2447;
+background:#FFF8F3!important;color:#5D2447!important}
+.cahos-global-topbar{background:linear-gradient(105deg,#7E174F,#A52D70 60%,#D6659C);
+box-shadow:0 4px 17px #8A1F5B29}
+.cahos-brand-emblem{background:#FFF4E6;color:#8A1F5B;border:2px solid #FFC2D9;border-radius:50%}
+.cahos-global-links a[aria-current="page"],.cahos-global-links a.cahos-global-active{background:#ffffff2f;box-shadow:inset 0 0 0 1px #ffd1e4}
+.cahos-global-side{background:linear-gradient(180deg,#FFF8F5,#FFF1F6);border-right-color:#EEC5D9}
+.cahos-global-side .cahos-side-top,.cahos-global-side h2,.cahos-content-area h1{color:#892356}
+.cahos-global-side .cahos-side-card,.cahos-global-side nav a,.cahos-content-area .panel,.cahos-content-area .kpi,.cahos-content-area .card{border-color:#F0D0DF;background:#FFFDFB}
+.cahos-global-side nav a{color:#8A2A5D}
+.cahos-global-side nav a:hover,.cahos-global-side nav a[aria-current="page"]{background:#FFE6F0;border-color:#ECA7C8;color:#811D52;box-shadow:inset 3px 0 0 #F06DA6}
+.cahos-sidebar-section{border-color:#F0CCDE}
+.cahos-sidebar-section>summary{background:#FFF0F5;color:#8A1F5B}
+.cahos-content-area .eyebrow,.cahos-global-side .cahos-side-kicker{color:#B9397E}
+.cahos-content-area .links a{border-color:#EECADC;background:#FFF8F5;color:#832758}
+.cahos-content-area select{border-color:#EAC2D6}
+.cahos-content-area button{background:#9E286B}
