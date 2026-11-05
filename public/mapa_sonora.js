@@ -4,7 +4,7 @@
 const $=s=>document.querySelector(s);
 const norm=v=>String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("es").replace(/\b(municipio|de|sonora)\b/g,"").replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
 let shapes=null,observaciones=null,population=null,selectedCode=null,detailName=null;
-let joinState={byCode:new Map(),totalRows:0,withCases:0,linkedRows:0,unlinked:[]};
+let joinState={byCode:new Map(),missing:new Set(),totalRows:0,withCases:0,linkedRows:0,unlinked:[]};
 let currentQueryKey='',requestRunning=false,refreshTimer=null,mapPollAttempts=0;
 const codeFrom=v=>{
  const str=String(v||'');
@@ -30,15 +30,15 @@ function reconcileMunicipios(){
   if(!byName.has(key))byName.set(key,[]);
   byName.get(key).push(code);
  }
- const result={byCode:new Map(),totalRows:(observaciones?.rows||[]).length,withCases:0,linkedRows:0,unlinked:[],stateTotal:null,ignoredTotalRows:0};
+ const result={byCode:new Map(),totalRows:(observaciones?.rows||[]).length,withCases:0,linkedRows:0,unlinked:[],missing:new Set(),stateTotal:null,ignoredTotalRows:0};
  for(const row of (observaciones?.rows||[])){
-  const cases=Number(row.cases);
+  const measure=CAHOSZero.normalize(row.cases),cases=measure.value;
   if(!String(row.municipalities||'').trim()&&!String(row.municipalities_id||'').trim()){
-   result.stateTotal=Number.isFinite(cases)?cases:null;
+   result.stateTotal=!measure.imputed&&Number.isFinite(cases)?cases:null;
    result.ignoredTotalRows++;
    continue;
   }
-  if(row.cases==null||!Number.isFinite(cases))continue;
+  // Un valor nulo del cubo suma cero, pero permanece identificado como imputado.
   result.withCases++;
   let code=codeFrom(row.municipalities_id)||codeFrom(row.municipalities);
   if(!byCode.has(code)){
@@ -51,10 +51,19 @@ function reconcileMunicipios(){
   if(code&&byCode.has(code)){
    result.linkedRows++;
    result.byCode.set(code,(result.byCode.get(code)||0)+cases);
+   if(measure.imputed)result.missing.add(code);
   }else if(result.unlinked.length<5)result.unlinked.push(String(row.municipalities||'(sin nombre)').slice(0,80));
  }
- result.reconciled=result.linkedRows===72&&result.stateTotal!=null&&
+ // Imputar municipios omitidos solo cuando existe una extracción municipal
+ // con total estatal conciliado. Sin extracción, fallo o retención nunca es cero.
+ result.reconciled=result.linkedRows>0&&result.stateTotal!=null&&result.unlinked.length===0&&
   [...result.byCode.values()].reduce((a,b)=>a+b,0)===result.stateTotal;
+ if(result.reconciled){
+  for(const feature of shapes.features){
+   const code=String(feature.properties.cvegeo);
+   if(!result.byCode.has(code)){result.byCode.set(code,0);result.missing.add(code);}
+  }
+ }
  return result;
 }
 const getF=()=>({
@@ -114,7 +123,7 @@ function drawAgeCurve(name,code){
  const rows=ages.map(age=>({name:age.replace("_","-").replace("mm","+"),H:m.edades_sexo.H?.[age]||0,M:m.edades_sexo.M?.[age]||0}));
  const max=Math.max(1,...rows.map(x=>Math.max(x.H,x.M)));
  rows.forEach((r,i)=>{
-  const y=15+i*17,wH=155*r.H/max,wM=155*r.M/max;
+  const y=15+(rows.length-1-i)*17,wH=155*r.H/max,wM=155*r.M/max;
   const t=(x,y,text,color="#334155",size=10)=>{
    const e=document.createElementNS("http://www.w3.org/2000/svg","text");
    e.setAttribute("x",x);e.setAttribute("y",y);e.setAttribute("font-size",size);
@@ -152,7 +161,7 @@ function render(){
   const nm=x.properties?.nombre;
   const code=x.properties?.cvegeo;
   const cases=getMunicipality(nm,code),denom=populationFor(nm,f,code);
-  return {name:nm,code:x.properties?.cvegeo,cases,denom,rate:cases!=null&&denom?(cases/denom)*1e5:null};
+  return {name:nm,code:x.properties?.cvegeo,cases,imputed:joinState.missing.has(String(code)),denom,rate:cases!=null&&denom?(cases/denom)*1e5:null};
  });
  const v=vals.filter(x=>Number.isFinite(x[metric]));const max=Math.max(1,...v.map(x=>x[metric]));
  for(let i=0;i<all.length;i++){
@@ -165,7 +174,7 @@ function render(){
    d+=sampled.map((p,j)=>{const q=point(p);return(j?"L":"M")+q[0].toFixed(2)+","+q[1].toFixed(2)}).join(" ")+"Z";
   }
   path.setAttribute("d",d);
-  path.setAttribute("fill",fillColor(value[metric],max));
+  path.setAttribute("fill",value.imputed&&value[metric]===0?"#eeb267":fillColor(value[metric],max));
   path.setAttribute("stroke",value.code===selectedCode?"#eeb45c":"#fff");
   path.setAttribute("stroke-width",value.code===selectedCode?"2.5":"0.8");
   path.setAttribute("tabindex","0");
@@ -173,13 +182,14 @@ function render(){
   path.setAttribute("aria-label",value.name+": "+(value[metric]==null?"sin datos":metric==="rate"?value.rate.toFixed(1)+" por 100 mil":value.cases+" casos"));
   path.style.cursor="pointer";
   const title=document.createElementNS("http://www.w3.org/2000/svg","title");
-  title.textContent=value.name+" · "+(value.cases==null?"Sin dato de casos":value.cases.toLocaleString("es-MX")+" casos")+
+  title.textContent=value.name+" · "+(value.cases==null?"Sin dato de casos":value.cases.toLocaleString("es-MX")+(value.imputed?" casos · 0 imputado (sin registro)":" casos"))+
     (value.rate!=null?" · "+value.rate.toFixed(1)+" por 100,000":"");
   path.append(title);
   const choose=()=>{selectedCode=value.code;detailName=value.name;name.textContent=value.name;
-   $("#mapInfoBody").textContent=(value.cases==null?"Casos: sin dato":("Casos: "+value.cases.toLocaleString("es-MX")))+
+   $("#mapInfoBody").textContent=(value.cases==null?"Casos: sin dato":("Casos: "+value.cases.toLocaleString("es-MX")+(value.imputed?" (0 imputado)":"")))+
    " · "+(value.denom?"Población: "+value.denom.toLocaleString("es-MX"):"Denominador: no compatible")+
    " · "+(value.rate!=null?"Tasa: "+value.rate.toFixed(2)+" /100 mil":"Tasa no calculable");
+   $("#mapInfoBody").style.color=value.cases===0?(value.imputed?"#cb7612":"#142f2a"):"";
    drawAgeCurve(value.name,value.code);render();};
   path.addEventListener("click",choose);
   path.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();choose();}});
@@ -190,12 +200,12 @@ function render(){
   ?'La consulta municipal no devolvió filas. El total anual no demuestra que exista desagregación municipal en la selección.'
   :matchedMunicipios===0
    ?'El cubo devolvió '+joinState.totalRows+' filas, pero ninguna coincide con las claves/nombres de INEGI. '+(joinState.unlinked.length?'Ejemplos de etiquetas sin emparejar: '+joinState.unlinked.join(', ')+'.':'')
-   :matchedMunicipios+' de 72 municipios coloreables; '+joinState.totalRows+' filas del cubo ('+joinState.linkedRows+' emparejadas).'+
+   :matchedMunicipios+' de 72 municipios con medida o cero imputado; '+joinState.totalRows+' filas del cubo ('+joinState.linkedRows+' emparejadas).'+
       (joinState.unlinked.length?' Algunas etiquetas sin emparejar: '+joinState.unlinked.join(', ')+'.':'');
  $("#mapStatus").textContent=(observaciones?.provisional?'VISTA INTERNA PRELIMINAR. No constituye corte oficial. ':'')+
    diagnostic+' '+(joinState.reconciled?'Suma de 72 municipios conciliada con el total estatal. ':'')+
    (population?.disponible?'Proyecciones poblacionales disponibles.':'Sin denominadores poblacionales.')+
-  ' Gris significa sin información asociable, no cero casos.';
+  ' Naranja = 0 imputado (ausencia). Negro = cero observado. Gris = extracción no disponible o sin conciliación.';
  if(detailName)drawAgeCurve(detailName,selectedCode);
 }
 async function loadShapes(){
@@ -278,6 +288,7 @@ async function query(){
   $("#mapTitleDisease").textContent=label("pathologies",f.pathology)+" · "+year;
   selectedCode=null;detailName=null;
   $("#mapInfoTitle").textContent="Selecciona un municipio";
+  $("#mapInfoBody").style.color="";
   $("#mapInfoBody").textContent=observaciones?.provisional?
     "Vista preliminar restringida a Administrador Maestro. Suma municipal y total estatal se muestran sin duplicación.":
     "Los colores se calculan desde casos registrados en el cubo; se preserva la procedencia de la fuente.";

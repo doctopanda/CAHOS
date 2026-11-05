@@ -7,7 +7,8 @@
   {id:"population",label:"Población",side:"Población y pirámides",icon:"♙",href:"/CAHOS/poblacion.html"},
   {id:"quality",label:"Calidad",side:"Control de calidad",icon:"▣",href:"/CAHOS/revision.html"},
   {id:"connection",label:"Infraestructura",side:"Estado de conexión",icon:"⌁",href:"/CAHOS/conexion.html"},
-  {id:"access",label:"Acceso",side:"Acceso seguro",icon:"◉",href:"/CAHOS/acceso.html"}
+  {id:"access",label:"Ingresar",side:"Iniciar sesión",icon:"◉",href:"/CAHOS/acceso.html"},
+  {id:"admin",label:"Administración",side:"Administración maestra",icon:"⚙",href:"/CAHOS/admin.html",masterOnly:true}
  ];
  const names={
   visor:["Visor SUIVE","Explora el comportamiento epidemiológico por patología, territorio y tiempo."],
@@ -15,7 +16,8 @@
   population:["Población y denominadores","Explora la estructura demográfica de Sonora sin perder los filtros."],
   quality:["Control de calidad","Revisa consistencia, autorizaciones y trazabilidad de las extracciones."],
   access:["Acceso seguro","Administra tu sesión institucional y consulta tus permisos."],
-  connection:["Infraestructura","Consulta el estado de la conexión del servicio CAHOS."]
+  connection:["Infraestructura","Consulta el estado de la conexión del servicio CAHOS."],
+  admin:["Administración maestra","Vinculación del agente central, generación y revocación de tokens."]
  };
  function link(e,side=false){
   const a=document.createElement("a");
@@ -39,27 +41,73 @@
   words.append(title,small);brand.append(emblem,words);
   const caption=document.createElement("span");caption.className="cahos-global-caption";caption.textContent="Inteligencia epidemiológica · Sonora";
   const nav=document.createElement("nav");nav.className="cahos-global-links";nav.setAttribute("aria-label","Productos CAHOS");
-  for(const e of entries)nav.append(link(e));
+  for(const e of entries.filter(e=>!e.masterOnly))nav.append(link(e));
   head.append(toggle,brand,caption,nav);
   body.prepend(head);
-  if(page!=="visor"){
-   const main=body.querySelector(":scope > main");
-   if(main){
-    const frame=document.createElement("div");frame.className="cahos-standard-layout";
-    const aside=document.createElement("aside");aside.className="cahos-global-side";aside.setAttribute("aria-label","Panel de módulos CAHOS");
-    const asideTitle=document.createElement("div");asideTitle.className="cahos-side-top";asideTitle.textContent="◈ Panel CAHOS";
-    const card=document.createElement("section");card.className="cahos-side-card";
-    const kicker=document.createElement("div");kicker.className="cahos-side-kicker";kicker.textContent="CAHOS · PRODUCTO";
-    const h2=document.createElement("h2");h2.textContent=names[page]?.[0]||"Observatorio";
-    const p=document.createElement("p");p.textContent=names[page]?.[1]||"Panel de navegación territorial";
-    card.append(kicker,h2,p);
-    const sideNav=document.createElement("nav");sideNav.setAttribute("aria-label","Cambiar de módulo");
-    for(const e of entries)sideNav.append(link(e,true));
-    aside.append(asideTitle,card,sideNav);
-    const content=document.createElement("div");content.className="cahos-content-area";
-    main.parentNode.insertBefore(frame,main);
-    frame.append(aside,content);content.append(main);
+  // Panorama y Población comparten el mismo sidebar y conservan sus controles
+  // sin recrearlos: los listeners y los IDs de la consulta siguen intactos.
+  const root=page==="visor"?body.querySelector(":scope > .shell"):body.querySelector(":scope > main");
+  const main=page==="visor"?root?.querySelector(":scope > main.main"):root;
+  if(root&&main){
+   const frame=document.createElement("div");frame.className="cahos-standard-layout";
+   const aside=document.createElement("aside");aside.className="cahos-global-side";aside.setAttribute("aria-label","Panel de procesamiento CAHOS");
+   const asideTitle=document.createElement("div");asideTitle.className="cahos-side-top";asideTitle.textContent="◈ Centro de procesamiento";
+   const card=document.createElement("section");card.className="cahos-side-card";
+   const kicker=document.createElement("div");kicker.className="cahos-side-kicker";kicker.textContent="CAHOS · PRODUCTO";
+   const h2=document.createElement("h2");h2.textContent=names[page]?.[0]||"Observatorio";
+   const p=document.createElement("p");p.textContent=names[page]?.[1]||"Panel de navegación territorial";
+   card.append(kicker,h2,p);
+   const sideNav=document.createElement("nav");sideNav.className="cahos-module-nav";sideNav.setAttribute("aria-label","Cambiar de módulo");
+   for(const e of entries.filter(e=>!e.masterOnly))sideNav.append(link(e,true));
+   aside.append(asideTitle,card,sideNav);
+   const content=document.createElement("div");content.className="cahos-content-area";
+   root.parentNode.insertBefore(frame,root);
+   frame.append(aside,content);
+   if(page==="visor"){
+    const oldAside=root.querySelector(":scope > aside.side");
+    const inner=document.createElement("details");inner.className="cahos-sidebar-section";inner.open=true;
+    const summary=document.createElement("summary");summary.textContent="Secciones del Panorama";
+    const native=document.createElement("div");native.className="cahos-native-controls";
+    if(oldAside)while(oldAside.firstChild)native.append(oldAside.firstChild);
+    inner.append(summary,native);aside.append(inner);
+    const filters=main.querySelector("#filters");
+    if(filters){
+     const filterBox=document.createElement("details");filterBox.className="cahos-sidebar-section";
+     const filterSummary=document.createElement("summary");filterSummary.textContent="Filtros del cubo SUIVE";
+     filterBox.append(filterSummary,filters);aside.insertBefore(filterBox,inner);
+    }
+   }else if(page==="population"){
+    const filters=main.querySelector(".selectors");
+    if(filters){
+     const filterBox=document.createElement("details");filterBox.className="cahos-sidebar-section";filterBox.open=true;
+     const filterSummary=document.createElement("summary");filterSummary.textContent="Procesamiento poblacional";
+     filterBox.append(filterSummary,filters);aside.append(filterBox);
+    }
    }
+   content.append(main);
+   if(root!==main)root.remove();
+  }
+  // Si la sesión está activa, reemplazar "Ingresar" por una salida real;
+  // "Acceso" redirige a Panorama y no debe impedir cambiar de usuario.
+  if(window.CAHOSAuth?.accessToken){
+   window.CAHOSAuth.accessToken().then(token=>{
+    if(!token)return;
+    document.querySelectorAll('.cahos-global-links a[href="/CAHOS/acceso.html"], .cahos-module-nav a[href="/CAHOS/acceso.html"]').forEach(link=>link.remove());
+    const logout=document.createElement("button");logout.type="button";
+    logout.className="cahos-global-logout";logout.textContent="Salir";
+    logout.setAttribute("aria-label","Cerrar sesión CAHOS");
+    logout.addEventListener("click",()=>{
+     window.CAHOSAuth.logout();location.assign("/CAHOS/acceso.html");
+    });
+    nav.append(logout);
+    return window.CAHOSAuth.profile?.();
+   }).then(profile=>{
+    if(profile?.enabled&&profile?.is_master===true){
+     const master=entries.find(e=>e.id==="admin");
+     nav.insertBefore(link(master),nav.querySelector(".cahos-global-logout"));
+     document.querySelector(".cahos-module-nav")?.append(link(master,true));
+    }
+   }).catch(()=>{});
   }
   if(window.matchMedia&&window.matchMedia("(max-width: 750px)").matches){body.classList.add("cahos-side-collapsed");toggle.setAttribute("aria-expanded","false");}
  }

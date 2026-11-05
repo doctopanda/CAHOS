@@ -162,10 +162,15 @@ function technicalReview(rows,job){
   const m=String(x).match(/&\[([0-9]{4})\]$/);return m?m[1]:null;
  }));
  const seen=new Set();
- let sum=0,nonzero=0;
+ let sum=0,nonzero=0,missingMeasures=0;
  for(const row of rows){
-  if(!Number.isSafeInteger(row.cases)||row.cases<0){issues.push("invalid_measure");break;}
-  sum+=row.cases;if(row.cases>0)nonzero++;
+  if(row.cases===null){
+   // Celda sin número en una extracción existente: 0 para suma, con procedencia.
+   missingMeasures++;
+  }else if(!Number.isSafeInteger(row.cases)||row.cases<0){
+   issues.push("invalid_measure");break;
+  }
+  sum+=row.cases===null?0:row.cases;if(row.cases>0)nonzero++;
   const coords=[];
   for(const col of axis){
    if(typeof row[col]!=="string"||!row[col].trim()){issues.push("missing_axis");break;}
@@ -184,7 +189,7 @@ function technicalReview(rows,job){
  const sensitive=kind==="municipality"||kind==="institution";
  if(sensitive)issues.push("privacy_review_required");
  return {passed:issues.length===0,issues:[...new Set(issues)],
-  row_count:rows.length,measure_sum:sum,nonzero_rows:nonzero};
+  row_count:rows.length,measure_sum:sum,nonzero_rows:nonzero,missing_measures_imputed_zero:missingMeasures,missing_measure_provenance:"null_only"};
 }
 
 function cleanRows(rows){
@@ -196,8 +201,11 @@ function cleanRows(rows){
   for(const [key,val] of Object.entries(row)){
    if(!allowedFields.has(key))continue;
    if(key==="cases"){
-    if(val===null)obj.cases=null;
+    if(val===null||(typeof val==="string"&&val.trim()===""))obj.cases=null;
     else if(typeof val==="number"&&Number.isFinite(val)&&val>=0&&val<=1e9)obj.cases=val;
+    else if(typeof val==="string"&&/^[0-9]+$/.test(val.trim())&&
+      Number.isSafeInteger(Number(val.trim()))&&Number(val.trim())<=1e9)
+      obj.cases=Number(val.trim());
     else throw new Error("invalid_case_measure");
    } else {
     if(typeof val!=="string"||val.length>250)throw new Error("invalid_dimension_label");
@@ -225,7 +233,8 @@ async function commitResult(user,data,req){
  const coverage={status:rows.length===0?"source_no_rows":
      review.passed?"technical_consistency_checked":"technical_review_required",
   corte_oficial:result.corte_oficial??null,official_cut_verified:false,
-  review_method:"server_side_rules_v1",reviewed_at:reviewDate,
+  review_method:"server_side_rules_v2_null_zero_provenance",reviewed_at:reviewDate,
+  missing_measures_imputed_zero:review.missing_measures_imputed_zero,
   review_summary:rows.length===0?"Consulta ejecutada sin filas del cubo; NO equivale a cero casos.":
     review.passed?"Integridad interna comprobada; corte oficial no certificado.":"Resultado retenido por control técnico o privacidad.",
   internal_check:review};
@@ -403,7 +412,7 @@ async function handler(req){
  }
 
  if(path==="/admin/create-agent"&&req.method==="POST"){
-  if(user.role!=="admin")return send(req,{error:"admin_only"},403);
+  if(user.isMaster!==true)return send(req,{error:"master_admin_only"},403);
   const bytes=crypto.getRandomValues(new Uint8Array(32));
   const token=[...bytes].map(x=>x.toString(16).padStart(2,"0")).join("");
   const hash=await sha256(token);
@@ -411,7 +420,7 @@ async function handler(req){
   return send(req,{agent_id:added[0].id,token,warning:"Copie el token una sola vez en el Windows autorizado. No estará disponible nuevamente."},201);
  }
  if(path==="/admin/revoke-agent"&&req.method==="POST"){
-  if(user.role!=="admin")return send(req,{error:"admin_only"},403);
+  if(user.isMaster!==true)return send(req,{error:"master_admin_only"},403);
   const body=requireObject(await req.json());if(!uuid(body.agent_id))return send(req,{error:"invalid_agent_id"},400);
   const changed=await db("PATCH","cahos_agents?id=eq."+body.agent_id+"&created_by=eq."+user.userId+"&enabled=eq.true",
     {enabled:false,revoked_at:dateISO()});
@@ -432,7 +441,7 @@ async function handler(req){
     ...(url.searchParams.get("full")==="1"?{rows:entries}:{})});
  }
  if(path==="/admin/agents"&&req.method==="GET"){
-  if(user.role!=="admin")return send(req,{error:"admin_only"},403);
+  if(user.isMaster!==true)return send(req,{error:"master_admin_only"},403);
   const agents=await db("GET","cahos_agents?select=id,label,enabled,created_at,last_seen_at,revoked_at&order=created_at.desc&limit=20");
   return send(req,{agents});
  }

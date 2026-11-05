@@ -33,14 +33,7 @@ small,.hint{font-size:12px;color:#6d827b}#alert{min-height:46px;padding:12px;bor
 <div class="panel hide" id="logged">
 <h2>Sesión activa</h2><p id="summary">Autenticado en Supabase.</p>
 <div class="actions"><a href="./">Abrir visor CAHOS</a><button class="secondary" id="refresh" type="button">Verificar permisos</button><button class="secondary" id="logout" type="button">Cerrar sesión</button></div>
-<hr><h2>Vinculación del agente central</h2>
-<p class="hint">Solo administradores CAHOS habilitados. El token se muestra una sola vez y se guarda exclusivamente en el Windows autorizado.</p>
-<div class="actions"><button id="createAgent" type="button">Generar token de agente</button><a href="https://github.com/doctopanda/CAHOS/tree/main/extractor">Instalador Windows</a></div>
-<p id="agentToken" class="hide"></p>
-<button id="copyAgent" type="button" class="secondary hide">Copiar token</button>
-<hr><h2>Control de calidad de extracciones</h2>
-<p class="hint">La integridad y consistencia técnica de cada extracción se revisa sin solicitar aprobaciones manuales. El corte oficial debe interpretarse por separado.</p>
-<div class="actions"><a href="./revision.html">Ver informe técnico y descargar agregados</a></div>
+<p class="hint">Después de autenticarte, CAHOS abrirá el Panorama unificado. La administración del agente es exclusiva del Administrador Maestro.</p>
 </div>
 <div id="alert" role="status">Ingresa con una cuenta Supabase para continuar. Si es tu primer ingreso, solicita la habilitación del administrador.</div>
 <p><a href="./">Regresar al visor</a> · <a href="./conexion.html">Estado de la infraestructura</a></p>
@@ -50,44 +43,35 @@ small,.hint{font-size:12px;color:#6d827b}#alert{min-height:46px;padding:12px;bor
 const el=id=>document.getElementById(id);
 function message(t){el("alert").textContent=t}
 async function render(){
- const has=await CAHOSAuth.accessToken();
- el("login").classList.toggle("hide",!!has);el("logged").classList.toggle("hide",!has);
- if(has){
-  try{
-   const [r,profile]=await Promise.all([CAHOSAuth.api("/api/status"),CAHOSAuth.profile()]);
-   const titulo=profile?.is_master?"ADMINISTRADOR MAESTRO":profile?.role==="admin"?"Administrador":profile?.role==="analyst"?"Analista":"Lector autorizado";
-   el("summary").textContent="Rol: "+titulo+" · Acceso "+(profile?.enabled?"habilitado":"pendiente")+
-     " · Fuente: "+r.body.servidor+".";
-   message(profile?.is_master?"Acceso Maestro habilitado para las funciones administrativas actuales de CAHOS.":"Sesión y permisos confirmados.");
-   el("createAgent").disabled=!(profile?.enabled&&(profile?.role==="admin"||profile?.is_master===true));
-  }
-  catch(e){el("summary").textContent="Cuenta autenticada. Falta aprobación del administrador o conexión del backend.";message(e.message)}
- }
+ try{
+  const token=await CAHOSAuth.accessToken();
+  el("login").classList.toggle("hide",!!token);
+  el("logged").classList.toggle("hide",!token);
+  if(!token)return;
+  const profile=await CAHOSAuth.profile();
+  if(!profile?.enabled){message("La cuenta aún necesita habilitación de un administrador.");return;}
+  el("summary").textContent=profile.is_master?"Administrador Maestro":"Cuenta autorizada";
+  // El acceso nunca muestra ni solicita tokens de extracción a perfiles no maestros.
+  location.replace(profile.is_master?"/CAHOS/admin.html":"/CAHOS/");
+ }catch(e){message("No fue posible verificar los permisos: "+e.message)}
 }
-el("authForm").addEventListener("submit",async e=>{
- e.preventDefault();const email=el("email").value.trim(),password=el("password").value;
- try{await CAHOSAuth.login(email,password);el("password").value="";await render();}catch(err){message(err.message)}
+el("authForm").addEventListener("submit",async event=>{
+ event.preventDefault();
+ try{
+  await CAHOSAuth.login(el("email").value.trim(),el("password").value);
+  el("password").value="";await render();
+ }catch(e){message(e.message)}
 });
 el("signup").addEventListener("click",async()=>{
  const email=el("email").value.trim(),password=el("password").value;
- if(!email||password.length<8){message("Introduce correo y contraseña de al menos ocho caracteres.");return}
- try{await CAHOSAuth.signup(email,password);el("password").value="";message("Registro recibido. Si se exige confirmación, revisa tu correo. Después el administrador debe habilitar tu cuenta.");await render();}
- catch(e){message(e.message)}
-});
-el("logout").onclick=()=>{CAHOSAuth.logout();el("agentToken").textContent="";el("agentToken").classList.add("hide");render()};
-el("refresh").onclick=render;
-el("createAgent").onclick=async()=>{
+ if(!email||password.length<8){message("Introduce correo y contraseña de al menos ocho caracteres.");return;}
  try{
-  const r=await CAHOSAuth.api("/admin/create-agent",{method:"POST",body:{}});
-  const token=r.body.token;
-  if(!/^[a-f0-9]{64}$/i.test(token))throw new Error("Respuesta de vinculación inválida");
-  el("agentToken").textContent=token;el("agentToken").classList.remove("hide");el("copyAgent").classList.remove("hide");
-  message("Copia el token y pégalo en INSTALAR_AGENTE_NUBE.bat del equipo autorizado. No lo compartas en chats ni repositorios.");
- }catch(err){message(err.message)}
-};
-el("copyAgent").onclick=async()=>{
- try{await navigator.clipboard.writeText(el("agentToken").textContent);message("Token copiado. Guárdalo solo en la computadora que ejecutará el agente.");}
- catch{message("Selecciona el token mostrado y cópialo manualmente.")}
-};
+  await CAHOSAuth.signup(email,password);el("password").value="";
+  message("Registro recibido. Si requiere confirmación, consulta tu correo; un administrador debe habilitar el perfil.");
+  await render();
+ }catch(e){message(e.message)}
+});
+el("logout").addEventListener("click",()=>{CAHOSAuth.logout();location.replace("/CAHOS/acceso.html")});
+el("refresh").addEventListener("click",render);
 render();
 </script></body></html>
