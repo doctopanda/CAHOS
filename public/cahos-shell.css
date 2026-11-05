@@ -81,3 +81,30 @@ body.cahos-side-collapsed.cahos-page-visor .side{display:none}
  body.cahos-unified.cahos-page-visor .main{padding:15px}
 }
 @media(max-width:560px){.cahos-global-topbar .cahos-brand-words small{display:none}.cahos-global-topbar .cahos-brand-words strong{font-size:18px}.cahos-global-links a{font-size:10px;padding:8px 7px}.cahos-content-area .panel{padding:14px}}
+
+/* Panel único real para Panorama SUIVE y Población: navegación + controles activos. */
+body.cahos-unified.cahos-page-visor .cahos-standard-layout{display:grid;grid-template-columns:310px minmax(0,1fr)}
+body.cahos-unified.cahos-page-population .cahos-standard-layout{grid-template-columns:310px minmax(0,1fr)}
+body.cahos-unified.cahos-page-visor .cahos-global-side,body.cahos-unified.cahos-page-population .cahos-global-side{position:sticky;top:74px;max-height:calc(100dvh - 74px);overflow-y:auto}
+body.cahos-unified.cahos-page-visor .cahos-content-area{padding:0 22px 30px}
+body.cahos-unified.cahos-page-visor .cahos-content-area>.main{width:100%;max-width:none;margin:0;padding:23px 0}
+.cahos-sidebar-section{margin-top:12px;background:white;border:1px solid #d3e5db;border-radius:13px;overflow:hidden}
+.cahos-sidebar-section>summary{cursor:pointer;padding:12px 13px;background:#eaf7ef;color:#145a4b;font-size:12px;font-weight:850}
+.cahos-sidebar-section>summary:focus-visible{outline:3px solid #d8a043;outline-offset:-3px}
+.cahos-native-controls{padding:8px}
+.cahos-native-controls .logo{display:none}
+.cahos-global-side .cahos-native-controls nav{display:grid;gap:5px}
+.cahos-global-side .cahos-native-controls button.nav,.cahos-global-side .cahos-native-controls a.nav{display:flex;width:100%;text-align:left;margin:0;padding:9px 10px;color:#125a4d;border:1px solid #d8e7df;border-radius:9px;background:#fff;font-size:12px;cursor:pointer}
+.cahos-global-side .cahos-native-controls button.nav.on{background:#dff3e9;border-color:#9ecfbb}
+.cahos-global-side .cahos-native-controls h3{margin:12px 6px 5px;font-size:11px;color:#147b65}
+.cahos-global-side .cahos-native-controls .favorite{color:#125a4d;background:#f5fbf7;font-size:11px}
+.cahos-global-side .cahos-native-controls .tag{color:#587c70;background:#f1f8f3}
+.cahos-global-side .cahos-sidebar-section .filters{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:10px;margin:0;border:0;border-radius:0;box-shadow:none;padding:12px}
+.cahos-global-side .cahos-sidebar-section .filters>*{grid-column:1/-1!important;min-width:0}
+.cahos-global-side .cahos-sidebar-section .filters button{width:100%}
+.cahos-global-side .cahos-sidebar-section .selectors{display:grid!important;grid-template-columns:minmax(0,1fr);gap:10px;align-items:stretch;padding:13px}
+.cahos-global-side .cahos-sidebar-section .selectors label{display:grid!important;min-width:0;flex:auto}
+.cahos-global-side .cahos-sidebar-section .selectors button{width:100%}
+body.cahos-side-collapsed.cahos-page-visor .cahos-standard-layout,
+body.cahos-side-collapsed.cahos-page-population .cahos-standard-layout{grid-template-columns:minmax(0,1fr)}
+@media(max-width:950px){body.cahos-unified.cahos-page-visor .cahos-standard-layout,body.cahos-unified.cahos-page-population .cahos-standard-layout{display:block}body.cahos-unified.cahos-page-visor .cahos-global-side,body.cahos-unified.cahos-page-population .cahos-global-side{position:static;max-height:none}body.cahos-unified.cahos-page-visor .cahos-content-area{padding:10px 13px}}
