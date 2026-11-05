@@ -325,7 +325,11 @@ function updateMapFoot(){
  const legendNames={zones:"Regionalización territorial",population:"Población proyectada",
   cases:"Casos municipales autorizados",rate:"Tasa por 100,000 habitantes"};
  $("layerLegend").textContent=legendNames[metric]||"Capa territorial";
- $("layerLegendYear").textContent=String(state.year);
+ $("layerLegendYear").textContent=metric==="zones"?"Capa territorial":String(state.year);
+ $("legendNoData").textContent=metric==="zones"?"Sin asignación":"Sin dato / retenido";
+ $("legendLow").textContent=metric==="zones"?"Zona territorial":"Menor valor";
+ $("legendHigh").textContent=metric==="zones"?"Zonas compartidas":"Mayor valor";
+ $("legendHighSwatch").style.background=metric==="zones"?"#e1a646":"#13735e";
  $("mapFoot").textContent="Polígonos INEGI · "+(state.leafletMap&&$("mapBase").value==="osm"?
   "Base OpenStreetMap · © colaboradores de OSM · ":"")+
   (schemes[scheme()]||"")+" · "+
@@ -636,16 +640,8 @@ async function initialize(){
   searchPathology();
   if(shared.pathology)selectOption("pathology",shared.pathology);
   if(!$("pathology").value&&status.favoritos?.length)selectOption("pathology",status.favoritos[0]);
-  const carto=await fetch("/CAHOS/data/sonora_municipios.geojson",{cache:"no-store"});
-  if(!carto.ok)throw Error("Cartografía INEGI no incluida en la última publicación de GitHub Pages");
-  const geo=await carto.json();
-  if(geo.type!=="FeatureCollection"||geo.features?.length!==72)
-   throw Error("El mapa INEGI no contiene las 72 geometrías municipales de Sonora");
-  state.features=geo.features;state.featureMap=new Map(geo.features.map(f=>[String(f.properties.cvegeo),f]));
-  await loadRegionalization();
   state.year=yrNumber($("year").value)||2026;
   await loadPopulation();
-  if($("mapBase").value==="osm")initLeafletMap(geo);
   drawMap();
   if(state.selected&&state.featureMap.has(state.selected))showDetail(state.selected);
   else if(state.features.length){state.selected=null;blank($("pyramid"),"Selecciona un municipio");blank($("trend"),"Selecciona un municipio")}
