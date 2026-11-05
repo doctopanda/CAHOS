@@ -219,9 +219,12 @@ button.primary,button.secondary{border-radius:10px}
    <option value="range">Rango de semanas</option>
    <option value="single">Semana individual</option>
    <option value="cumulative">Acumulado hasta la SE</option>
+<option value="quarter">Trimestre epidemiológico</option>
+<option value="semester">Semestre epidemiológico</option>
   </select></label>
   <label>SE inicial<select id="weekStart" aria-label="Semana epidemiológica inicial"></select></label>
   <label>SE final<select id="weekEnd" aria-label="Semana epidemiológica final"></select></label>
+<label id="periodBlockLabel" hidden>Bloque del periodo<select id="periodBlock"></select></label>
  </div><div class="periodCaption" id="periodCaption" aria-live="polite">Configura el periodo de análisis.</div>
  <p class="explain">Semanas domingo a sábado. En SUIVE, el desglose municipal por intervalo exige extracción semanal autenticada. No mostramos totales anuales como semanales.</p></div>
 </section>
