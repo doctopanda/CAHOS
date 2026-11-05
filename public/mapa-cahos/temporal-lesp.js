@@ -122,7 +122,10 @@
    const keys=Object.keys(r);
    if(keys.some(k=>!["year","week","municipality","pathology","positive_lab_results"].includes(k)))
     throw Error("El archivo incluye columnas no permitidas (potencialmente nominales)");
-   const year=Number(r.year),week=Number(r.week),count=Number(r.positive_lab_results);
+   if(typeof r.year!=="number"||typeof r.week!=="number"||
+      typeof r.positive_lab_results!=="number")
+    throw Error("El agregado LESP requiere valores numéricos explícitos, no celdas nulas");
+   const year=r.year,week=r.week,count=r.positive_lab_results;
    if(!/^20\d{2}$/.test(String(year))||!Number.isInteger(week)||week<1||week>53||
       !Number.isSafeInteger(count)||count<0||count>100000||
       typeof r.municipality!=="string"||r.municipality.length>110||
