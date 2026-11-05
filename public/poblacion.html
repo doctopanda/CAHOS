@@ -73,7 +73,8 @@ function pyramid(data){
  const mid=370,top=38,step=29,scale=305/Math.max(1,...data.female,...data.male);
  svgAdd(svg,"line",{x1:mid,y1:top-13,x2:mid,y2:456,stroke:"#789c91","stroke-width":1});
  for(let i=0;i<BANDS.length;i++){
-  const y=top+i*step;
+  // Pirámide epidemiológica convencional: 0–4 años abajo, 65+ arriba.
+  const y=top+(BANDS.length-1-i)*step;
   const mw=data.male[i]*scale,fw=data.female[i]*scale;
   const man=svgAdd(svg,"rect",{x:mid-26-mw,y,width:mw,height:21,rx:3,fill:"#5e8eb7"});
   svgAdd(man,"title",{},names[i]+" · Hombres: "+fmt(data.male[i]));
