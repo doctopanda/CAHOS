@@ -245,6 +245,13 @@ function renderTerritorialSummary(){
  const labels={custom:"6 zonas · 65/72 municipios · 7 cruces",districts:"6 distritos · 72/72",
   coespo:"10 regiones · 72/72",imss:"10 sedes · límites pendientes"};
  $("regionCoverage").textContent=labels[scheme()];
+ $("overviewMunicipalities").textContent=String(codes.size);
+ $("overviewRegions").textContent=String(state.selectedZones.size||zoneList().length);
+ $("panoramaContext").textContent=scheme()==="custom"?
+  "6 zonas CAHOS propuestas · municipios compartidos permitidos":
+  scheme()==="districts"?"Distritos de Salud · Sonora 2025":
+  scheme()==="coespo"?"10 regiones COESPO · regionalización actual":
+  "10 sedes IMSS Bienestar · límites regionales no verificados";
  $("regionHelp").textContent=scheme()==="custom"?
   "Agrupación analítica aportada para CAHOS. Las zonas se traslapan y siete municipios siguen sin asignación; selección múltiple sin doble conteo.":
   scheme()==="districts"?"Boletín Oficial del Estado de Sonora, 10 de febrero de 2025, artículo 29 BIS. Distribución completa de 72 municipios.":
@@ -293,8 +300,8 @@ function polygonStyle(feature){
  const code=String(feature.properties.cvegeo),metric=$("metric").value;
  const selected=state.selectedMunicipalities.has(code),regions=zonesFor(code);
  return {
-  color:selected?"#edb24a":metric==="zones"&&regions.length>1?"#67466e":"#fff",
-  weight:selected?3.8:metric==="zones"&&regions.length>1?2.1:1,
+  color:selected?"#d49a39":metric==="zones"&&regions.length>1?"#67466e":"#20695b",
+  weight:selected?3.8:metric==="zones"&&regions.length>1?2.1:1.2,
   opacity:1,fillColor:regionColor(code,metric)||fill(metricValue(code,metric),polygonMetricMax(metric)),
   fillOpacity:selectedCodes().has(code)?0.77:0.13
  };
@@ -315,6 +322,10 @@ function updateMapFoot(){
  const schemes={custom:"Zonas operativas CAHOS (no oficiales)",
   districts:"Distritos de Salud · 2025",coespo:"Regiones COESPO · 10",
   imss:"IMSS Bienestar · 10 sedes, cobertura municipal pendiente"};
+ const legendNames={zones:"Regionalización territorial",population:"Población proyectada",
+  cases:"Casos municipales autorizados",rate:"Tasa por 100,000 habitantes"};
+ $("layerLegend").textContent=legendNames[metric]||"Capa territorial";
+ $("layerLegendYear").textContent=String(state.year);
  $("mapFoot").textContent="Polígonos INEGI · "+(state.leafletMap&&$("mapBase").value==="osm"?
   "Base OpenStreetMap · © colaboradores de OSM · ":"")+
   (schemes[scheme()]||"")+" · "+
@@ -587,8 +598,21 @@ async function loadCases(){
 }
 async function initialize(){
  try{
+  // La cartografía municipal es pública; el cubo de casos no.
+  const publicCarto=await fetch("/CAHOS/data/sonora_municipios.geojson",{cache:"no-store"});
+  if(!publicCarto.ok)throw Error("Cartografía pública INEGI no disponible en GitHub Pages");
+  const publicGeo=await publicCarto.json();
+  if(publicGeo.type!=="FeatureCollection"||publicGeo.features?.length!==72)
+   throw Error("La cartografía debe contener 72 polígonos municipales");
+  state.features=publicGeo.features;
+  state.featureMap=new Map(publicGeo.features.map(f=>[String(f.properties.cvegeo),f]));
+  state.selected=shared.pop_municipality||null;
+  await loadRegionalization();
+  if($("mapBase").value==="osm")initLeafletMap(publicGeo);
+  drawMap();
+
   if(!await window.CAHOSAuth.accessToken()){
-   inform("Inicia sesión primero en Acceso de CAHOS. Los datos del cubo no son públicos.","error");
+   inform("Cartografía pública disponible. Para casos y tasas, inicia sesión segura en CAHOS.","ok");
    $("access").innerHTML='<a href="/CAHOS/acceso.html">Iniciar sesión segura en CAHOS</a>';
    return;
   }
@@ -634,7 +658,7 @@ async function initialize(){
 $("search").addEventListener("input",searchPathology);
 for(const id of ["pathology","year","sex","age"]){
  $(id).addEventListener("change",()=>{state.municipal=new Map();state.grandTotal=null;
-  state.year=yrNumber($("year").value)||2026;save();
+  state.year=yrNumber($("year").value)||2026;save();clearMapDetail();
   if(id==="year")loadPopulation().then(drawMap).catch(e=>inform(e.message,"error"));
   else drawMap();
  });
@@ -656,7 +680,7 @@ $("addMunicipalityBtn").addEventListener("click",()=>{
 $("clearTerritory").addEventListener("click",()=>{
  state.selectedZones.clear();state.selectedMunicipalities.clear();state.selected=null;
  save();refreshZoneChips();renderMunicipalitySelection();drawMap();
- $("municipalityRegions").textContent="Sin municipio seleccionado.";
+ clearMapDetail();
 });
 $("consult").addEventListener("click",loadCases);
 for(const [id,mult] of [["zoomIn",.72],["zoomOut",1.38]]){
@@ -677,6 +701,39 @@ $("resetZoom").addEventListener("click",()=>{
   return;
  }
  state.viewBox={x:0,y:0,w:900,h:620};$("map").setAttribute("viewBox","0 0 900 620");
+});
+function clearMapDetail(){
+ $("name").textContent="Sonora";
+ $("note").textContent="Selecciona un polígono para analizar un municipio.";
+ $("municipalityRegions").textContent="Sin municipio seleccionado.";
+ for(const id of ["cases","rate","population","share"])$(id).textContent="—";
+ blank($("pyramid"),"Selecciona un municipio");blank($("trend"),"Selecciona un municipio");
+ $("context").textContent="La lectura de cifras epidemiológicas requiere acceso autorizado.";
+}
+$("mapFocus").addEventListener("click",()=>{
+ if(state.leafletMap&&state.leafletLayer&&$("mapBase").value==="osm"){
+  const selected=selectedCodes(),bounds=window.L.latLngBounds([]);
+  state.leafletLayer.eachLayer(layer=>{
+   if(selected.has(String(layer.feature?.properties?.cvegeo)))bounds.extend(layer.getBounds());
+  });
+  if(bounds.isValid())state.leafletMap.fitBounds(bounds,{padding:[25,25],maxZoom:11});
+  return;
+ }
+ $("resetZoom").click();
+});
+$("mapRestore").addEventListener("click",()=>{
+ state.selectedZones.clear();state.selectedMunicipalities.clear();state.selected=null;
+ $("metric").value="zones";$("regionScheme").value="custom";$("mapBase").value="osm";
+ refreshZoneChips();renderMunicipalitySelection();clearMapDetail();drawMap();
+ $("resetZoom").click();save();
+});
+$("panelCompress").addEventListener("click",()=>{
+ document.body.classList.add("controls-compact");
+ setTimeout(()=>state.leafletMap?.invalidateSize(false),80);
+});
+$("panelExpand").addEventListener("click",()=>{
+ document.body.classList.remove("controls-compact");
+ setTimeout(()=>state.leafletMap?.invalidateSize(false),80);
 });
 window.addEventListener("pagehide",save);
 initialize();
