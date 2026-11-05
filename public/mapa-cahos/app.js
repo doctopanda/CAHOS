@@ -78,6 +78,7 @@ function matchMunicipios(rows){
   if(!Number.isSafeInteger(cases)||cases<0){return {ok:false,reason:"Valores municipales inválidos"}}
   if(!String(r.municipalities||"").trim()&&!String(r.municipalities_id||"").trim()){
    if(grand!==null)return {ok:false,reason:"Se recibieron varias filas de total estatal"};
+   if(entry.imputed)return {ok:false,reason:"Total estatal sin medida numérica: no se puede conciliar"};
    grand=cases;continue;
   }
   let code=codeFrom(r.municipalities_id)||codeFrom(r.municipalities);
