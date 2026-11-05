@@ -38,7 +38,7 @@ WITH_HIERARCHIES = {
     'age': '[Grupos de edades].[Grupo de edad]',
     'institutions': '[Instituciones].[Institución]',
 }
-AXES = {'annual': ('years',), 'weekly': ('years', 'weeks'), 'sex': ('sex',), 'age': ('age',), 'institution': ('institutions',), 'municipality': ('municipalities',)}
+AXES = {'annual': ('years',), 'weekly': ('years', 'weeks'), 'sex': ('sex',), 'age': ('age',), 'institution': ('institutions',), 'municipality': ('municipalities',), 'municipality_weekly': ('municipalities', 'weeks')}
 VALID_MDX_NAME = re.compile(r'^\[[^\]\r\n;]+\](?:\.&?\[(?:[^\]\r\n;]|\]\]){1,190}\])+$')
 MAX_CATALOG = 12000
 LOCK = threading.RLock()
@@ -213,7 +213,7 @@ def build_mdx(req: dict) -> tuple[str, list[str]]:
     week_end = int(req.get('week_end', 53))
     slicer = [pathology]
     if entity: slicer.append(entity)
-    if municipality and kind != 'municipality': slicer.append(municipality)
+    if municipality and kind not in ('municipality','municipality_weekly'): slicer.append(municipality)
     if sex and kind != 'sex': slicer.append(sex)
     if age and kind != 'age': slicer.append(age)
     axes = AXES[kind]
@@ -228,10 +228,17 @@ def build_mdx(req: dict) -> tuple[str, list[str]]:
         slicer.append(years[0])
         dim = axes[0]
         # Un miembro de sexo o edad no puede ir a la vez en eje y segmentador.
-        if kind == 'municipality':
+        if kind in ('municipality','municipality_weekly'):
             if not entity:
                 raise ValueError('El mapa requiere seleccionar una entidad federativa')
-            rowset = WITH_HIERARCHIES['municipalities'] + '.Members'
+            muniset = WITH_HIERARCHIES['municipalities'] + '.Members'
+            if kind == 'municipality_weekly':
+                wm = week_members(week_start, week_end)
+                if len(wm) > 53:
+                    raise ValueError('Máximo 53 semanas')
+                rowset = 'CROSSJOIN(' + muniset + ', {' + ', '.join(wm) + '})'
+            else:
+                rowset = muniset
         else:
             members = get_catalog(dim)
             if not members or len(members) > 250:
@@ -239,7 +246,7 @@ def build_mdx(req: dict) -> tuple[str, list[str]]:
             rowset = '{' + ', '.join(m['id'] for m in members) + '}'
     where = '\nWHERE (' + ', '.join(slicer) + ')' if slicer else ''
     cube = get_config()['cubo'].replace(']', ']]')
-    props = 'MEMBER_CAPTION, MEMBER_UNIQUE_NAME' if kind == 'municipality' else 'MEMBER_CAPTION'
+    props = 'MEMBER_CAPTION, MEMBER_UNIQUE_NAME' if kind in ('municipality','municipality_weekly') else 'MEMBER_CAPTION'
     mdx = (f'SELECT {{[Measures].[Casos]}} ON COLUMNS,\n'
            f'NON EMPTY {rowset} DIMENSION PROPERTIES {props} ON ROWS\n'
            f'FROM [{cube}]{where}')
