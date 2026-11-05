@@ -307,7 +307,7 @@ async function loadRegionalization(){
 
 function blank(svg,text){
  svg.replaceChildren();svg.append(mk("text",{x:svg.id==="map"?450:160,y:svg.id==="map"?300:90,
-  "text-anchor":"middle",fill:"#708b80","font-size":"13"},text));
+  "text-anchor":"middle",fill:"#714B61","font-size":"13"},text));
 }
 
 
@@ -528,14 +528,14 @@ function pyramid(record){
  bands.forEach((b,i)=>{
   // Pirámide epidemiológica convencional: los menores abajo, los mayores arriba.
   const y=14+(bands.length-1-i)*27,wM=112*vals[0][i]/max,wF=112*vals[1][i]/max;
-  const lm=mk("rect",{x:center-21-wM,y,width:wM,height:20,rx:2,fill:"#558db8"});
+  const lm=mk("rect",{x:center-21-wM,y,width:wM,height:20,rx:2,fill:"#9870BD"});
   lm.append(mk("title",{},cap(b)+": "+fmt(vals[0][i])+" hombres"));svg.append(lm);
-  const lf=mk("rect",{x:center+21,y,width:wF,height:20,rx:2,fill:"#1b9b87"});
+  const lf=mk("rect",{x:center+21,y,width:wF,height:20,rx:2,fill:"#F06DA6"});
   lf.append(mk("title",{},cap(b)+": "+fmt(vals[1][i])+" mujeres"));svg.append(lf);
-  svg.append(mk("text",{x:center,y:y+14,"font-size":9,"text-anchor":"middle",fill:"#264f44"},cap(b)));
+  svg.append(mk("text",{x:center,y:y+14,"font-size":9,"text-anchor":"middle",fill:"#6B3451"},cap(b)));
  });
- svg.append(mk("text",{x:77,y:398,"font-size":11,fill:"#558db8","text-anchor":"middle"},"Hombres"));
- svg.append(mk("text",{x:241,y:398,"font-size":11,fill:"#1b9b87","text-anchor":"middle"},"Mujeres"));
+ svg.append(mk("text",{x:77,y:398,"font-size":11,fill:"#9870BD","text-anchor":"middle"},"Hombres"));
+ svg.append(mk("text",{x:241,y:398,"font-size":11,fill:"#F06DA6","text-anchor":"middle"},"Mujeres"));
 }
 async function trend(code,requestId){
  const svg=$("trend");blank(svg,"Cargando tendencia…");
@@ -552,13 +552,13 @@ async function trend(code,requestId){
    return [px,py];
   });
   for(let i=0;i<3;i++)svg.append(mk("line",{x1:28,y1:15+i*45,x2:302,y2:15+i*45,stroke:"#e1ece6"}));
-  svg.append(mk("polyline",{points:pts.map(p=>p.join(",")).join(" "),fill:"none",stroke:"#137c68","stroke-width":3}));
+  svg.append(mk("polyline",{points:pts.map(p=>p.join(",")).join(" "),fill:"none",stroke:"#8A1F5B","stroke-width":3}));
   rows.forEach((row,i)=>{
-   const circle=mk("circle",{cx:pts[i][0],cy:pts[i][1],r:2.6,fill:"#137c68"});
+   const circle=mk("circle",{cx:pts[i][0],cy:pts[i][1],r:2.6,fill:"#8A1F5B"});
    circle.append(mk("title",{},row.year+": "+fmt(row.population_total)));svg.append(circle);
   });
-  svg.append(mk("text",{x:28,y:135,fill:"#738c81","font-size":11},"2015"));
-  svg.append(mk("text",{x:302,y:135,fill:"#738c81","font-size":11,"text-anchor":"end"},"2030"));
+  svg.append(mk("text",{x:28,y:135,fill:"#714B61","font-size":11},"2015"));
+  svg.append(mk("text",{x:302,y:135,fill:"#714B61","font-size":11,"text-anchor":"end"},"2030"));
  }catch{if(requestId===state.lastDetailRequest)blank(svg,"Sin tendencia disponible")}
 }
 function renderLabDetail(code){
