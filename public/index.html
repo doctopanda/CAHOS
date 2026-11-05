@@ -324,6 +324,12 @@ function drawAll(){
  const absent=weeks.map(w=>!curr.has(w)||explicitMissing.has(w));
  const missingCount=absent.filter(Boolean).length,total=[...curr.values()].reduce((a,b)=>a+b,0);
  const previous=[...prev.values()].reduce((a,b)=>a+b,0);
+ const priorRecords=weeklyRows.filter(r=>
+   Number((String(r.years).match(/(?:19|20)\d{2}/)||[])[0])===y-1);
+ const priorNullWeeks=new Set(priorRecords.filter(r=>r.case_imputed)
+  .map(r=>Number((String(r.weeks).match(/\d{1,2}/)||[])[0])));
+ const priorComparable=weeks.every(w=>prev.has(w)&&!priorNullWeeks.has(w));
+
  CAHOSZero.mark($('#kCases'),total,total===0&&missingCount>0);
  $('#kCasesSub').textContent='SE '+f.week_start+'–'+f.week_end+' · '+(weeks.length-missingCount)+' con valor numérico · '+missingCount+' ceros imputados';
  const annualRows=cleanRows(annual.rows),annualMap=tally(annual.rows,'years'),yearName=catalogLabel('years',f.year);
@@ -331,7 +337,7 @@ function drawAll(){
  const annualImputed=!annualMap.has(yearName)||annualRows.some(r=>r.years===yearName&&r.case_imputed);
  CAHOSZero.mark($('#kAnnual'),annualValue,annualValue===0&&annualImputed);
  $('#kAnnualSub').textContent=yearName+(annualImputed?' · 0 con imputación de ausencia':' · total disponible en el cubo');
- $('#kChange').textContent=prev.size&&curr.size&&previous>0&&missingCount===0&&weeks.every(w=>curr.has(w)===prev.has(w))?
+ $('#kChange').textContent=prev.size&&curr.size&&previous>0&&missingCount===0&&priorComparable?
    ((total/previous-1)*100).toFixed(1)+' %':'No comparable';
  $('#kChangeSub').textContent=y+' vs. '+(y-1)+' · mismas SE (sin imputaciones para comparar)';
  $('#kSync').textContent=new Date(weekly.extraido_en).toLocaleString('es-MX',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
