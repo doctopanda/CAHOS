@@ -241,7 +241,13 @@ button.primary,button.secondary{border-radius:10px}
    <label for="lespFile" class="cahos-lesp-upload">Seleccionar archivo agregado LESP (.json)
     <input id="lespFile" type="file" accept=".json,application/json" aria-describedby="labStatus">
    </label>
-   <p class="explain">La importación es local y exclusiva del Maestro. Por seguridad, el archivo no se guarda en el servidor ni automáticamente en el navegador; al abrir una nueva pestaña hay que importarlo de nuevo.</p>
+   <p class="explain">La importación genera una vista previa local. Después de revisarla, usa <strong>Publicar versión protegida</strong> para guardar en Supabase solo los conteos agregados, nunca el Excel ni los datos nominales.</p>
+   <div class="cahos-lesp-save">
+    <button id="lespPublish" type="button" disabled> <span aria-hidden="true">▣</span> Publicar versión protegida en Supabase</button>
+    <button id="lespReload" type="button">Recuperar versión activa</button>
+    <p id="lespServerStatus" role="status" aria-live="polite">Consultando el repositorio LESP protegido…</p>
+    <p class="explain">Cada publicación exige una base anual acumulada y completa para su corte. Se reemplazan los conteos operativos de ese año; solo se conservan metadatos mínimos de auditoría.</p>
+   </div>
   </div>
   <div id="labStatus" class="lespStatus" role="status" aria-live="polite">LESP todavía no cargado. Para mostrar resultados importa el archivo agregado privado desde una sesión de Administrador Maestro.</div>
   <div id="labOverview" class="cahos-lesp-overview" hidden aria-live="polite">
