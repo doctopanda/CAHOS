@@ -235,12 +235,21 @@ button.primary,button.secondary{border-radius:10px}
  <div class="controlLabel">LESP · Resultados positivos</div>
  <div class="body">
   <label>Patología en informe LESP<select id="labPathology"><option value="">Todas las patologías positivas</option></select></label>
-  <p class="explain">Fuente independiente del cubo SUIVE. Un resultado positivo no equivale automáticamente a caso confirmado por vigilancia.</p>
+  <p class="explain">Fuente independiente de SUIVE. Los positivos del LESP son resultados de laboratorio; no equivalen automáticamente a casos confirmados de vigilancia.</p>
   <div id="lespImportPanel" hidden>
-   <label>Importar agregado privado del LESP (JSON, sin datos nominales)<input id="lespFile" type="file" accept=".json,application/json"></label>
-   <p class="explain">Solo Maestro. El archivo permanece en la memoria de esta pestaña, sin cargarlo a GitHub ni a Supabase.</p>
+   <div class="cahos-lesp-guide"><strong>1. Carga la fuente LESP</strong><p>Importa el JSON agregado privado de LESP Sonora 2026 que te entregué en el chat. No selecciones el Excel nominal.</p></div>
+   <label for="lespFile" class="cahos-lesp-upload">Seleccionar archivo agregado LESP (.json)
+    <input id="lespFile" type="file" accept=".json,application/json" aria-describedby="labStatus">
+   </label>
+   <p class="explain">La importación es local y exclusiva del Maestro. Por seguridad, el archivo no se guarda en el servidor ni automáticamente en el navegador; al abrir una nueva pestaña hay que importarlo de nuevo.</p>
   </div>
-  <div id="labStatus" class="lespStatus" role="status">LESP no cargado. No se publican datos del archivo.</div>
+  <div id="labStatus" class="lespStatus" role="status" aria-live="polite">LESP todavía no cargado. Para mostrar resultados importa el archivo agregado privado desde una sesión de Administrador Maestro.</div>
+  <div id="labOverview" class="cahos-lesp-overview" hidden aria-live="polite">
+   <div><span>Resultados positivos clasificados en el intervalo</span><strong id="labTotal">—</strong></div>
+   <div><span>Municipios con registros en el extracto</span><strong id="labMunCount">—</strong></div>
+   <div><span>Última SE con positivos en el archivo</span><strong id="labLastWeek">—</strong></div>
+   <p id="labOverviewNote">Los municipios sin registros en este extracto no se consideran cero casos confirmados.</p>
+  </div>
  </div>
 </section>
 <section class="filterPanel" aria-label="Selección de territorios"><div class="controlLabel">Regionalización</div>
