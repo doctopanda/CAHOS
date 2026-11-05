@@ -4,7 +4,7 @@
 (function(root){
  "use strict";
  const $=id=>document.getElementById(id);
- const memory={rows:null,year:null,source:null,catalog:[],quality:null,loaded:false,master:false};
+ const memory={rows:null,year:null,source:null,catalog:[],quality:null,lastPositiveWeek:null,loaded:false,master:false};
  const callbacks=new Set();
  const norm=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]+/g," ").trim();
  const nameAliases={"MAGDALENA DE KINO":"MAGDALENA","SAN LUIS RIO COLORADO":"SAN LUIS RIO COLORADO","PUERTO PENASCO":"PUERTO PENASCO"};
@@ -50,7 +50,7 @@
  }
  function labFilter(){
   const w=current(),pathology=$("labPathology")?.value||"";
-  if(!memory.loaded||memory.year!==w.year)return null;
+  if(!memory.loaded||memory.year!==w.year||w.start>memory.lastPositiveWeek)return null;
   const totals=new Map(),byDisease=new Map();
   let stateTotal=0;
   for(const r of memory.rows){
@@ -69,9 +69,9 @@
   .sort((a,b)=>b[1]-a[1]).map(([pathology,count])=>({pathology,count}));}
  function labWeeks(name){
   const w=current(),nameKey=canonical(name);
-  if(!memory.loaded||memory.year!==w.year)return null;
+  if(!memory.loaded||memory.year!==w.year||w.start>memory.lastPositiveWeek)return null;
   const path=$("labPathology")?.value||"",values=[];
-  for(let week=w.start;week<=w.end;week++)values.push({
+  for(let week=w.start;week<=Math.min(w.end,memory.lastPositiveWeek);week++)values.push({
    week,count:memory.rows.filter(r=>r.week===week&&canonical(r.municipality)===nameKey&&(!path||r.pathology===path))
     .reduce((a,b)=>a+b.positive_lab_results,0)
   });
@@ -81,7 +81,7 @@
   const label=$("labStatus");
   if(!label)return;
   label.textContent=memory.loaded?
-   "Archivo privado cargado en esta pestaña · "+memory.rows.length+" celdas agregadas. Sin envío a servidores.":
+   "Archivo privado cargado: "+memory.rows.length+" celdas. Último positivo clasificado: SE "+memory.lastPositiveWeek+" (no acredita corte oficial). Sin envío a servidores.":
    "LESP no cargado. Los resultados del archivo no se publican en GitHub Pages.";
  }
  async function importPrivateFile(file){
@@ -104,7 +104,7 @@
   const years=new Set(rows.map(r=>r.year));if(years.size!==1)throw Error("Un solo año epidemiológico por archivo");
   memory.rows=rows;memory.year=[...years][0];memory.source=String(parsed.source||"LESP").slice(0,120);
   memory.catalog=[...new Set(rows.map(r=>r.pathology))].sort((a,b)=>a.localeCompare(b,"es"));
-  memory.quality=parsed.quality||{};memory.loaded=true;
+  memory.quality=parsed.quality||{};memory.lastPositiveWeek=Math.max(...rows.map(r=>r.week));memory.loaded=true;
   const sel=$("labPathology");if(sel){
    sel.replaceChildren(new Option("Todas las patologías positivas",""));
    for(const name of memory.catalog)sel.add(new Option(name,name));
@@ -116,7 +116,7 @@
  }
  function bind(){
   const mode=$("periodMode"),start=$("weekStart"),end=$("weekEnd");
-  if(mode)mode.addEventListener("change",()=>{const single=mode.value==="single";if(start)start.disabled=single;
+  if(mode)mode.addEventListener("change",()=>{const single=mode.value==="single";if(start)start.disabled=single||mode.value==="annual";
     if(end)end.disabled=mode.value==="annual";
     const saved=root.CAHOSSelection?.read()||{};
     if(start&&end&&mode.value==="single")start.value=end.value;
