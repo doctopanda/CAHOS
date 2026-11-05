@@ -103,7 +103,8 @@
  // Ausencia de una fila en un extracto exclusivo de positivos => null, no un cero observado.
  function labDiagnosisWeeks(municipality,pathology="",scope="annual"){
   const p=current();
-  if(!memory.master||!memory.loaded||memory.year!==p.year||p.start>memory.lastPositiveWeek)return null;
+  if(!memory.master||!memory.loaded||memory.year!==p.year||
+    (scope==="period"&&p.start>memory.lastPositiveWeek))return null;
   if(scope!=="annual"&&scope!=="period")throw Error("Alcance de la serie LESP no reconocido");
   const start=scope==="period"?p.start:1,end=Math.min(memory.lastPositiveWeek,scope==="period"?p.end:memory.lastPositiveWeek);
   const key=canonical(municipality),weekCounts=new Map();
