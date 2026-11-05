@@ -20,6 +20,9 @@
   const n=maxWeeks(year),start=Math.max(1,Math.min(n,Number($("weekStart")?.value)||1));
   const end=Math.max(start,Math.min(n,Number($("weekEnd")?.value)||n));
   if(mode==="annual")return {mode,year,start:1,end:n,annual:true};
+  const block=Number($("periodBlock")?.value)||1;
+  if(mode==="quarter")return {mode,year,start:(block-1)*13+1,end:block===4?n:Math.min(n,block*13),annual:false};
+  if(mode==="semester")return {mode,year,start:block===1?1:27,end:block===1?26:n,annual:false};
   if(mode==="single")return {mode,year,start:end,end,annual:false};
   if(mode==="cumulative")return {mode,year,start:1,end,annual:false};
   return {mode,year,start,end,annual:false};
@@ -116,13 +119,22 @@
  }
  function bind(){
   const mode=$("periodMode"),start=$("weekStart"),end=$("weekEnd");
-  if(mode)mode.addEventListener("change",()=>{const single=mode.value==="single";if(start)start.disabled=single||mode.value==="annual";
-    if(end)end.disabled=mode.value==="annual";
+  if(mode)mode.addEventListener("change",()=>{
+   const single=mode.value==="single",blockMode=["quarter","semester"].includes(mode.value);
+   const blockLabel=$("periodBlockLabel"),block=$("periodBlock");
+   if(blockLabel)blockLabel.hidden=!blockMode;
+   if(block&&blockMode){
+    block.replaceChildren();
+    const count=mode.value==="quarter"?4:2;
+    for(let i=1;i<=count;i++)block.add(new Option((mode.value==="quarter"?"Trimestre ":"Semestre ")+i,String(i)));
+   }
+   if(start)start.disabled=single||mode.value==="annual"||blockMode;
+    if(end)end.disabled=mode.value==="annual"||blockMode;
     const saved=root.CAHOSSelection?.read()||{};
     if(start&&end&&mode.value==="single")start.value=end.value;
     saveWeeks();
   });
-  for(const el of [start,end,$("labPathology")])el?.addEventListener("change",saveWeeks);
+  for(const el of [start,end,$("labPathology"),$("periodBlock")])el?.addEventListener("change",saveWeeks);
   $("lespFile")?.addEventListener("change",async e=>{
    try{await importPrivateFile(e.target.files[0]);}
    catch(error){const el=$("labStatus");if(el)el.textContent="No se pudo importar: "+error.message;}
