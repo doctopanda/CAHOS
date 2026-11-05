@@ -31,7 +31,7 @@ pre{font-size:12px;line-height:1.45;white-space:pre-wrap;overflow:auto;word-brea
 <p class="muted">Cada producto conserva su origen, filtro, fecha y resultado del control de integridad. Los CSV contienen agregados del cubo, sin información nominal. No hay aprobaciones manuales en esta pantalla.</p>
 <div id="list"></div></section>
 </main>
-<script src="./configuracion-publica.js"></script><script src="./cahos-auth.js"></script>
+<script src="./cahos-zero.js"></script><script src="./configuracion-publica.js"></script><script src="./cahos-auth.js"></script>
 <script>
 const E=id=>document.getElementById(id);
 const inform=msg=>{E("notice").textContent=msg};
@@ -82,6 +82,10 @@ async function load(){
    card.append(element("p","Método: "+(quality.review_method||"pendiente")+
      " · Corte oficial: "+(quality.official_cut_verified===true?"verificado":"no certificado"),"muted"));
    if(quality.review_summary)card.append(element("p",quality.review_summary,"muted"));
+   if(quality.missing_measures_imputed_zero>0){
+    card.append(element("p","Celdas ausentes contabilizadas como 0: "+
+      quality.missing_measures_imputed_zero+" (imputación naranja, no cero registrado).","muted"));
+   }
    const actions=element("div","","controls");
    const detail=makeButton("Ver controles y muestra");
    const csv=makeButton("Descargar CSV agregado");
@@ -106,9 +110,12 @@ async function load(){
     try{
      const r=(await CAHOSAuth.api("/admin/snapshot/"+item.id+"?full=1")).body;
      if(!Array.isArray(r.rows))throw Error("El servidor no devolvió filas");
-     const keys=["years","weeks","sex","age","municipalities","municipalities_id","institutions","cases"];
+     const keys=["years","weeks","sex","age","municipalities","municipalities_id","institutions","cases","case_status"];
      const lines=["\uFEFF"+keys.map(csvField).join(",")];
-     for(const row of r.rows)lines.push(keys.map(key=>csvField(row[key])).join(","));
+     for(const original of r.rows){
+       const row=CAHOSZero.row(original);
+       lines.push(keys.map(key=>csvField(row[key])).join(","));
+      }
      const blob=new Blob([lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
      const url=URL.createObjectURL(blob),link=document.createElement("a");
      link.href=url;link.download="CAHOS_AGREGADOS_"+item.query_kind+"_"+item.id.slice(0,8)+".csv";
