@@ -1,0 +1,83 @@
+/* CAHOS · Identidad visual compartida v1.0
+   Componentes exclusivamente visuales. No altera API, RLS ni cálculos. */
+:root{--cahos-deep:#0d514b;--cahos-green:#117969;--cahos-mint:#159e89;--cahos-pale:#e9f6ef;--cahos-border:#d4e7de;--cahos-text:#16443a}
+body.cahos-unified{margin:0!important;padding:0!important;background:#eaf4ef!important;color:var(--cahos-text)}
+.cahos-global-topbar{display:flex;align-items:center;gap:14px;min-height:74px;width:100%;padding:10px 22px;background:linear-gradient(110deg,#0c5751,#0d8b7b);color:white;box-shadow:0 3px 13px #053c361e;position:sticky;top:0;z-index:1900;box-sizing:border-box}
+.cahos-global-topbar *,.cahos-global-side *{box-sizing:border-box}
+.cahos-global-topbar a{text-decoration:none;color:#effff9}
+.cahos-global-topbar button{border:1px solid #b5dfd3a6;border-radius:10px;padding:8px 11px;background:#ffffff1e;color:white;cursor:pointer;font:inherit;font-size:17px}
+.cahos-global-topbar .cahos-brand-link{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+.cahos-brand-emblem{width:44px;height:44px;background:linear-gradient(140deg,#21c2a9,#0b7266);border-radius:13px;display:grid;place-items:center;font-size:23px;font-weight:850;line-height:1}
+.cahos-brand-words{display:grid;gap:0;white-space:nowrap}
+.cahos-brand-words strong{font-size:24px;letter-spacing:.5px;line-height:1.13}
+.cahos-brand-words small{font-size:9px;letter-spacing:.5px;color:#d8f5e8}
+.cahos-global-caption{border-left:1px solid #c0e6dc7d;padding-left:16px;font-size:12px;font-weight:760;white-space:nowrap}
+.cahos-global-links{display:flex;align-items:center;gap:3px;margin-left:auto;overflow-x:auto;scrollbar-width:none}
+.cahos-global-links a{padding:9px 11px;border-radius:9px;font-size:11px;font-weight:750;white-space:nowrap}
+.cahos-global-links a:hover,.cahos-global-links a:focus-visible{background:#ffffff24}
+.cahos-global-links a[aria-current="page"]{background:#ffffff26;box-shadow:inset 0 0 0 1px #c5efe071}
+.cahos-global-links a.cahos-global-active{background:#ffffff26;box-shadow:inset 0 0 0 1px #c5efe071}
+.cahos-global-topbar a:focus-visible,.cahos-global-side a:focus-visible,.cahos-global-topbar button:focus-visible{outline:3px solid #ffd47d;outline-offset:2px}
+.cahos-standard-layout{display:grid;grid-template-columns:278px minmax(0,1fr);min-height:calc(100dvh - 74px)}
+.cahos-global-side{background:#f9fdfa;border-right:1px solid #cfe6d9;padding:17px 14px;position:sticky;top:74px;max-height:calc(100dvh - 74px);overflow:auto;scrollbar-width:thin}
+.cahos-global-side .cahos-side-top{padding:7px 8px 14px;font-size:14px;font-weight:850;color:#105c4d}
+.cahos-global-side .cahos-side-card{padding:14px;border:1px solid var(--cahos-border);border-radius:15px;background:white;box-shadow:0 5px 18px #1745380b;margin-bottom:12px}
+.cahos-global-side .cahos-side-kicker{font-size:10px;color:#1b9480;letter-spacing:1px;font-weight:850}
+.cahos-global-side h2{font-size:21px;color:#124c42;line-height:1.15;margin:5px 0 8px}
+.cahos-global-side p{font-size:12px;line-height:1.55;color:#608178;margin:0}
+.cahos-global-side nav{display:grid;gap:7px}
+.cahos-global-side nav a{display:flex;align-items:center;gap:9px;padding:11px 12px;border:1px solid #d2e7de;background:#fff;color:#155c50;border-radius:11px;font-size:12px;font-weight:750;text-decoration:none}
+.cahos-global-side nav a[aria-current="page"]{background:#dff3e8;color:#0a614e;border-color:#90cfba;box-shadow:inset 3px 0 0 #159e89}
+.cahos-global-side nav a:hover{background:#edf9f3}
+.cahos-global-side .cahos-nav-icon{min-width:20px;text-align:center;font-size:17px}
+.cahos-content-area{min-width:0;overflow:hidden;padding:13px clamp(14px,2.3vw,34px) 26px}
+.cahos-content-area>main{max-width:1450px;margin:0 auto;padding:0;min-width:0}
+.cahos-content-area>main.shell{max-width:1550px;padding:10px 0}
+.cahos-content-area .panel,.cahos-content-area .kpi,.cahos-content-area .card{border-radius:15px;border-color:#d4e7de;box-shadow:0 6px 20px #134d3b0b}
+.cahos-content-area .eyebrow{color:#148772}
+.cahos-content-area h1{color:#14483c}
+.cahos-content-area .top{padding:8px 0 12px}
+.cahos-content-area select,.cahos-content-area input{max-width:100%}
+.cahos-content-area .links{gap:7px}
+.cahos-content-area .links a{padding:7px 10px;border:1px solid #cde3d7;border-radius:9px;background:white;font-size:12px}
+.cahos-content-area .links a:hover{background:#eaf7ef}
+/* Visor SUIVE: panel de módulos con identidad clara del mapa */
+body.cahos-unified.cahos-page-visor .shell{min-height:calc(100dvh - 74px);grid-template-columns:278px minmax(0,1fr)}
+body.cahos-unified.cahos-page-visor .side{position:sticky;top:74px;height:calc(100dvh - 74px);background:#f9fcf9;color:#14463b;border-right:1px solid #cfe2d6;padding:15px 13px}
+body.cahos-unified.cahos-page-visor .side .logo{padding:11px 8px;margin:0 0 17px;border-radius:14px;background:#eaf7ef;border:1px solid #d5e7de}
+body.cahos-unified.cahos-page-visor .side .brand{color:#125a4d}
+body.cahos-unified.cahos-page-visor .side .micro{color:#478375}
+body.cahos-unified.cahos-page-visor .side .mark{background:linear-gradient(140deg,#26bda7,#137669);color:white}
+body.cahos-unified.cahos-page-visor .side button.nav,
+body.cahos-unified.cahos-page-visor .side a.nav{color:#165c50;border:1px solid #d9e9df;background:white;margin-bottom:6px;font-weight:750}
+body.cahos-unified.cahos-page-visor .side button.nav:hover,
+body.cahos-unified.cahos-page-visor .side a.nav:hover,
+body.cahos-unified.cahos-page-visor .side button.nav.on{background:#dff2e8;color:#0c5748;border-color:#a5d4c2}
+body.cahos-unified.cahos-page-visor .side .favorite{color:#1b584d;background:#f3faf6;border:1px solid #e1eee6;margin:3px 0}
+body.cahos-unified.cahos-page-visor .side .favorite:hover,body.cahos-unified.cahos-page-visor .side .favorite.on{background:#d4eee1;color:#0c4c40}
+body.cahos-unified.cahos-page-visor .side .favoriteRemove{color:#3f665c;border-color:#c6ded4}
+body.cahos-unified.cahos-page-visor .side h3{color:#16715e}
+body.cahos-unified.cahos-page-visor .side .tag{color:#426a5c;background:#eaf6ed;border:1px solid #d0e6d9}
+body.cahos-unified.cahos-page-visor .main{padding:24px clamp(15px,2.5vw,36px)}
+body.cahos-unified.cahos-page-visor .kpi,body.cahos-unified.cahos-page-visor .panel{border:1px solid #d3e5dc;box-shadow:0 5px 19px #194e380b}
+body.cahos-unified.cahos-page-visor .filters{background:white}
+body.cahos-side-collapsed .cahos-standard-layout{grid-template-columns:minmax(0,1fr)}
+body.cahos-side-collapsed .cahos-global-side{display:none}
+body.cahos-side-collapsed.cahos-page-visor .shell{grid-template-columns:minmax(0,1fr)}
+body.cahos-side-collapsed.cahos-page-visor .side{display:none}
+@media(max-width:1190px){.cahos-global-caption{display:none}.cahos-global-links a{padding:8px 7px}}
+@media(max-width:900px){
+ .cahos-global-topbar{min-height:67px;gap:7px;padding:8px 11px;flex-wrap:wrap}
+ .cahos-brand-emblem{width:38px;height:38px}
+ .cahos-brand-words strong{font-size:19px}
+ .cahos-global-links{order:3;flex:1 0 100%;gap:2px}
+ .cahos-global-links a{font-size:11px}
+ .cahos-standard-layout{grid-template-columns:1fr;display:block}
+ .cahos-global-side{position:static;max-height:none}
+ .cahos-content-area{padding:12px}
+ body.cahos-unified.cahos-page-visor .shell{display:block}
+ body.cahos-unified.cahos-page-visor .side{position:static;height:auto}
+ body.cahos-unified.cahos-page-visor .side nav{display:flex;overflow-x:auto}
+ body.cahos-unified.cahos-page-visor .main{padding:15px}
+}
+@media(max-width:560px){.cahos-global-topbar .cahos-brand-words small{display:none}.cahos-global-topbar .cahos-brand-words strong{font-size:18px}.cahos-global-links a{font-size:10px;padding:8px 7px}.cahos-content-area .panel{padding:14px}}
